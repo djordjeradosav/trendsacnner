@@ -8,14 +8,12 @@ export default {
     container: {
       center: true,
       padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      screens: { "2xl": "1400px" },
     },
     extend: {
       fontFamily: {
-        display: ['JetBrains Mono', 'monospace'],
-        body: ['Inter', 'sans-serif'],
+        display: ["JetBrains Mono", "monospace"],
+        body: ["Inter", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -53,15 +51,13 @@ export default {
         },
         bullish: {
           DEFAULT: "hsl(var(--bullish))",
-          foreground: "hsl(var(--bullish-foreground))",
+          dim: "hsl(var(--bullish-dim))",
         },
         bearish: {
           DEFAULT: "hsl(var(--bearish))",
-          foreground: "hsl(var(--bearish-foreground))",
+          dim: "hsl(var(--bearish-dim))",
         },
-        neutral: {
-          DEFAULT: "hsl(var(--neutral))",
-        },
+        "neutral-tone": "hsl(var(--neutral-tone))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -87,15 +83,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-glow": {
-          "0%, 100%": { opacity: "0.6" },
-          "50%": { opacity: "1" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
       },
     },
   },
