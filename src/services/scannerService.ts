@@ -107,6 +107,15 @@ export async function runFullScan(
           if (result.trend === "bullish") bullish++;
           else if (result.trend === "bearish") bearish++;
           else neutral++;
+
+          // Track for alert checking
+          allScores.push({
+            pair_id: pair.id,
+            symbol: pair.symbol,
+            category: "", // filled below
+            score: result.score,
+            trend: result.trend,
+          });
         }
       } catch (err) {
         console.warn(`Score failed for ${pair.symbol}:`, err);
