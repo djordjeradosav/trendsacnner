@@ -386,6 +386,7 @@ export default function ScannerPage() {
         {useVirtualisation ? (
           <Grid
             cellComponent={HeatmapCell}
+            cellProps={{}}
             columnCount={colCount}
             columnWidth={CELL_W + GAP}
             rowCount={rowCount}
