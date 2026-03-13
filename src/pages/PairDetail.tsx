@@ -186,9 +186,12 @@ export default function PairDetail() {
       chartApiRef.current = null;
     }
 
+    const isMobile = chartRef.current.clientWidth < 640;
+    const chartHeight = isMobile ? 280 : 420;
+
     const chart = createChart(chartRef.current, {
       width: chartRef.current.clientWidth,
-      height: 420,
+      height: chartHeight,
       layout: {
         background: { type: ColorType.Solid, color: "hsl(222, 47%, 5%)" },
         textColor: "hsl(215, 12%, 48%)",
@@ -199,9 +202,14 @@ export default function PairDetail() {
         vertLines: { color: "hsl(240, 20%, 12%)" },
         horzLines: { color: "hsl(240, 20%, 12%)" },
       },
-      crosshair: { vertLine: { color: "#444" }, horzLine: { color: "#444" } },
+      crosshair: {
+        vertLine: { color: "#444" },
+        horzLine: { color: "#444" },
+      },
       rightPriceScale: { borderColor: "hsl(220, 18%, 16%)" },
       timeScale: { borderColor: "hsl(220, 18%, 16%)" },
+      handleScroll: { vertTouchDrag: false },
+      handleScale: { pinch: true, axisPressedMouseMove: true },
     });
     chartApiRef.current = chart;
 
