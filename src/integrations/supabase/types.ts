@@ -64,34 +64,46 @@ export type Database = {
       }
       alert_rules: {
         Row: {
+          category_filter: string | null
           created_at: string
+          description: string | null
           direction: string
           id: string
           is_active: boolean
+          last_triggered_at: string | null
           pair_id: string | null
           rule_type: string
           threshold: number
           user_id: string
+          webhook_url: string | null
         }
         Insert: {
+          category_filter?: string | null
           created_at?: string
+          description?: string | null
           direction: string
           id?: string
           is_active?: boolean
+          last_triggered_at?: string | null
           pair_id?: string | null
           rule_type: string
           threshold: number
           user_id: string
+          webhook_url?: string | null
         }
         Update: {
+          category_filter?: string | null
           created_at?: string
+          description?: string | null
           direction?: string
           id?: string
           is_active?: boolean
+          last_triggered_at?: string | null
           pair_id?: string | null
           rule_type?: string
           threshold?: number
           user_id?: string
+          webhook_url?: string | null
         }
         Relationships: [
           {
