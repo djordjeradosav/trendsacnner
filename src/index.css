@@ -74,7 +74,6 @@
     0%, 100% { opacity: 0.4; box-shadow: 0 0 0 0 hsl(142 60% 50% / 0.4); }
     50% { opacity: 1; box-shadow: 0 0 0 4px hsl(142 60% 50% / 0); }
   }
-  }
 
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
