@@ -269,6 +269,39 @@ export type Database = {
           },
         ]
       }
+      user_settings: {
+        Row: {
+          alert_sound: boolean
+          created_at: string
+          default_timeframe: string
+          id: string
+          scan_interval: string
+          theme: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_sound?: boolean
+          created_at?: string
+          default_timeframe?: string
+          id?: string
+          scan_interval?: string
+          theme?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_sound?: boolean
+          created_at?: string
+          default_timeframe?: string
+          id?: string
+          scan_interval?: string
+          theme?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       watchlists: {
         Row: {
           created_at: string
