@@ -1,1 +1,4 @@
 project_id = "lwjyesedhzxjdxbckiit"
+
+[functions.fetch-candles]
+verify_jwt = false
