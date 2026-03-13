@@ -150,10 +150,14 @@ export default function ScannerPage() {
 
   const filtered = useMemo(() => {
     let list = pairs;
+    if (activeWatchlist) {
+      const wl = watchlists.find((w) => w.id === activeWatchlist);
+      if (wl) list = list.filter((p) => wl.pair_ids.includes(p.pairId));
+    }
     if (filter !== "All") list = list.filter((p) => p.category.toLowerCase() === filter.toLowerCase());
     if (search) list = list.filter((p) => p.symbol.toLowerCase().includes(search.toLowerCase()) || p.name.toLowerCase().includes(search.toLowerCase()));
     return list;
-  }, [pairs, filter, search]);
+  }, [pairs, filter, search, activeWatchlist, watchlists]);
 
   const bullishCount = pairs.filter((p) => p.trend === "bullish").length;
   const bearishCount = pairs.filter((p) => p.trend === "bearish").length;
