@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useCallback, useRef } from "react";
 import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
+import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
+import { useSectorStats } from "@/hooks/useSectorStats";
 
 interface PairScore {
   pairId: string;
