@@ -1,5 +1,7 @@
 import { AppSidebar } from "./AppSidebar";
 import { TopHeader } from "./TopHeader";
+import { ChatAssistant } from "@/components/chat/ChatAssistant";
+import { useChatContext } from "@/hooks/useChatContext";
 
 interface AppLayoutProps {
   children: React.ReactNode;
