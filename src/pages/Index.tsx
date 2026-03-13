@@ -6,7 +6,8 @@ import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { useTimeframe } from "@/hooks/useTimeframe";
-import { runFullScan, createScanController, type ScanResult } from "@/services/scannerService";
+import { useAutoScan } from "@/hooks/useAutoScan";
+import { runFullScan, createScanController } from "@/services/scannerService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,38 +30,7 @@ const Index = () => {
   const controllerRef = useRef<ReturnType<typeof createScanController> | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchCounts = async () => {
-      const { data } = await supabase.from("pairs").select("category");
-      if (data) {
-        setTotalPairs(data.length);
-        const counts: Record<string, number> = {};
-        data.forEach((row) => {
-          counts[row.category] = (counts[row.category] || 0) + 1;
-        });
-        setMarkets(
-          Object.entries(counts).map(([category, count]) => ({ category, count }))
-        );
-      }
-    };
-
-    // Load last scan time
-    const fetchLastScan = async () => {
-      const { data } = await supabase
-        .from("scan_history")
-        .select("scanned_at")
-        .order("scanned_at", { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) {
-        setLastScan(new Date(data[0].scanned_at).toLocaleString());
-      }
-    };
-
-    fetchCounts();
-    fetchLastScan();
-  }, []);
-
-  const handleRunScan = useCallback(async () => {
+  const executeScan = useCallback(async () => {
     if (scanning) return;
 
     setScanning(true);
@@ -88,12 +58,6 @@ const Index = () => {
           title: "Scan complete",
           description: `${result.totalPairs} pairs | ${result.bullish} bullish | ${result.neutral} neutral | ${result.bearish} bearish | Avg score: ${result.avgScore}`,
         });
-      } else {
-        toast({
-          title: "Scan cancelled",
-          description: `Completed ${scanDone} of ${scanTotal} pairs before cancellation.`,
-          variant: "destructive",
-        });
       }
     } catch (err) {
       toast({
@@ -106,6 +70,42 @@ const Index = () => {
       controllerRef.current = null;
     }
   }, [scanning, selectedTimeframe, toast]);
+
+  const {
+    timeUntilNextScan,
+    isAutoScanEnabled,
+    autoScanAgo,
+  } = useAutoScan(executeScan);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { data } = await supabase.from("pairs").select("category");
+      if (data) {
+        setTotalPairs(data.length);
+        const counts: Record<string, number> = {};
+        data.forEach((row) => {
+          counts[row.category] = (counts[row.category] || 0) + 1;
+        });
+        setMarkets(
+          Object.entries(counts).map(([category, count]) => ({ category, count }))
+        );
+      }
+    };
+
+    const fetchLastScan = async () => {
+      const { data } = await supabase
+        .from("scan_history")
+        .select("scanned_at")
+        .order("scanned_at", { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setLastScan(new Date(data[0].scanned_at).toLocaleString());
+      }
+    };
+
+    fetchCounts();
+    fetchLastScan();
+  }, []);
 
   const handleCancelScan = () => {
     controllerRef.current?.cancel();
@@ -122,7 +122,10 @@ const Index = () => {
       scanning={scanning}
       scanDone={scanDone}
       scanTotal={scanTotal}
-      onRunScan={handleRunScan}
+      onRunScan={executeScan}
+      timeUntilNextScan={timeUntilNextScan}
+      isAutoScanEnabled={isAutoScanEnabled}
+      autoScanAgo={autoScanAgo}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="space-y-1">

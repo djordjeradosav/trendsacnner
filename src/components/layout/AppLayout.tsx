@@ -9,6 +9,9 @@ interface AppLayoutProps {
   scanDone?: number;
   scanTotal?: number;
   onRunScan?: () => void;
+  timeUntilNextScan?: number | null;
+  isAutoScanEnabled?: boolean;
+  autoScanAgo?: number | null;
 }
 
 export function AppLayout({
@@ -19,6 +22,9 @@ export function AppLayout({
   scanDone,
   scanTotal,
   onRunScan,
+  timeUntilNextScan,
+  isAutoScanEnabled,
+  autoScanAgo,
 }: AppLayoutProps) {
   return (
     <div className="min-h-screen">
@@ -31,6 +37,9 @@ export function AppLayout({
           scanDone={scanDone}
           scanTotal={scanTotal}
           onRunScan={onRunScan}
+          timeUntilNextScan={timeUntilNextScan}
+          isAutoScanEnabled={isAutoScanEnabled}
+          autoScanAgo={autoScanAgo}
         />
         <main className="flex-1 p-6">
           {children}
