@@ -60,31 +60,73 @@ export async function checkAlertRules(scores: ScoreData[]): Promise<number> {
 
     // Create notifications for matches (limit to first 5 per rule per scan)
     for (const match of matches.slice(0, 5)) {
-      try {
-        const message = buildMessage(rule, match);
-        await supabase.from("alert_notifications").insert({
-          rule_id: rule.id,
-          pair_id: match.pair_id,
-          message,
-          score_at_trigger: match.score,
-          trend_at_trigger: match.trend,
-        });
+      const message = buildMessage(rule, match);
+      let inserted = false;
+      let notifId: string | null = null;
 
-        // Update last_triggered_at
-        await supabase.from("alert_rules").update({ last_triggered_at: new Date().toISOString() }).eq("id", rule.id);
+      // Attempt insert with one retry
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const { data, error } = await supabase.from("alert_notifications").insert({
+            rule_id: rule.id,
+            pair_id: match.pair_id,
+            message,
+            score_at_trigger: match.score,
+            trend_at_trigger: match.trend,
+          }).select("id").single();
 
-        notificationsCreated++;
-
-        // Fire webhook if configured
-        if (rule.webhook_url) {
-          fetch(rule.webhook_url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rule_type: rule.rule_type, symbol: match.symbol, score: match.score, trend: match.trend, message }),
-          }).catch(() => {}); // fire-and-forget
+          if (error) throw error;
+          notifId = data.id;
+          inserted = true;
+          break;
+        } catch (err) {
+          if (attempt === 0) {
+            console.warn("Notification insert failed, retrying once:", err);
+            await new Promise((r) => setTimeout(r, 500));
+          }
         }
-      } catch (err) {
-        console.warn("Failed to insert notification:", err);
+      }
+
+      // If both attempts failed, insert with delivery_failed flag
+      if (!inserted) {
+        try {
+          await supabase.from("alert_notifications").insert({
+            rule_id: rule.id,
+            pair_id: match.pair_id,
+            message,
+            score_at_trigger: match.score,
+            trend_at_trigger: match.trend,
+            delivery_failed: true,
+          });
+        } catch (err) {
+          console.warn("Failed to insert notification even with failure flag:", err);
+          continue;
+        }
+      }
+
+      // Update last_triggered_at
+      await supabase.from("alert_rules").update({ last_triggered_at: new Date().toISOString() }).eq("id", rule.id);
+      notificationsCreated++;
+
+      // Fire webhook if configured (with retry)
+      if (rule.webhook_url) {
+        let webhookOk = false;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const res = await fetch(rule.webhook_url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rule_type: rule.rule_type, symbol: match.symbol, score: match.score, trend: match.trend, message }),
+            });
+            if (res.ok) { webhookOk = true; break; }
+          } catch {
+            if (attempt === 0) await new Promise((r) => setTimeout(r, 500));
+          }
+        }
+        // Mark delivery_failed if webhook failed
+        if (!webhookOk && notifId) {
+          await supabase.from("alert_notifications").update({ delivery_failed: true }).eq("id", notifId);
+        }
       }
     }
   }
