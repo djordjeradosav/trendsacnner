@@ -378,12 +378,12 @@ export default function PairDetail() {
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5 self-start">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
-        <div className="flex items-center gap-3 flex-1">
-          <h1 className="text-2xl font-bold font-display text-foreground">{pair.symbol}</h1>
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">{pair.symbol}</h1>
           <span className="text-sm text-muted-foreground font-body">{pair.name}</span>
           <span className="text-[10px] font-display px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
             {pair.category}
