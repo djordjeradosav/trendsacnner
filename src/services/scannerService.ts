@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCandlesForPair } from "./dataService";
 import { scorePair, type Candle } from "@/lib/scoreEngine";
+import { checkAlertRules } from "./alertService";
 
 const BATCH_SIZE = 8;
 const BATCH_DELAY_MS = 61_000; // 61s for Twelve Data free tier
@@ -50,6 +51,7 @@ export async function runFullScan(
   let neutral = 0;
   let totalScore = 0;
   let done = 0;
+  const allScores: { pair_id: string; symbol: string; category: string; score: number; trend: string }[] = [];
 
   // 2. Process in batches
   for (let i = 0; i < pairs.length; i += BATCH_SIZE) {
@@ -105,6 +107,15 @@ export async function runFullScan(
           if (result.trend === "bullish") bullish++;
           else if (result.trend === "bearish") bearish++;
           else neutral++;
+
+          // Track for alert checking
+          allScores.push({
+            pair_id: pair.id,
+            symbol: pair.symbol,
+            category: "", // filled below
+            score: result.score,
+            trend: result.trend,
+          });
         }
       } catch (err) {
         console.warn(`Score failed for ${pair.symbol}:`, err);
@@ -159,6 +170,22 @@ export async function runFullScan(
     }
   } catch (err) {
     console.warn("Failed to store scan history:", err);
+  }
+
+  // Check alert rules against new scores
+  try {
+    // Fill in categories from pairs data
+    const pairCategoryMap = new Map<string, string>();
+    const { data: pairCategories } = await supabase.from("pairs").select("id, category");
+    pairCategories?.forEach((p) => pairCategoryMap.set(p.id, p.category));
+    allScores.forEach((s) => { s.category = pairCategoryMap.get(s.pair_id) || ""; });
+
+    const alertCount = await checkAlertRules(allScores);
+    if (alertCount > 0) {
+      console.log(`${alertCount} alert notifications created`);
+    }
+  } catch (err) {
+    console.warn("Failed to check alert rules:", err);
   }
 
   return scanResult;
