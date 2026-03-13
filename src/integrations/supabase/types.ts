@@ -165,6 +165,30 @@ export type Database = {
           },
         ]
       }
+      error_logs: {
+        Row: {
+          component: string
+          created_at: string
+          error_message: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          component: string
+          created_at?: string
+          error_message: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          component?: string
+          created_at?: string
+          error_message?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       market_briefs: {
         Row: {
           brief: Json
