@@ -28,7 +28,11 @@ serve(async (req) => {
       .order("score", { ascending: false });
 
     if (scErr) throw new Error(`Scores query failed: ${scErr.message}`);
-    if (!scores || scores.length === 0) throw new Error("No scan data available. Run a scan first.");
+    if (!scores || scores.length === 0) {
+      return new Response(JSON.stringify({ error: "No scan data available. Run a scan first." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // 2. Compute aggregates
     const totalPairs = scores.length;

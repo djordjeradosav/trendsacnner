@@ -79,7 +79,10 @@ export function MarketBriefCard({ timeframe }: { timeframe: string }) {
       });
 
       if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) {
+        toast({ title: "No scan data", description: data.error });
+        return;
+      }
 
       setBrief({
         brief: data.brief,
