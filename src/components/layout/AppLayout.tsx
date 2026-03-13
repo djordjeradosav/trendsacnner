@@ -14,6 +14,7 @@ interface AppLayoutProps {
   timeUntilNextScan?: number | null;
   isAutoScanEnabled?: boolean;
   autoScanAgo?: number | null;
+  timeframe?: string;
 }
 
 export function AppLayout({
