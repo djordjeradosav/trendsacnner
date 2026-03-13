@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useCallback, useRef } from "react";
 import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
+import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
+import { useSectorStats } from "@/hooks/useSectorStats";
 
 interface PairScore {
   pairId: string;
@@ -57,6 +59,7 @@ export default function ScannerPage() {
   const [hasScores, setHasScores] = useState(false);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const { sectors, sentiment, loading: sectorsLoading } = useSectorStats();
   const { selectedTimeframe, setTimeframe } = useTimeframe();
   const [scanning, setScanning] = useState(false);
   const [scanDone, setScanDone] = useState(0);
@@ -215,6 +218,10 @@ export default function ScannerPage() {
         <StatCard label="Bearish" value={`${pairs.length ? Math.round(bearishCount / pairs.length * 100) : 0}%`} sub={`${bearishCount} pairs`} color="text-bearish" />
         <StatCard label="Avg Score" value={avgScore} color={getScoreColor(avgScore)} />
       </div>
+
+      {/* Market Sectors Panel */}
+      {sentiment && <MarketSentimentBar sentiment={sentiment} />}
+      {sectors.length > 0 && <SectorCards sectors={sectors} />}
 
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
