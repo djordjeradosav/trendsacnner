@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
       tdSymbol = pair_symbol.slice(0, 3) + "/" + pair_symbol.slice(3);
     }
 
+    console.log(`Fetching ${pair_symbol} → ${tdSymbol} (${timeframe})`);
     const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=${timeframe}&outputsize=${outputsize}&apikey=${apiKey}`;
 
     const res = await fetchWithRetry(url);
