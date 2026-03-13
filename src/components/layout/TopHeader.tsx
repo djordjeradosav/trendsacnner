@@ -1,4 +1,5 @@
-import { User, Radar, Loader2 } from "lucide-react";
+import { User, Radar, Loader2, Clock } from "lucide-react";
+import { formatCountdown } from "@/hooks/useAutoScan";
 
 interface TopHeaderProps {
   lastScan?: string | null;
@@ -7,6 +8,9 @@ interface TopHeaderProps {
   scanDone?: number;
   scanTotal?: number;
   onRunScan?: () => void;
+  timeUntilNextScan?: number | null;
+  isAutoScanEnabled?: boolean;
+  autoScanAgo?: number | null;
 }
 
 export function TopHeader({
@@ -16,6 +20,9 @@ export function TopHeader({
   scanDone = 0,
   scanTotal = 0,
   onRunScan,
+  timeUntilNextScan,
+  isAutoScanEnabled,
+  autoScanAgo,
 }: TopHeaderProps) {
   return (
     <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
@@ -41,6 +48,21 @@ export function TopHeader({
             </>
           )}
         </div>
+
+        {/* Auto-scan ago indicator */}
+        {autoScanAgo !== null && autoScanAgo !== undefined && !scanning && (
+          <span className="text-xs text-muted-foreground font-display">
+            Auto-scanned {autoScanAgo < 1 ? "just now" : `${autoScanAgo}m ago`}
+          </span>
+        )}
+
+        {/* Countdown to next scan */}
+        {isAutoScanEnabled && !scanning && timeUntilNextScan !== null && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-display">
+            <Clock className="w-3 h-3" />
+            <span>Next: {formatCountdown(timeUntilNextScan)}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
