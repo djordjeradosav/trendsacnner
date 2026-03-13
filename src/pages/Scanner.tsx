@@ -231,33 +231,25 @@ export default function ScannerPage() {
   const rowCount = Math.ceil(filtered.length / colCount);
   const useVirtualisation = filtered.length > 60;
 
-  const HeatmapCell = useCallback(({ columnIndex, rowIndex, style }: { columnIndex: number; rowIndex: number; style: React.CSSProperties }) => {
+  const HeatmapCell = useCallback(({ columnIndex, rowIndex, style }: CellComponentProps) => {
     const idx = rowIndex * colCount + columnIndex;
-    if (idx >= filtered.length) return null;
+    if (idx >= filtered.length) return <div style={style} />;
     const p = filtered[idx];
     const isFlashing = flashIds.has(p.pairId);
 
     return (
       <div style={{ ...style, padding: GAP / 2 }}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => navigate(`/pair/${p.symbol}`)}
-              className={`relative w-full h-full flex flex-col items-center justify-center rounded-lg border p-3 transition-all duration-150 hover:scale-[1.04] hover:brightness-125 hover:z-10 cursor-pointer ${getScoreBg(p.score)} ${isFlashing ? "ring-2 ring-primary animate-pulse" : ""}`}
-            >
-              <span className="text-[13px] font-display font-bold text-foreground leading-none">{p.symbol}</span>
-              <span className={`text-2xl font-display font-bold leading-tight ${getScoreColor(p.score)}`}>{Math.round(p.score)}</span>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <TrendArrow trend={p.trend} />
-                <span className="text-[10px] font-body px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{p.category}</span>
-              </div>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="text-xs font-body">
-            <p className="font-semibold">{p.name}</p>
-            <p>Score: {p.score} · {p.trend}</p>
-          </TooltipContent>
-        </Tooltip>
+        <button
+          onClick={() => navigate(`/pair/${p.symbol}`)}
+          className={`relative w-full h-full flex flex-col items-center justify-center rounded-lg border p-3 transition-all duration-150 hover:scale-[1.04] hover:brightness-125 hover:z-10 cursor-pointer ${getScoreBg(p.score)} ${isFlashing ? "ring-2 ring-primary animate-pulse" : ""}`}
+        >
+          <span className="text-[13px] font-display font-bold text-foreground leading-none">{p.symbol}</span>
+          <span className={`text-2xl font-display font-bold leading-tight ${getScoreColor(p.score)}`}>{Math.round(p.score)}</span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <TrendArrow trend={p.trend} />
+            <span className="text-[10px] font-body px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{p.category}</span>
+          </div>
+        </button>
       </div>
     );
   }, [filtered, colCount, flashIds, navigate]);
