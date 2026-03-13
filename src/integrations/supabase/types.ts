@@ -150,6 +150,30 @@ export type Database = {
           },
         ]
       }
+      market_briefs: {
+        Row: {
+          brief: Json
+          created_at: string
+          id: string
+          scan_score_avg: number | null
+          timeframe: string
+        }
+        Insert: {
+          brief: Json
+          created_at?: string
+          id?: string
+          scan_score_avg?: number | null
+          timeframe?: string
+        }
+        Update: {
+          brief?: Json
+          created_at?: string
+          id?: string
+          scan_score_avg?: number | null
+          timeframe?: string
+        }
+        Relationships: []
+      }
       pairs: {
         Row: {
           base_currency: string | null
