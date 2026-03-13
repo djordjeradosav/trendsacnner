@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
+import { DebugPanel } from "@/components/debug/DebugPanel";
 import { supabase } from "@/integrations/supabase/client";
 
 interface MarketCount {
   category: string;
   count: number;
 }
+
+const isDev = import.meta.env.DEV;
 
 const Index = () => {
   const [totalPairs, setTotalPairs] = useState<number>(0);
@@ -45,6 +48,12 @@ const Index = () => {
         </p>
       </div>
       <SkeletonDashboard />
+
+      {isDev && (
+        <div className="mt-8">
+          <DebugPanel />
+        </div>
+      )}
     </AppLayout>
   );
 };
