@@ -385,16 +385,15 @@ export default function ScannerPage() {
       <div ref={gridContainerRef} className="mb-10">
         {useVirtualisation ? (
           <Grid
+            cellComponent={HeatmapCell}
             columnCount={colCount}
             columnWidth={CELL_W + GAP}
-            height={Math.min(rowCount * (CELL_H + GAP), 600)}
             rowCount={rowCount}
             rowHeight={CELL_H + GAP}
-            width={gridWidth}
-            overscanRowCount={3}
-          >
-            {HeatmapCell}
-          </Grid>
+            defaultHeight={Math.min(rowCount * (CELL_H + GAP), 600)}
+            defaultWidth={gridWidth}
+            overscanCount={3}
+          />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
             {filtered.map((p) => {
