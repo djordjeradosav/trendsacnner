@@ -186,9 +186,12 @@ export default function PairDetail() {
       chartApiRef.current = null;
     }
 
+    const isMobile = chartRef.current.clientWidth < 640;
+    const chartHeight = isMobile ? 280 : 420;
+
     const chart = createChart(chartRef.current, {
       width: chartRef.current.clientWidth,
-      height: 420,
+      height: chartHeight,
       layout: {
         background: { type: ColorType.Solid, color: "hsl(222, 47%, 5%)" },
         textColor: "hsl(215, 12%, 48%)",
@@ -199,9 +202,14 @@ export default function PairDetail() {
         vertLines: { color: "hsl(240, 20%, 12%)" },
         horzLines: { color: "hsl(240, 20%, 12%)" },
       },
-      crosshair: { vertLine: { color: "#444" }, horzLine: { color: "#444" } },
+      crosshair: {
+        vertLine: { color: "#444" },
+        horzLine: { color: "#444" },
+      },
       rightPriceScale: { borderColor: "hsl(220, 18%, 16%)" },
       timeScale: { borderColor: "hsl(220, 18%, 16%)" },
+      handleScroll: { vertTouchDrag: false },
+      handleScale: { pinch: true, axisPressedMouseMove: true },
     });
     chartApiRef.current = chart;
 
@@ -287,9 +295,12 @@ export default function PairDetail() {
       scoreChartApiRef.current = null;
     }
 
+    const isMobile = scoreChartRef.current.clientWidth < 640;
+    const scoreChartHeight = isMobile ? 200 : 180;
+
     const chart = createChart(scoreChartRef.current, {
       width: scoreChartRef.current.clientWidth,
-      height: 180,
+      height: scoreChartHeight,
       layout: {
         background: { type: ColorType.Solid, color: "hsl(222, 47%, 5%)" },
         textColor: "hsl(215, 12%, 48%)",
@@ -302,6 +313,8 @@ export default function PairDetail() {
       },
       rightPriceScale: { borderColor: "hsl(220, 18%, 16%)" },
       timeScale: { borderColor: "hsl(220, 18%, 16%)" },
+      handleScroll: { vertTouchDrag: false },
+      handleScale: { pinch: true },
     });
     scoreChartApiRef.current = chart;
 
@@ -365,12 +378,12 @@ export default function PairDetail() {
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5 self-start">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
-        <div className="flex items-center gap-3 flex-1">
-          <h1 className="text-2xl font-bold font-display text-foreground">{pair.symbol}</h1>
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">{pair.symbol}</h1>
           <span className="text-sm text-muted-foreground font-body">{pair.name}</span>
           <span className="text-[10px] font-display px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
             {pair.category}
@@ -393,7 +406,7 @@ export default function PairDetail() {
       </div>
 
       {/* Timeframe switcher */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         {TIMEFRAMES.map((tf) => (
           <button
             key={tf}
@@ -407,7 +420,7 @@ export default function PairDetail() {
             {TF_LABELS[tf]}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="hidden sm:flex ml-auto items-center gap-2">
           {(["ema20", "ema50", "ema200", "bb"] as const).map((key) => {
             const labels: Record<string, string> = { ema20: "EMA 20", ema50: "EMA 50", ema200: "EMA 200", bb: "BB" };
             const colors: Record<string, string> = { ema20: "bg-blue-500", ema50: "bg-amber-500", ema200: "bg-red-500", bb: "bg-gray-400" };
@@ -468,7 +481,7 @@ export default function PairDetail() {
           {/* Indicator Values */}
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <IndicatorCell label="EMA 20" value={indicators.latest.ema20} />
               <IndicatorCell label="EMA 50" value={indicators.latest.ema50} />
               <IndicatorCell label="EMA 200" value={indicators.latest.ema200} />

@@ -193,6 +193,20 @@ export default function ScannerPage() {
 
   const handleCancelScan = () => { controllerRef.current?.cancel(); };
 
+  // Pass cancel handler to AppLayout for mobile FAB
+  const layoutProps = {
+    lastScan,
+    scanning,
+    scanDone,
+    scanTotal,
+    onRunScan: executeScan,
+    onCancelScan: handleCancelScan,
+    timeUntilNextScan,
+    isAutoScanEnabled,
+    autoScanAgo,
+    currentSymbol: scanSymbol,
+  };
+
   const loading = pairsLoading || scoresLoading;
   const hasScores = !!allScores && allScores.length > 0;
 
@@ -256,7 +270,7 @@ export default function ScannerPage() {
 
   if (loading) {
     return (
-      <AppLayout lastScan={lastScan} scanning={scanning} scanDone={scanDone} scanTotal={scanTotal} onRunScan={executeScan} timeUntilNextScan={timeUntilNextScan} isAutoScanEnabled={isAutoScanEnabled} autoScanAgo={autoScanAgo}>
+      <AppLayout {...layoutProps}>
         <div className="space-y-4">
           {/* Skeleton stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -291,7 +305,7 @@ export default function ScannerPage() {
 
   if (!hasScores) {
     return (
-      <AppLayout lastScan={lastScan} scanning={scanning} scanDone={scanDone} scanTotal={scanTotal} onRunScan={executeScan} timeUntilNextScan={timeUntilNextScan} isAutoScanEnabled={isAutoScanEnabled} autoScanAgo={autoScanAgo}>
+      <AppLayout {...layoutProps}>
         <div className="flex flex-col items-center justify-center py-20 gap-6">
           <div className="grid grid-cols-3 md:grid-cols-5 gap-3 opacity-40">
             {Array.from({ length: 15 }).map((_, i) => (
@@ -312,7 +326,7 @@ export default function ScannerPage() {
   }
 
   return (
-    <AppLayout lastScan={lastScan} scanning={scanning} scanDone={scanDone} scanTotal={scanTotal} onRunScan={executeScan} timeUntilNextScan={timeUntilNextScan} isAutoScanEnabled={isAutoScanEnabled} autoScanAgo={autoScanAgo}>
+    <AppLayout {...layoutProps}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -396,7 +410,7 @@ export default function ScannerPage() {
             overscanCount={3}
           />
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
             {filtered.map((p) => {
               const isFlashing = flashIds.has(p.pairId);
               return (
