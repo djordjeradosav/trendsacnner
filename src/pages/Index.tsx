@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
+import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { useTimeframe } from "@/hooks/useTimeframe";
-import { fetchAllPairs } from "@/services/dataService";
+import { runFullScan, createScanController, type ScanResult } from "@/services/scannerService";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface MarketCount {
   category: string;
@@ -21,7 +22,12 @@ const Index = () => {
   const [markets, setMarkets] = useState<MarketCount[]>([]);
   const { selectedTimeframe, setTimeframe } = useTimeframe();
   const [scanning, setScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState<string | null>(null);
+  const [scanDone, setScanDone] = useState(0);
+  const [scanTotal, setScanTotal] = useState(0);
+  const [scanSymbol, setScanSymbol] = useState("");
+  const [lastScan, setLastScan] = useState<string | null>(null);
+  const controllerRef = useRef<ReturnType<typeof createScanController> | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -37,24 +43,72 @@ const Index = () => {
         );
       }
     };
+
+    // Load last scan time
+    const fetchLastScan = async () => {
+      const { data } = await supabase
+        .from("scan_history")
+        .select("scanned_at")
+        .order("scanned_at", { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) {
+        setLastScan(new Date(data[0].scanned_at).toLocaleString());
+      }
+    };
+
     fetchCounts();
+    fetchLastScan();
   }, []);
 
-  const handleTimeframeChange = async (tf: string) => {
-    setTimeframe(tf);
+  const handleRunScan = useCallback(async () => {
+    if (scanning) return;
+
     setScanning(true);
-    const label = tf.toUpperCase();
-    setScanProgress(`Rescanning for ${label}...`);
+    setScanDone(0);
+    setScanTotal(0);
+    setScanSymbol("");
+
+    const controller = createScanController();
+    controllerRef.current = controller;
 
     try {
-      await fetchAllPairs(tf);
-      setScanProgress(`Scan complete for ${label}`);
-      setTimeout(() => setScanProgress(null), 3000);
+      const result = await runFullScan(
+        selectedTimeframe,
+        (done, total, symbol) => {
+          setScanDone(done);
+          setScanTotal(total);
+          setScanSymbol(symbol);
+        },
+        controller
+      );
+
+      if (!controller.isCancelled()) {
+        setLastScan(new Date(result.scannedAt).toLocaleString());
+        toast({
+          title: "Scan complete",
+          description: `${result.totalPairs} pairs | ${result.bullish} bullish | ${result.neutral} neutral | ${result.bearish} bearish | Avg score: ${result.avgScore}`,
+        });
+      } else {
+        toast({
+          title: "Scan cancelled",
+          description: `Completed ${scanDone} of ${scanTotal} pairs before cancellation.`,
+          variant: "destructive",
+        });
+      }
     } catch (err) {
-      setScanProgress(`Scan failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      toast({
+        title: "Scan failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setScanning(false);
+      controllerRef.current = null;
     }
+  }, [scanning, selectedTimeframe, toast]);
+
+  const handleCancelScan = () => {
+    controllerRef.current?.cancel();
   };
 
   const marketsLabel = markets
@@ -62,7 +116,14 @@ const Index = () => {
     .join(", ");
 
   return (
-    <AppLayout lastScan={null} isLive={false}>
+    <AppLayout
+      lastScan={lastScan}
+      isLive={scanning}
+      scanning={scanning}
+      scanDone={scanDone}
+      scanTotal={scanTotal}
+      onRunScan={handleRunScan}
+    >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold font-display text-foreground">Dashboard</h1>
@@ -75,15 +136,19 @@ const Index = () => {
         </div>
         <TimeframeSelector
           selected={selectedTimeframe}
-          onChange={handleTimeframeChange}
+          onChange={setTimeframe}
           disabled={scanning}
         />
       </div>
 
-      {scanProgress && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3">
-          {scanning && <Loader2 className="w-4 h-4 text-primary animate-spin" />}
-          <span className="text-sm font-display text-foreground">{scanProgress}</span>
+      {scanning && (
+        <div className="mb-4">
+          <ScanProgress
+            done={scanDone}
+            total={scanTotal}
+            currentSymbol={scanSymbol}
+            onCancel={handleCancelScan}
+          />
         </div>
       )}
 
