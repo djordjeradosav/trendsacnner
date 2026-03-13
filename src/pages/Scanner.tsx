@@ -18,7 +18,7 @@ import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSect
 import { useSectorStats } from "@/hooks/useSectorStats";
 import { useWatchlists } from "@/hooks/useWatchlists";
 import { useAllScores, type ScoreRow } from "@/hooks/useScores";
-import { FixedSizeGrid as Grid } from "react-window";
+import { FixedSizeGrid } from "react-window";
 
 interface PairInfo {
   id: string;
