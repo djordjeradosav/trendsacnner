@@ -9,7 +9,7 @@ const corsHeaders = {
 async function fetchWithRetry(
   url: string,
   retries = 1,
-  delayMs = 1000
+  delayMs = 1000,
 ): Promise<Response> {
   try {
     const controller = new AbortController();
@@ -25,6 +25,121 @@ async function fetchWithRetry(
     }
     throw err;
   }
+}
+
+type TwelveDataResponse = {
+  code?: number;
+  status?: string;
+  message?: string;
+  values?: Array<{
+    datetime: string;
+    open: string;
+    high: string;
+    low: string;
+    close: string;
+    volume?: string;
+  }>;
+  meta?: Record<string, unknown>;
+};
+
+const futuresMap: Record<string, string> = {
+  // Energy
+  "CL1!": "CL",
+  "BZ1!": "BZ",
+  "NG1!": "NG",
+  "HO1!": "HO",
+  "RB1!": "RB",
+  // Grains
+  "ZC1!": "ZC",
+  "ZW1!": "ZW",
+  "ZS1!": "ZS",
+  "ZM1!": "ZM",
+  "ZL1!": "ZL",
+  // Softs
+  "CC1!": "CC",
+  "KC1!": "KC",
+  "CT1!": "CT",
+  "SB1!": "SB",
+  // Indices
+  "ES1!": "ES",
+  "NQ1!": "NQ",
+  "YM1!": "YM",
+  "RTY1!": "RTY",
+  "VX1!": "VX",
+  "Z1!": "Z",
+  // Bonds
+  "ZB1!": "ZB",
+  "ZN1!": "ZN",
+  "ZF1!": "ZF",
+  "ZT1!": "ZT",
+  // International
+  "FDAX1!": "FDAX",
+  "NK1!": "NK",
+  "HSI1!": "HSI",
+};
+
+function dedupeSymbols(symbols: string[]): string[] {
+  return [...new Set(symbols.filter(Boolean))];
+}
+
+function getTwelveDataCandidates(pairSymbol: string): string[] {
+  if (pairSymbol.includes("/")) return [pairSymbol];
+
+  if (pairSymbol.includes("!")) {
+    const mappedRoot = futuresMap[pairSymbol] ?? pairSymbol.replace("!", "").replace(/1$/, "");
+    // Try futures-like candidates first, then root fallback
+    return dedupeSymbols([`${mappedRoot}1`, `${mappedRoot}=F`, mappedRoot]);
+  }
+
+  if (pairSymbol.length === 6) {
+    // Forex/metals style: EURUSD -> EUR/USD
+    return [`${pairSymbol.slice(0, 3)}/${pairSymbol.slice(3)}`];
+  }
+
+  return [pairSymbol];
+}
+
+async function fetchTimeSeriesWithCandidates({
+  pairSymbol,
+  timeframe,
+  outputsize,
+  apiKey,
+  candidates,
+}: {
+  pairSymbol: string;
+  timeframe: string;
+  outputsize: number;
+  apiKey: string;
+  candidates: string[];
+}): Promise<{
+  data?: TwelveDataResponse;
+  usedSymbol?: string;
+  rateLimited?: boolean;
+  lastError?: TwelveDataResponse;
+}> {
+  let lastError: TwelveDataResponse | undefined;
+
+  for (const candidate of candidates) {
+    console.log(`Fetching ${pairSymbol} → ${candidate} (${timeframe})`);
+    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(candidate)}&interval=${timeframe}&outputsize=${outputsize}&apikey=${apiKey}`;
+    const res = await fetchWithRetry(url);
+
+    if (res.status === 429) {
+      return { rateLimited: true };
+    }
+
+    const data = (await res.json()) as TwelveDataResponse;
+    if (Array.isArray(data.values) && data.values.length > 0) {
+      return { data, usedSymbol: candidate };
+    }
+
+    lastError = data;
+    console.warn(
+      `Candidate failed for ${pairSymbol} (${candidate}): ${data.message ?? "Unknown Twelve Data error"}`,
+    );
+  }
+
+  return { lastError };
 }
 
 Deno.serve(async (req) => {
@@ -48,45 +163,21 @@ Deno.serve(async (req) => {
       throw new Error("TWELVE_DATA_API_KEY is not configured");
     }
 
-    // Map our symbol format to Twelve Data format
-    // Forex: EURUSD -> EUR/USD
-    // Metals: XAUUSD -> XAU/USD
-    // Futures with "!" (TradingView notation) -> Twelve Data equivalents
-    const futuresMap: Record<string, string> = {
-      // Energy
-      "CL1!": "CL", "BZ1!": "BZ", "NG1!": "NG", "HO1!": "HO", "RB1!": "RB",
-      // Grains
-      "ZC1!": "ZC", "ZW1!": "ZW", "ZS1!": "ZS", "ZM1!": "ZM", "ZL1!": "ZL",
-      // Softs
-      "CC1!": "CC", "KC1!": "KC", "CT1!": "CT", "SB1!": "SB",
-      // Indices
-      "ES1!": "ES", "NQ1!": "NQ", "YM1!": "YM", "RTY1!": "RTY",
-      "VX1!": "VX", "Z1!": "Z",
-      // Bonds
-      "ZB1!": "ZB", "ZN1!": "ZN", "ZF1!": "ZF", "ZT1!": "ZT",
-      // International
-      "FDAX1!": "FDAX", "NK1!": "NK", "HSI1!": "HSI",
-    };
+    const symbolCandidates = getTwelveDataCandidates(pair_symbol);
+    const {
+      data,
+      usedSymbol,
+      rateLimited,
+      lastError,
+    } = await fetchTimeSeriesWithCandidates({
+      pairSymbol: pair_symbol,
+      timeframe,
+      outputsize,
+      apiKey,
+      candidates: symbolCandidates,
+    });
 
-    let tdSymbol = pair_symbol;
-    if (futuresMap[pair_symbol]) {
-      // Futures — use the mapped symbol
-      tdSymbol = futuresMap[pair_symbol];
-    } else if (
-      !pair_symbol.includes("/") &&
-      pair_symbol.length === 6 &&
-      !pair_symbol.includes("!")
-    ) {
-      // Forex pairs: EURUSD -> EUR/USD, also handles XAUUSD -> XAU/USD
-      tdSymbol = pair_symbol.slice(0, 3) + "/" + pair_symbol.slice(3);
-    }
-
-    console.log(`Fetching ${pair_symbol} → ${tdSymbol} (${timeframe})`);
-    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=${timeframe}&outputsize=${outputsize}&apikey=${apiKey}`;
-
-    const res = await fetchWithRetry(url);
-
-    if (res.status === 429) {
+    if (rateLimited) {
       console.warn("Twelve Data rate limit hit (429). Skipping.");
       return new Response(
         JSON.stringify({
@@ -94,42 +185,29 @@ Deno.serve(async (req) => {
           error: "Rate limit hit. Try again later.",
           rate_limited: true,
         }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    const data = await res.json();
+    if (!data || !Array.isArray(data.values) || data.values.length === 0) {
+      const errorMessage =
+        lastError?.message ||
+        "No valid data returned from Twelve Data for any symbol candidate";
 
-    // Twelve Data error response
-    if (data.code && data.code >= 400) {
+      // Symbol misses are expected for some instruments; return 200 so the scanner can skip gracefully.
       return new Response(
         JSON.stringify({
           success: false,
-          error: data.message || "Twelve Data API error",
-          td_code: data.code,
+          error: errorMessage,
+          td_code: lastError?.code,
+          attempted_symbols: symbolCandidates,
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    if (data.status === "error") {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: data.message || "Unknown Twelve Data error",
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!data.values || !Array.isArray(data.values)) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "No data returned from Twelve Data",
-        }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (usedSymbol && usedSymbol !== pair_symbol) {
+      console.log(`Resolved ${pair_symbol} using candidate ${usedSymbol}`);
     }
 
     // Look up the pair_id from our pairs table
