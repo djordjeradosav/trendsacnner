@@ -172,5 +172,21 @@ export async function runFullScan(
     console.warn("Failed to store scan history:", err);
   }
 
+  // Check alert rules against new scores
+  try {
+    // Fill in categories from pairs data
+    const pairCategoryMap = new Map<string, string>();
+    const { data: pairCategories } = await supabase.from("pairs").select("id, category");
+    pairCategories?.forEach((p) => pairCategoryMap.set(p.id, p.category));
+    allScores.forEach((s) => { s.category = pairCategoryMap.get(s.pair_id) || ""; });
+
+    const alertCount = await checkAlertRules(allScores);
+    if (alertCount > 0) {
+      console.log(`${alertCount} alert notifications created`);
+    }
+  } catch (err) {
+    console.warn("Failed to check alert rules:", err);
+  }
+
   return scanResult;
 }
