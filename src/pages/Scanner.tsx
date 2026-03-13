@@ -17,6 +17,7 @@ import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
 import { useSectorStats } from "@/hooks/useSectorStats";
+import { useWatchlists } from "@/hooks/useWatchlists";
 
 interface PairScore {
   pairId: string;
