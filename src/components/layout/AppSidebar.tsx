@@ -9,6 +9,16 @@ import {
   LogOut,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ChangelogModal } from "@/components/ChangelogModal";
+  LayoutDashboard,
+  Radar,
+  LineChart,
+  Bell,
+  Star,
+  Settings,
+  LogOut,
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
