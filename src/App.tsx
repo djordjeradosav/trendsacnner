@@ -4,8 +4,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { RequireAuth } from "@/hooks/useAuth";
+import LandingPage from "./pages/Landing";
+import LoginPage from "./pages/Login";
+import SignupPage from "./pages/Signup";
+import ResetPasswordPage from "./pages/ResetPassword";
 import Index from "./pages/Index";
-import AuthPage from "./pages/Auth";
 import SettingsPage from "./pages/Settings";
 import ScannerPage from "./pages/Scanner";
 import PairDetail from "./pages/PairDetail";
@@ -22,8 +25,11 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/dashboard" element={<RequireAuth><Index /></RequireAuth>} />
           <Route path="/scanner" element={<RequireAuth><ScannerPage /></RequireAuth>} />
           <Route path="/pair/:symbol" element={<RequireAuth><PairDetail /></RequireAuth>} />
           <Route path="/watchlist" element={<RequireAuth><WatchlistPage /></RequireAuth>} />
