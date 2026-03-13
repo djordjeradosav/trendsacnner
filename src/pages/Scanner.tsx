@@ -305,7 +305,7 @@ export default function ScannerPage() {
 
   if (!hasScores) {
     return (
-      <AppLayout lastScan={lastScan} scanning={scanning} scanDone={scanDone} scanTotal={scanTotal} onRunScan={executeScan} timeUntilNextScan={timeUntilNextScan} isAutoScanEnabled={isAutoScanEnabled} autoScanAgo={autoScanAgo}>
+      <AppLayout {...layoutProps}>
         <div className="flex flex-col items-center justify-center py-20 gap-6">
           <div className="grid grid-cols-3 md:grid-cols-5 gap-3 opacity-40">
             {Array.from({ length: 15 }).map((_, i) => (
