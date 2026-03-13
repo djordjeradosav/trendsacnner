@@ -156,7 +156,11 @@ const Index = () => {
         </div>
       )}
 
-      <SkeletonDashboard />
+      <MarketBriefCard timeframe={selectedTimeframe} />
+
+      <div className="mt-6">
+        <SkeletonDashboard />
+      </div>
 
       {isDev && (
         <div className="mt-8 space-y-4">
