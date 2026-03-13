@@ -397,6 +397,7 @@ export default function ScannerPage() {
       )}
 
       {/* Heatmap Grid — Virtualised for large sets */}
+      <ErrorBoundary name="Heatmap">
       <div ref={gridContainerRef} className="mb-10">
         {useVirtualisation ? (
           <Grid
@@ -439,6 +440,7 @@ export default function ScannerPage() {
           </div>
         )}
       </div>
+      </ErrorBoundary>
 
       {/* Leaderboards */}
       {(strongest.length > 0 || weakest.length > 0) && (
