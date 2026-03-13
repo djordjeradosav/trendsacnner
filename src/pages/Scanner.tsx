@@ -61,6 +61,8 @@ export default function ScannerPage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const { sectors, sentiment, loading: sectorsLoading } = useSectorStats();
+  const { watchlists } = useWatchlists();
+  const [activeWatchlist, setActiveWatchlist] = useState<string | null>(null);
   const { selectedTimeframe, setTimeframe } = useTimeframe();
   const [scanning, setScanning] = useState(false);
   const [scanDone, setScanDone] = useState(0);
