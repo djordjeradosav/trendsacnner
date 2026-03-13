@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
+import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import {
   calcEMA,
   calcRSI,
@@ -71,6 +72,11 @@ export default function PairDetail() {
   const [scoreHistory, setScoreHistory] = useState<{ time: Time; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [overlays, setOverlays] = useState({ ema20: true, ema50: true, ema200: false, bb: false });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setIsAuthenticated(!!data.user));
+  }, []);
 
   const chartRef = useRef<HTMLDivElement>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
@@ -473,6 +479,13 @@ export default function PairDetail() {
               <IndicatorCell label="BB Width" value={indicators.latest.bbWidth} decimals={2} suffix="%" />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* AI Analysis */}
+      {pair && (
+        <div className="mb-6">
+          <PairAnalysisCard pairId={pair.id} timeframe={timeframe} isAuthenticated={isAuthenticated} />
         </div>
       )}
 
