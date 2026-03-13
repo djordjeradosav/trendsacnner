@@ -50,13 +50,34 @@ Deno.serve(async (req) => {
 
     // Map our symbol format to Twelve Data format
     // Forex: EURUSD -> EUR/USD
-    // Futures/commodities with ! stay as-is
+    // Metals: XAUUSD -> XAU/USD
+    // Futures with "!" (TradingView notation) -> Twelve Data equivalents
+    const futuresMap: Record<string, string> = {
+      // Energy
+      "CL1!": "CL", "BZ1!": "BZ", "NG1!": "NG", "HO1!": "HO", "RB1!": "RB",
+      // Grains
+      "ZC1!": "ZC", "ZW1!": "ZW", "ZS1!": "ZS", "ZM1!": "ZM", "ZL1!": "ZL",
+      // Softs
+      "CC1!": "CC", "KC1!": "KC", "CT1!": "CT", "SB1!": "SB",
+      // Indices
+      "ES1!": "ES", "NQ1!": "NQ", "YM1!": "YM", "RTY1!": "RTY",
+      "VX1!": "VX", "Z1!": "Z",
+      // Bonds
+      "ZB1!": "ZB", "ZN1!": "ZN", "ZF1!": "ZF", "ZT1!": "ZT",
+      // International
+      "FDAX1!": "FDAX", "NK1!": "NK", "HSI1!": "HSI",
+    };
+
     let tdSymbol = pair_symbol;
-    if (
-      !pair_symbol.includes("!") &&
+    if (futuresMap[pair_symbol]) {
+      // Futures — use the mapped symbol
+      tdSymbol = futuresMap[pair_symbol];
+    } else if (
       !pair_symbol.includes("/") &&
-      pair_symbol.length === 6
+      pair_symbol.length === 6 &&
+      !pair_symbol.includes("!")
     ) {
+      // Forex pairs: EURUSD -> EUR/USD, also handles XAUUSD -> XAU/USD
       tdSymbol = pair_symbol.slice(0, 3) + "/" + pair_symbol.slice(3);
     }
 
