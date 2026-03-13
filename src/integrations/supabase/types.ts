@@ -174,6 +174,38 @@ export type Database = {
         }
         Relationships: []
       }
+      pair_analyses: {
+        Row: {
+          analysis: Json
+          created_at: string
+          id: string
+          pair_id: string
+          timeframe: string
+        }
+        Insert: {
+          analysis: Json
+          created_at?: string
+          id?: string
+          pair_id: string
+          timeframe?: string
+        }
+        Update: {
+          analysis?: Json
+          created_at?: string
+          id?: string
+          pair_id?: string
+          timeframe?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pair_analyses_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "pairs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pairs: {
         Row: {
           base_currency: string | null
