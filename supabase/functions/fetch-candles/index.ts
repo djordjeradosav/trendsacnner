@@ -130,7 +130,7 @@ async function fetchTimeSeriesWithCandidates({
     const res = await fetchWithRetry(url);
 
     if (res.status === 429) {
-      return { rateLimited: true };
+      return { rateLimited: true, lastError: { code: 429, message: "Rate limit hit. Try again later." } };
     }
 
     const data = (await res.json()) as TwelveDataResponse;
@@ -139,6 +139,15 @@ async function fetchTimeSeriesWithCandidates({
     }
 
     lastError = data;
+
+    // Stop immediately on provider limit/plan errors; trying next candidate only burns more credits.
+    if (data.code === 429) {
+      return { lastError };
+    }
+    if (typeof data.message === "string" && data.message.includes("available starting with the Grow or Venture plan")) {
+      return { lastError };
+    }
+
     console.warn(
       `Candidate failed for ${pairSymbol} (${candidate}): ${data.message ?? "Unknown Twelve Data error"}`,
     );
