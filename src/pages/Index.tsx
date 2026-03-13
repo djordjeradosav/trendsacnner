@@ -4,6 +4,7 @@ import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { DebugPanel } from "@/components/debug/DebugPanel";
+import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
 import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
@@ -155,7 +156,11 @@ const Index = () => {
         </div>
       )}
 
-      <SkeletonDashboard />
+      <MarketBriefCard timeframe={selectedTimeframe} />
+
+      <div className="mt-6">
+        <SkeletonDashboard />
+      </div>
 
       {isDev && (
         <div className="mt-8 space-y-4">
