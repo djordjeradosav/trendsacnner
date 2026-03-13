@@ -406,7 +406,7 @@ export default function PairDetail() {
       </div>
 
       {/* Timeframe switcher */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         {TIMEFRAMES.map((tf) => (
           <button
             key={tf}
@@ -420,7 +420,7 @@ export default function PairDetail() {
             {TF_LABELS[tf]}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="hidden sm:flex ml-auto items-center gap-2">
           {(["ema20", "ema50", "ema200", "bb"] as const).map((key) => {
             const labels: Record<string, string> = { ema20: "EMA 20", ema50: "EMA 50", ema200: "EMA 200", bb: "BB" };
             const colors: Record<string, string> = { ema20: "bg-blue-500", ema50: "bg-amber-500", ema200: "bg-red-500", bb: "bg-gray-400" };
