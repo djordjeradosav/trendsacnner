@@ -482,6 +482,13 @@ export default function PairDetail() {
         </div>
       )}
 
+      {/* AI Analysis */}
+      {pair && (
+        <div className="mb-6">
+          <PairAnalysisCard pairId={pair.id} timeframe={timeframe} isAuthenticated={isAuthenticated} />
+        </div>
+      )}
+
       {/* Score History */}
       {scoreHistory.length >= 2 && (
         <div className="rounded-lg border border-border bg-card p-5 mb-6">
