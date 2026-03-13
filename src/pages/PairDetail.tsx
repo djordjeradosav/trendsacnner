@@ -481,7 +481,7 @@ export default function PairDetail() {
           {/* Indicator Values */}
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <IndicatorCell label="EMA 20" value={indicators.latest.ema20} />
               <IndicatorCell label="EMA 50" value={indicators.latest.ema50} />
               <IndicatorCell label="EMA 200" value={indicators.latest.ema200} />
