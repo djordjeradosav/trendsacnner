@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import {
   calcEMA,
   calcRSI,
@@ -381,6 +382,7 @@ export default function PairDetail() {
               </span>
             </>
           )}
+          <AddToWatchlist pairId={pair.id} />
         </div>
       </div>
 

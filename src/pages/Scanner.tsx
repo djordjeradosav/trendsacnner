@@ -17,6 +17,7 @@ import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
 import { useSectorStats } from "@/hooks/useSectorStats";
+import { useWatchlists } from "@/hooks/useWatchlists";
 
 interface PairScore {
   pairId: string;
@@ -60,6 +61,8 @@ export default function ScannerPage() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const { sectors, sentiment, loading: sectorsLoading } = useSectorStats();
+  const { watchlists } = useWatchlists();
+  const [activeWatchlist, setActiveWatchlist] = useState<string | null>(null);
   const { selectedTimeframe, setTimeframe } = useTimeframe();
   const [scanning, setScanning] = useState(false);
   const [scanDone, setScanDone] = useState(0);
@@ -147,10 +150,14 @@ export default function ScannerPage() {
 
   const filtered = useMemo(() => {
     let list = pairs;
+    if (activeWatchlist) {
+      const wl = watchlists.find((w) => w.id === activeWatchlist);
+      if (wl) list = list.filter((p) => wl.pair_ids.includes(p.pairId));
+    }
     if (filter !== "All") list = list.filter((p) => p.category.toLowerCase() === filter.toLowerCase());
     if (search) list = list.filter((p) => p.symbol.toLowerCase().includes(search.toLowerCase()) || p.name.toLowerCase().includes(search.toLowerCase()));
     return list;
-  }, [pairs, filter, search]);
+  }, [pairs, filter, search, activeWatchlist, watchlists]);
 
   const bullishCount = pairs.filter((p) => p.trend === "bullish").length;
   const bearishCount = pairs.filter((p) => p.trend === "bearish").length;
@@ -242,6 +249,26 @@ export default function ScannerPage() {
           />
         </div>
       </div>
+
+      {/* Watchlist filter pills */}
+      {watchlists.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto">
+          <span className="text-[11px] text-muted-foreground font-body shrink-0">Watchlists:</span>
+          {watchlists.map((wl) => (
+            <button
+              key={wl.id}
+              onClick={() => setActiveWatchlist(activeWatchlist === wl.id ? null : wl.id)}
+              className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-display font-medium border transition-colors ${
+                activeWatchlist === wl.id
+                  ? "bg-primary/15 text-primary border-primary/30"
+                  : "bg-transparent border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {wl.name} ({wl.pair_ids.length})
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Heatmap Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-10">
