@@ -499,11 +499,13 @@ export default function PairDetail() {
       )}
 
       {/* AI Analysis */}
+      <ErrorBoundary name="AIBrief">
       {pair && (
         <div className="mb-6">
           <PairAnalysisCard pairId={pair.id} timeframe={timeframe} isAuthenticated={isAuthenticated} />
         </div>
       )}
+      </ErrorBoundary>
 
       {/* Score History */}
       {scoreHistory.length >= 2 && (
