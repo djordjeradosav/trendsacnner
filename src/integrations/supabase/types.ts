@@ -14,7 +14,264 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alert_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          pair_id: string
+          rule_id: string
+          score_at_trigger: number
+          trend_at_trigger: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          pair_id: string
+          rule_id: string
+          score_at_trigger: number
+          trend_at_trigger: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          pair_id?: string
+          rule_id?: string
+          score_at_trigger?: number
+          trend_at_trigger?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_notifications_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "pairs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_notifications_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_rules: {
+        Row: {
+          created_at: string
+          direction: string
+          id: string
+          is_active: boolean
+          pair_id: string | null
+          rule_type: string
+          threshold: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          id?: string
+          is_active?: boolean
+          pair_id?: string | null
+          rule_type: string
+          threshold: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          id?: string
+          is_active?: boolean
+          pair_id?: string | null
+          rule_type?: string
+          threshold?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_rules_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "pairs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candles: {
+        Row: {
+          close: number
+          created_at: string
+          high: number
+          id: string
+          low: number
+          open: number
+          pair_id: string
+          timeframe: string
+          ts: string
+          volume: number | null
+        }
+        Insert: {
+          close: number
+          created_at?: string
+          high: number
+          id?: string
+          low: number
+          open: number
+          pair_id: string
+          timeframe: string
+          ts: string
+          volume?: number | null
+        }
+        Update: {
+          close?: number
+          created_at?: string
+          high?: number
+          id?: string
+          low?: number
+          open?: number
+          pair_id?: string
+          timeframe?: string
+          ts?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candles_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "pairs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pairs: {
+        Row: {
+          base_currency: string | null
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          quote_currency: string | null
+          symbol: string
+        }
+        Insert: {
+          base_currency?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          quote_currency?: string | null
+          symbol: string
+        }
+        Update: {
+          base_currency?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          quote_currency?: string | null
+          symbol?: string
+        }
+        Relationships: []
+      }
+      scores: {
+        Row: {
+          adx: number | null
+          adx_score: number | null
+          ema_score: number | null
+          ema20: number | null
+          ema200: number | null
+          ema50: number | null
+          id: string
+          macd_hist: number | null
+          macd_score: number | null
+          pair_id: string
+          rsi: number | null
+          rsi_score: number | null
+          scanned_at: string
+          score: number
+          timeframe: string
+          trend: string
+        }
+        Insert: {
+          adx?: number | null
+          adx_score?: number | null
+          ema_score?: number | null
+          ema20?: number | null
+          ema200?: number | null
+          ema50?: number | null
+          id?: string
+          macd_hist?: number | null
+          macd_score?: number | null
+          pair_id: string
+          rsi?: number | null
+          rsi_score?: number | null
+          scanned_at?: string
+          score: number
+          timeframe: string
+          trend: string
+        }
+        Update: {
+          adx?: number | null
+          adx_score?: number | null
+          ema_score?: number | null
+          ema20?: number | null
+          ema200?: number | null
+          ema50?: number | null
+          id?: string
+          macd_hist?: number | null
+          macd_score?: number | null
+          pair_id?: string
+          rsi?: number | null
+          rsi_score?: number | null
+          scanned_at?: string
+          score?: number
+          timeframe?: string
+          trend?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scores_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: false
+            referencedRelation: "pairs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      watchlists: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          pair_ids: string[] | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          pair_ids?: string[] | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          pair_ids?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
