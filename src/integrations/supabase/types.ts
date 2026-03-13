@@ -183,6 +183,27 @@ export type Database = {
         }
         Relationships: []
       }
+      scan_history: {
+        Row: {
+          id: string
+          result: Json
+          scanned_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          result: Json
+          scanned_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          result?: Json
+          scanned_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       scores: {
         Row: {
           adx: number | null
