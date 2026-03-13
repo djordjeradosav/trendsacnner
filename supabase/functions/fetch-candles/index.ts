@@ -198,8 +198,10 @@ Deno.serve(async (req) => {
           success: false,
           error: "Rate limit hit. Try again later.",
           rate_limited: true,
+          td_code: 429,
+          attempted_symbols: symbolCandidates,
         }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
