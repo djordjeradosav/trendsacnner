@@ -7,6 +7,7 @@ import { RequireAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import AuthPage from "./pages/Auth";
 import SettingsPage from "./pages/Settings";
+import ScannerPage from "./pages/Scanner";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
