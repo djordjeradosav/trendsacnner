@@ -51,6 +51,7 @@ export async function runFullScan(
   let neutral = 0;
   let totalScore = 0;
   let done = 0;
+  const allScores: { pair_id: string; symbol: string; category: string; score: number; trend: string }[] = [];
 
   // 2. Process in batches
   for (let i = 0; i < pairs.length; i += BATCH_SIZE) {
