@@ -90,8 +90,9 @@ const Index = () => {
       <SkeletonDashboard />
 
       {isDev && (
-        <div className="mt-8">
+        <div className="mt-8 space-y-4">
           <DebugPanel />
+          <IndicatorTestPanel />
         </div>
       )}
     </AppLayout>
