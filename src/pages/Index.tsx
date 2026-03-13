@@ -124,10 +124,12 @@ const Index = () => {
       scanDone={scanDone}
       scanTotal={scanTotal}
       onRunScan={executeScan}
+      onCancelScan={handleCancelScan}
       timeUntilNextScan={timeUntilNextScan}
       isAutoScanEnabled={isAutoScanEnabled}
       autoScanAgo={autoScanAgo}
       timeframe={selectedTimeframe}
+      currentSymbol={scanSymbol}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="space-y-1">
