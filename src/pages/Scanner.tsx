@@ -193,6 +193,20 @@ export default function ScannerPage() {
 
   const handleCancelScan = () => { controllerRef.current?.cancel(); };
 
+  // Pass cancel handler to AppLayout for mobile FAB
+  const layoutProps = {
+    lastScan,
+    scanning,
+    scanDone,
+    scanTotal,
+    onRunScan: executeScan,
+    onCancelScan: handleCancelScan,
+    timeUntilNextScan,
+    isAutoScanEnabled,
+    autoScanAgo,
+    currentSymbol: scanSymbol,
+  };
+
   const loading = pairsLoading || scoresLoading;
   const hasScores = !!allScores && allScores.length > 0;
 
