@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
