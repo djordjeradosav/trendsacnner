@@ -72,6 +72,11 @@ export default function PairDetail() {
   const [scoreHistory, setScoreHistory] = useState<{ time: Time; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [overlays, setOverlays] = useState({ ema20: true, ema50: true, ema200: false, bb: false });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setIsAuthenticated(!!data.user));
+  }, []);
 
   const chartRef = useRef<HTMLDivElement>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
