@@ -6,60 +6,49 @@
 
 @layer base {
   :root {
-    --background: 220 20% 7%;
+    --background: 222 47% 5%;
     --foreground: 210 20% 92%;
 
-    --card: 220 18% 10%;
+    --card: 220 30% 8%;
     --card-foreground: 210 20% 92%;
 
-    --popover: 220 18% 10%;
+    --popover: 220 30% 8%;
     --popover-foreground: 210 20% 92%;
 
     --primary: 142 60% 50%;
-    --primary-foreground: 220 20% 7%;
+    --primary-foreground: 220 47% 5%;
 
-    --secondary: 220 16% 16%;
+    --secondary: 220 20% 14%;
     --secondary-foreground: 210 20% 80%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 12% 50%;
+    --muted: 220 18% 12%;
+    --muted-foreground: 215 12% 48%;
 
-    --accent: 220 16% 18%;
+    --accent: 220 20% 16%;
     --accent-foreground: 210 20% 92%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
+    --border: 220 18% 16%;
+    --input: 220 18% 16%;
     --ring: 142 60% 50%;
 
     --radius: 0.5rem;
 
     --bullish: 142 60% 50%;
-    --bullish-foreground: 142 80% 85%;
+    --bullish-dim: 142 40% 14%;
     --bearish: 0 72% 51%;
-    --bearish-foreground: 0 80% 80%;
-    --neutral: 215 12% 50%;
+    --bearish-dim: 0 40% 14%;
+    --neutral-tone: 215 12% 48%;
 
-    --score-strong-bg: 152 50% 10%;
-    --score-strong-border: 152 50% 30%;
-    --score-bullish-bg: 152 40% 6%;
-    --score-bullish-border: 152 40% 18%;
-    --score-neutral-bg: 220 14% 14%;
-    --score-neutral-border: 220 14% 24%;
-    --score-weak-bg: 0 40% 8%;
-    --score-weak-border: 0 40% 18%;
-    --score-bearish-bg: 0 50% 10%;
-    --score-bearish-border: 0 50% 30%;
-
-    --sidebar-background: 220 18% 10%;
-    --sidebar-foreground: 210 20% 80%;
+    --sidebar-background: 222 47% 5%;
+    --sidebar-foreground: 210 20% 70%;
     --sidebar-primary: 142 60% 50%;
-    --sidebar-primary-foreground: 220 20% 7%;
-    --sidebar-accent: 220 16% 16%;
+    --sidebar-primary-foreground: 220 47% 5%;
+    --sidebar-accent: 220 20% 12%;
     --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 14% 18%;
+    --sidebar-border: 220 18% 14%;
     --sidebar-ring: 142 60% 50%;
 
     --font-display: 'JetBrains Mono', monospace;
@@ -71,9 +60,18 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+  }
+}
+
+@layer utilities {
+  .pulse-live {
+    animation: pulse-live 2s ease-in-out infinite;
+  }
+  @keyframes pulse-live {
+    0%, 100% { opacity: 0.4; box-shadow: 0 0 0 0 hsl(142 60% 50% / 0.4); }
+    50% { opacity: 1; box-shadow: 0 0 0 4px hsl(142 60% 50% / 0); }
   }
 }
