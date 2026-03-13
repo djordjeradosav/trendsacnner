@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { DebugPanel } from "@/components/debug/DebugPanel";
+import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { fetchAllPairs } from "@/services/dataService";
 import { supabase } from "@/integrations/supabase/client";
