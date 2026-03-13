@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCandlesForPair } from "./dataService";
 import { scorePair, type Candle } from "@/lib/scoreEngine";
+import { checkAlertRules } from "./alertService";
 
 const BATCH_SIZE = 8;
 const BATCH_DELAY_MS = 61_000; // 61s for Twelve Data free tier
