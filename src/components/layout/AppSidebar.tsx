@@ -10,15 +10,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ChangelogModal } from "@/components/ChangelogModal";
-  LayoutDashboard,
-  Radar,
-  LineChart,
-  Bell,
-  Star,
-  Settings,
-  LogOut,
-} from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -75,8 +66,11 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="p-3 border-t border-border">
+      {/* Footer: changelog + logout */}
+      <div className="p-3 border-t border-border space-y-2">
+        <div className="flex items-center justify-between px-3">
+          <ChangelogModal />
+        </div>
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
