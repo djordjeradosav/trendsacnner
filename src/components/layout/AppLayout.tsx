@@ -1,5 +1,7 @@
 import { AppSidebar } from "./AppSidebar";
 import { TopHeader } from "./TopHeader";
+import { ChatAssistant } from "@/components/chat/ChatAssistant";
+import { useChatContext } from "@/hooks/useChatContext";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -12,6 +14,7 @@ interface AppLayoutProps {
   timeUntilNextScan?: number | null;
   isAutoScanEnabled?: boolean;
   autoScanAgo?: number | null;
+  timeframe?: string;
 }
 
 export function AppLayout({
@@ -25,7 +28,10 @@ export function AppLayout({
   timeUntilNextScan,
   isAutoScanEnabled,
   autoScanAgo,
+  timeframe = "1h",
 }: AppLayoutProps) {
+  const chatContext = useChatContext(timeframe);
+
   return (
     <div className="min-h-screen">
       <AppSidebar />
@@ -45,6 +51,7 @@ export function AppLayout({
           {children}
         </main>
       </div>
+      <ChatAssistant scanContext={chatContext} />
     </div>
   );
 }

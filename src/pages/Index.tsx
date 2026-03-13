@@ -127,6 +127,7 @@ const Index = () => {
       timeUntilNextScan={timeUntilNextScan}
       isAutoScanEnabled={isAutoScanEnabled}
       autoScanAgo={autoScanAgo}
+      timeframe={selectedTimeframe}
     >
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div className="space-y-1">
