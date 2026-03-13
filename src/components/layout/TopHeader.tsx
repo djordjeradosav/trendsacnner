@@ -1,5 +1,6 @@
 import { User, Radar, Loader2, Clock } from "lucide-react";
 import { formatCountdown } from "@/hooks/useAutoScan";
+import { NotificationBell } from "./NotificationBell";
 
 interface TopHeaderProps {
   lastScan?: string | null;
@@ -83,6 +84,7 @@ export function TopHeader({
             </>
           )}
         </button>
+        <NotificationBell />
         <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
           <User className="w-4 h-4 text-muted-foreground" />
         </div>
