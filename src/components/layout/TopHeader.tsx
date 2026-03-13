@@ -1,5 +1,6 @@
 import { User, Radar, Loader2, Clock } from "lucide-react";
 import { formatCountdown } from "@/hooks/useAutoScan";
+import { NotificationBell } from "./NotificationBell";
 
 interface TopHeaderProps {
   lastScan?: string | null;
