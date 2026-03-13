@@ -382,6 +382,7 @@ export default function PairDetail() {
               </span>
             </>
           )}
+          <AddToWatchlist pairId={pair.id} />
         </div>
       </div>
 

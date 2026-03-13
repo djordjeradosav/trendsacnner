@@ -25,6 +25,7 @@ const App = () => (
           <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
           <Route path="/scanner" element={<RequireAuth><ScannerPage /></RequireAuth>} />
           <Route path="/pair/:symbol" element={<RequireAuth><PairDetail /></RequireAuth>} />
+          <Route path="/watchlist" element={<RequireAuth><WatchlistPage /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
