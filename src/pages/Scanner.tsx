@@ -270,7 +270,7 @@ export default function ScannerPage() {
 
   if (loading) {
     return (
-      <AppLayout lastScan={lastScan} scanning={scanning} scanDone={scanDone} scanTotal={scanTotal} onRunScan={executeScan} timeUntilNextScan={timeUntilNextScan} isAutoScanEnabled={isAutoScanEnabled} autoScanAgo={autoScanAgo}>
+      <AppLayout {...layoutProps}>
         <div className="space-y-4">
           {/* Skeleton stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
