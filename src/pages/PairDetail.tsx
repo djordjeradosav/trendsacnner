@@ -295,9 +295,12 @@ export default function PairDetail() {
       scoreChartApiRef.current = null;
     }
 
+    const isMobile = scoreChartRef.current.clientWidth < 640;
+    const scoreChartHeight = isMobile ? 200 : 180;
+
     const chart = createChart(scoreChartRef.current, {
       width: scoreChartRef.current.clientWidth,
-      height: 180,
+      height: scoreChartHeight,
       layout: {
         background: { type: ColorType.Solid, color: "hsl(222, 47%, 5%)" },
         textColor: "hsl(215, 12%, 48%)",
@@ -310,6 +313,8 @@ export default function PairDetail() {
       },
       rightPriceScale: { borderColor: "hsl(220, 18%, 16%)" },
       timeScale: { borderColor: "hsl(220, 18%, 16%)" },
+      handleScroll: { vertTouchDrag: false },
+      handleScale: { pinch: true },
     });
     scoreChartApiRef.current = chart;
 
