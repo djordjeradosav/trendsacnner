@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import AuthPage from "./pages/Auth";
 import SettingsPage from "./pages/Settings";
 import ScannerPage from "./pages/Scanner";
+import PairDetail from "./pages/PairDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
