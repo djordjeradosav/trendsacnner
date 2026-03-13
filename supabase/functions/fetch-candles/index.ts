@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
           success: false,
           error: `Pair '${pair_symbol}' not found in database`,
         }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
