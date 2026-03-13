@@ -219,6 +219,10 @@ export default function ScannerPage() {
         <StatCard label="Avg Score" value={avgScore} color={getScoreColor(avgScore)} />
       </div>
 
+      {/* Market Sectors Panel */}
+      {sentiment && <MarketSentimentBar sentiment={sentiment} />}
+      {sectors.length > 0 && <SectorCards sectors={sectors} />}
+
       {/* Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <Tabs value={filter} onValueChange={setFilter}>
