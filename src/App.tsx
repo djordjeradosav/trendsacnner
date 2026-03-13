@@ -10,6 +10,7 @@ import SettingsPage from "./pages/Settings";
 import ScannerPage from "./pages/Scanner";
 import PairDetail from "./pages/PairDetail";
 import WatchlistPage from "./pages/Watchlist";
+import AlertsPage from "./pages/Alerts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
