@@ -250,6 +250,26 @@ export default function ScannerPage() {
         </div>
       </div>
 
+      {/* Watchlist filter pills */}
+      {watchlists.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 overflow-x-auto">
+          <span className="text-[11px] text-muted-foreground font-body shrink-0">Watchlists:</span>
+          {watchlists.map((wl) => (
+            <button
+              key={wl.id}
+              onClick={() => setActiveWatchlist(activeWatchlist === wl.id ? null : wl.id)}
+              className={`shrink-0 px-2.5 py-1 rounded-md text-[11px] font-display font-medium border transition-colors ${
+                activeWatchlist === wl.id
+                  ? "bg-primary/15 text-primary border-primary/30"
+                  : "bg-transparent border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {wl.name} ({wl.pair_ids.length})
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Heatmap Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-10">
         {filtered.map((p) => (
