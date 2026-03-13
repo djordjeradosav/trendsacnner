@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -443,15 +444,17 @@ export default function PairDetail() {
       </div>
 
       {/* Chart */}
+      <ErrorBoundary name="PairChart">
       {loading ? (
-        <Skeleton className="h-[420px] rounded-lg mb-6" />
+        <Skeleton className="h-[280px] sm:h-[420px] rounded-lg mb-6" />
       ) : candles.length === 0 ? (
-        <div className="h-[420px] rounded-lg border border-border bg-card flex items-center justify-center mb-6">
+        <div className="h-[280px] sm:h-[420px] rounded-lg border border-border bg-card flex items-center justify-center mb-6">
           <p className="text-sm text-muted-foreground">No candle data for this timeframe. Run a scan first.</p>
         </div>
       ) : (
         <div ref={chartRef} className="rounded-lg border border-border overflow-hidden mb-6" />
       )}
+      </ErrorBoundary>
 
       {/* Score Breakdown + Indicator Values */}
       {scoreResult && indicators && (
@@ -496,11 +499,13 @@ export default function PairDetail() {
       )}
 
       {/* AI Analysis */}
+      <ErrorBoundary name="AIBrief">
       {pair && (
         <div className="mb-6">
           <PairAnalysisCard pairId={pair.id} timeframe={timeframe} isAuthenticated={isAuthenticated} />
         </div>
       )}
+      </ErrorBoundary>
 
       {/* Score History */}
       {scoreHistory.length >= 2 && (
