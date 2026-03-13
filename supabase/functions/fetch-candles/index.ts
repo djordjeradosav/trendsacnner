@@ -86,9 +86,14 @@ function getTwelveDataCandidates(pairSymbol: string): string[] {
   if (pairSymbol.includes("/")) return [pairSymbol];
 
   if (pairSymbol.includes("!")) {
-    const mappedRoot = futuresMap[pairSymbol] ?? pairSymbol.replace("!", "").replace(/1$/, "");
-    // Try futures-like candidates first, then root fallback
-    return dedupeSymbols([`${mappedRoot}1`, `${mappedRoot}=F`, mappedRoot]);
+    // For known futures, use a single best candidate first to avoid consuming extra API credits.
+    if (futuresMap[pairSymbol]) {
+      return [futuresMap[pairSymbol]];
+    }
+
+    const stripped = pairSymbol.replace("!", "").replace(/1$/, "");
+    // Unknown symbols: attempt a conservative fallback chain.
+    return dedupeSymbols([stripped, `${stripped}1`, `${stripped}=F`]);
   }
 
   if (pairSymbol.length === 6) {
@@ -125,7 +130,7 @@ async function fetchTimeSeriesWithCandidates({
     const res = await fetchWithRetry(url);
 
     if (res.status === 429) {
-      return { rateLimited: true };
+      return { rateLimited: true, lastError: { code: 429, message: "Rate limit hit. Try again later." } };
     }
 
     const data = (await res.json()) as TwelveDataResponse;
@@ -134,6 +139,15 @@ async function fetchTimeSeriesWithCandidates({
     }
 
     lastError = data;
+
+    // Stop immediately on provider limit/plan errors; trying next candidate only burns more credits.
+    if (data.code === 429) {
+      return { lastError };
+    }
+    if (typeof data.message === "string" && data.message.includes("available starting with the Grow or Venture plan")) {
+      return { lastError };
+    }
+
     console.warn(
       `Candidate failed for ${pairSymbol} (${candidate}): ${data.message ?? "Unknown Twelve Data error"}`,
     );
@@ -184,8 +198,10 @@ Deno.serve(async (req) => {
           success: false,
           error: "Rate limit hit. Try again later.",
           rate_limited: true,
+          td_code: 429,
+          attempted_symbols: symbolCandidates,
         }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -227,7 +243,7 @@ Deno.serve(async (req) => {
           success: false,
           error: `Pair '${pair_symbol}' not found in database`,
         }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
