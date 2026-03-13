@@ -28,7 +28,10 @@ export function AppLayout({
   timeUntilNextScan,
   isAutoScanEnabled,
   autoScanAgo,
+  timeframe = "1h",
 }: AppLayoutProps) {
+  const chatContext = useChatContext(timeframe);
+
   return (
     <div className="min-h-screen">
       <AppSidebar />
@@ -48,6 +51,7 @@ export function AppLayout({
           {children}
         </main>
       </div>
+      <ChatAssistant scanContext={chatContext} />
     </div>
   );
 }
