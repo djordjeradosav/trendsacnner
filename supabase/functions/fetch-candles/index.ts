@@ -86,9 +86,14 @@ function getTwelveDataCandidates(pairSymbol: string): string[] {
   if (pairSymbol.includes("/")) return [pairSymbol];
 
   if (pairSymbol.includes("!")) {
-    const mappedRoot = futuresMap[pairSymbol] ?? pairSymbol.replace("!", "").replace(/1$/, "");
-    // Try futures-like candidates first, then root fallback
-    return dedupeSymbols([`${mappedRoot}1`, `${mappedRoot}=F`, mappedRoot]);
+    // For known futures, use a single best candidate first to avoid consuming extra API credits.
+    if (futuresMap[pairSymbol]) {
+      return [futuresMap[pairSymbol]];
+    }
+
+    const stripped = pairSymbol.replace("!", "").replace(/1$/, "");
+    // Unknown symbols: attempt a conservative fallback chain.
+    return dedupeSymbols([stripped, `${stripped}1`, `${stripped}=F`]);
   }
 
   if (pairSymbol.length === 6) {
