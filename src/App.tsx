@@ -7,6 +7,7 @@ import { RequireAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import AuthPage from "./pages/Auth";
 import SettingsPage from "./pages/Settings";
+import ScannerPage from "./pages/Scanner";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
         <Routes>
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/" element={<RequireAuth><Index /></RequireAuth>} />
+          <Route path="/scanner" element={<RequireAuth><ScannerPage /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
