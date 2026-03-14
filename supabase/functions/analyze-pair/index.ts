@@ -51,7 +51,13 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    if (!score) throw new Error("No score data for this pair. Run a scan first.");
+    if (!score) {
+      return new Response(JSON.stringify({
+        analysis: { summary: "No scan data available yet. Run a scan to generate AI analysis for this pair.", bias: "neutral", keyLevel: "N/A", risk: "No data" },
+        cached: false,
+        pending: true,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     // 2. Read score history
     const { data: history } = await supabase
