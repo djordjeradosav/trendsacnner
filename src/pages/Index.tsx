@@ -9,6 +9,7 @@ import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { DashboardGreeting } from "@/components/dashboard/DashboardGreeting";
 import { MarketSessionBar } from "@/components/dashboard/MarketSessionBar";
 import { AIMacroDesk } from "@/components/dashboard/AIMacroDesk";
+import { ForYouPanel } from "@/components/dashboard/ForYouPanel";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { runFullScan, createScanController } from "@/services/scannerService";
@@ -161,7 +162,7 @@ const Index = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
         <AIMacroDesk timeframe={selectedTimeframe} />
-        <MarketBriefCard timeframe={selectedTimeframe} />
+        <ForYouPanel />
       </div>
 
       {isDev && (
