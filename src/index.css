@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,53 +6,61 @@
 
 @layer base {
   :root {
-    --background: 222 47% 5%;
-    --foreground: 210 20% 92%;
+    /* Base backgrounds */
+    --background: 210 33% 5%;       /* #080c10 */
+    --foreground: 195 50% 94%;      /* #e8f4f8 */
 
-    --card: 220 30% 8%;
-    --card-foreground: 210 20% 92%;
+    --card: 210 30% 7%;             /* #0d1117 */
+    --card-foreground: 195 50% 94%;
 
-    --popover: 220 30% 8%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 210 30% 7%;
+    --popover-foreground: 195 50% 94%;
 
-    --primary: 142 60% 50%;
-    --primary-foreground: 220 47% 5%;
+    /* Primary = neon green */
+    --primary: 150 100% 50%;        /* #00ff7f */
+    --primary-foreground: 210 33% 5%;
 
-    --secondary: 220 20% 14%;
-    --secondary-foreground: 210 20% 80%;
+    /* Secondary = elevated bg */
+    --secondary: 210 28% 10%;       /* #131a22 */
+    --secondary-foreground: 200 20% 58%;  /* #7a99b0 */
 
-    --muted: 220 18% 12%;
-    --muted-foreground: 215 12% 48%;
+    --muted: 210 28% 10%;
+    --muted-foreground: 200 20% 58%;
 
-    --accent: 220 20% 16%;
-    --accent-foreground: 210 20% 92%;
+    --accent: 210 28% 10%;
+    --accent-foreground: 195 50% 94%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 100% 61%;      /* #ff3b3b */
+    --destructive-foreground: 195 50% 94%;
 
-    --border: 220 18% 16%;
-    --input: 220 18% 16%;
-    --ring: 142 60% 50%;
+    --border: 207 35% 18%;          /* #1e2d3d */
+    --input: 207 35% 18%;
+    --ring: 150 100% 50%;
 
-    --radius: 0.5rem;
+    --radius: 10px;
 
-    --bullish: 142 60% 50%;
-    --bullish-dim: 142 40% 14%;
-    --bearish: 0 72% 51%;
-    --bearish-dim: 0 40% 14%;
-    --neutral-tone: 215 12% 48%;
+    /* Trading-specific tokens */
+    --bullish: 150 100% 50%;        /* #00ff7f */
+    --bullish-dim: 155 100% 38%;    /* #00c46a */
+    --bearish: 0 100% 61%;          /* #ff3b3b */
+    --bearish-dim: 0 60% 20%;
+    --neutral-tone: 200 20% 58%;    /* #7a99b0 */
+    --caution: 18 100% 60%;         /* #ff6b35 */
+    --info: 195 100% 50%;           /* #00d4ff */
 
-    --sidebar-background: 222 47% 5%;
-    --sidebar-foreground: 210 20% 70%;
-    --sidebar-primary: 142 60% 50%;
-    --sidebar-primary-foreground: 220 47% 5%;
-    --sidebar-accent: 220 20% 12%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 18% 14%;
-    --sidebar-ring: 142 60% 50%;
+    /* Sidebar */
+    --sidebar-background: 210 33% 5%;
+    --sidebar-foreground: 200 20% 58%;
+    --sidebar-primary: 150 100% 50%;
+    --sidebar-primary-foreground: 210 33% 5%;
+    --sidebar-accent: 210 28% 10%;
+    --sidebar-accent-foreground: 195 50% 94%;
+    --sidebar-border: 207 35% 18%;
+    --sidebar-ring: 150 100% 50%;
 
-    --font-display: 'JetBrains Mono', monospace;
-    --font-body: 'Inter', sans-serif;
+    /* Typography */
+    --font-display: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 }
 
@@ -63,6 +71,22 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
+    font-size: 13px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(210 33% 5%);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(207 35% 18%);
+    border-radius: 2px;
   }
 }
 
@@ -71,11 +95,30 @@
     animation: pulse-live 2s ease-in-out infinite;
   }
   @keyframes pulse-live {
-    0%, 100% { opacity: 0.4; box-shadow: 0 0 0 0 hsl(142 60% 50% / 0.4); }
-    50% { opacity: 1; box-shadow: 0 0 0 4px hsl(142 60% 50% / 0); }
+    0%, 100% { opacity: 0.4; box-shadow: 0 0 0 0 hsl(150 100% 50% / 0.4); }
+    50% { opacity: 1; box-shadow: 0 0 0 4px hsl(150 100% 50% / 0); }
   }
 
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Mono typography for numbers/tickers */
+  .font-mono-nums {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ticker {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .section-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: hsl(var(--muted-foreground));
   }
 }

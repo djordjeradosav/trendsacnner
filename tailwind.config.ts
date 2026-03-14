@@ -12,8 +12,12 @@ export default {
     },
     extend: {
       fontFamily: {
-        display: ["JetBrains Mono", "monospace"],
-        body: ["Inter", "sans-serif"],
+        display: ["JetBrains Mono", "Fira Code", "monospace"],
+        body: ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+      },
+      fontSize: {
+        "body": ["13px", { lineHeight: "1.6" }],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -57,6 +61,8 @@ export default {
           DEFAULT: "hsl(var(--bearish))",
           dim: "hsl(var(--bearish-dim))",
         },
+        caution: "hsl(var(--caution))",
+        info: "hsl(var(--info))",
         "neutral-tone": "hsl(var(--neutral-tone))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
