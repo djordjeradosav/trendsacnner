@@ -14,6 +14,7 @@ import ScannerPage from "./pages/Scanner";
 import PairDetail from "./pages/PairDetail";
 import WatchlistPage from "./pages/Watchlist";
 import AlertsPage from "./pages/Alerts";
+import NewsPage from "./pages/News";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
