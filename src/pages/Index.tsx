@@ -11,6 +11,7 @@ import { MarketSessionBar } from "@/components/dashboard/MarketSessionBar";
 import { AIMacroDesk } from "@/components/dashboard/AIMacroDesk";
 import { ForYouPanel } from "@/components/dashboard/ForYouPanel";
 import { CapitalFlowWidget } from "@/components/dashboard/CapitalFlowWidget";
+import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
 import { BreakingNewsBanner } from "@/components/news/BreakingNewsBanner";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
@@ -168,6 +169,7 @@ const Index = () => {
         <div>
           <ForYouPanel />
           <CapitalFlowWidget timeframe={selectedTimeframe} />
+          <CalendarWidget />
         </div>
       </div>
 

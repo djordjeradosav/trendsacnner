@@ -19,7 +19,7 @@ const mainNav = [
   { label: "Dashboard", icon: Home, path: "/dashboard" },
   { label: "Reports", icon: BarChart3, path: "/alerts" },
   { label: "News", icon: Newspaper, path: "/news" },
-  { label: "Calendar", icon: Calendar, path: "/watchlist" },
+  { label: "Calendar", icon: Calendar, path: "/calendar" },
   { label: "Macro Desk", icon: Globe, path: "/scanner" },
   { label: "Psychology", icon: Brain, path: null, soon: true },
   { label: "Journal", icon: BookOpen, path: null, soon: true },
