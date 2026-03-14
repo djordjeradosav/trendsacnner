@@ -159,10 +159,9 @@ const Index = () => {
         </div>
       )}
 
-      <MarketBriefCard timeframe={selectedTimeframe} />
-
-      <div className="mt-6">
-        <SkeletonDashboard />
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+        <AIMacroDesk timeframe={selectedTimeframe} />
+        <MarketBriefCard timeframe={selectedTimeframe} />
       </div>
 
       {isDev && (
