@@ -165,6 +165,24 @@ export type Database = {
           },
         ]
       }
+      daily_briefings: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           component: string
