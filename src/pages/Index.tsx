@@ -133,16 +133,13 @@ const Index = () => {
       timeframe={selectedTimeframe}
       currentSymbol={scanSymbol}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold font-display text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            {totalPairs} pairs loaded across {markets.length} markets
-            {marketsLabel && (
-              <span className="text-muted-foreground/70"> · {marketsLabel}</span>
-            )}
-          </p>
-        </div>
+      <DashboardGreeting />
+
+      <div className="mt-4">
+        <MarketSessionBar />
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 mb-6">
         <TimeframeSelector
           selected={selectedTimeframe}
           onChange={setTimeframe}
