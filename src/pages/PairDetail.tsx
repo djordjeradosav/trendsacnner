@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
+import { PairNewsSection } from "@/components/news/PairNewsSection";
 import {
   calcEMA,
   calcRSI,
