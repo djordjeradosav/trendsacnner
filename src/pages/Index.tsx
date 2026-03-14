@@ -137,6 +137,7 @@ const Index = () => {
       timeframe={selectedTimeframe}
       currentSymbol={scanSymbol}
     >
+      <BreakingNewsBanner />
       <DashboardGreeting />
 
       <div className="mt-4">
