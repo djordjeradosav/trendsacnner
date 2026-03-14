@@ -24,7 +24,7 @@ function getSessionInfo(now: Date): SessionInfo[] {
     closeMin: number,
     preStart?: number
   ): SessionInfo => {
-    const wraps = closeMin < openMin; // e.g. Sydney 22:00–06:00
+    const wraps = closeMin < openMin;
 
     let isOpen: boolean;
     if (wraps) {
@@ -52,7 +52,6 @@ function getSessionInfo(now: Date): SessionInfo[] {
       return { name, status: "premarket", label: "PREMARKET", countdown: `opens in ${fmt(remaining)}` };
     }
 
-    // closed — calculate time until open
     let untilOpen: number;
     if (wraps) {
       untilOpen = t < openMin ? openMin - t : openMin - t + 1440;
@@ -63,10 +62,10 @@ function getSessionInfo(now: Date): SessionInfo[] {
   };
 
   return [
-    session("LONDON", 480, 990),          // 08:00–16:30
-    session("NEW YORK", 810, 1200, 780),   // 13:30–20:00, pre 13:00
-    session("SYDNEY", 1320, 360),          // 22:00–06:00
-    session("ASIA", 0, 480),              // 00:00–08:00
+    session("LONDON", 480, 990),
+    session("NEW YORK", 810, 1200, 780),
+    session("SYDNEY", 1320, 360),
+    session("ASIA", 0, 480),
   ];
 }
 
@@ -84,7 +83,6 @@ export function MarketSessionBar() {
 
   const sessions = useMemo(() => getSessionInfo(now), [now]);
 
-  // EST clock (UTC-5, simplified — no DST handling)
   const estOffset = -5;
   const estDate = new Date(now.getTime() + estOffset * 3600_000);
   const estStr = `${padZ(estDate.getUTCHours())}:${padZ(estDate.getUTCMinutes())}:${padZ(estDate.getUTCSeconds())} EST`;
@@ -100,7 +98,6 @@ export function MarketSessionBar() {
     >
       {sessions.map((s) => (
         <div key={s.name} className="flex items-center gap-2 shrink-0">
-          {/* Status dot */}
           <span
             className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{
@@ -112,7 +109,6 @@ export function MarketSessionBar() {
                   : "hsl(var(--border))",
             }}
           />
-          {/* Session name */}
           <span
             className="font-display"
             style={{
@@ -124,7 +120,6 @@ export function MarketSessionBar() {
           >
             {s.name}
           </span>
-          {/* Status + countdown */}
           <span
             className="font-display"
             style={{
@@ -142,22 +137,23 @@ export function MarketSessionBar() {
         </div>
       ))}
 
-      {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Live clocks */}
+      {/* Live clocks — seconds pulse */}
       <div className="flex items-center gap-4 shrink-0">
         <span
           className="font-display tabular-nums"
           style={{ fontSize: "12px", color: "hsl(var(--bullish))", letterSpacing: "0.04em" }}
         >
-          {estStr}
+          {estStr.slice(0, -4)}
+          <span className="anim-sec-pulse">{estStr.slice(-4)}</span>
         </span>
         <span
           className="font-display tabular-nums"
           style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))", letterSpacing: "0.04em" }}
         >
-          {utcStr}
+          {utcStr.slice(0, -4)}
+          <span className="anim-sec-pulse">{utcStr.slice(-4)}</span>
         </span>
       </div>
     </div>
