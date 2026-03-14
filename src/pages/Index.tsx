@@ -6,6 +6,8 @@ import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
 import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
+import { DashboardGreeting } from "@/components/dashboard/DashboardGreeting";
+import { MarketSessionBar } from "@/components/dashboard/MarketSessionBar";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { runFullScan, createScanController } from "@/services/scannerService";
