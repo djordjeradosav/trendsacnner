@@ -24,7 +24,6 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
   const [analyses, setAnalyses] = useState<Record<string, AnalysisCache>>({});
   const [loadingAnalysis, setLoadingAnalysis] = useState<Record<string, boolean>>({});
 
-  // Fetch pair IDs for our desk symbols
   useEffect(() => {
     const fetchPairs = async () => {
       const { data } = await supabase
@@ -36,14 +35,12 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
     fetchPairs();
   }, []);
 
-  // Map pair_id -> score
   const scoreMap = useMemo(() => {
     const m = new Map<string, ScoreRow>();
     allScores?.forEach((s) => m.set(s.pair_id, s));
     return m;
   }, [allScores]);
 
-  // Fetch AI analyses (cached 1h on server)
   useEffect(() => {
     if (pairs.length === 0) return;
 
@@ -74,6 +71,8 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairs, timeframe]);
+
+  const hasScores = allScores && allScores.length > 0;
 
   return (
     <div>
@@ -111,15 +110,14 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
         </button>
       </div>
 
-      {/* Grid */}
+      {/* Grid — staggered card entrance */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {DESK_SYMBOLS.map((sym) => {
+        {DESK_SYMBOLS.map((sym, idx) => {
           const pair = pairs.find((p) => p.symbol === sym);
           const score = pair ? scoreMap.get(pair.id) : undefined;
           const analysis = pair ? analyses[pair.id] : undefined;
           const isLoading = pair ? loadingAnalysis[pair.id] : false;
 
-          // Derive % change from score (score is 0-100, use as proxy)
           const pctChange = score
             ? parseFloat(((score.score - 50) * 0.1).toFixed(2))
             : null;
@@ -130,16 +128,37 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
 
           const confidence = score ? Math.round(score.score) : 50;
 
+          // If no scores yet, show shimmer skeleton
+          if (!hasScores) {
+            return (
+              <div
+                key={sym}
+                className="anim-fade-up rounded-lg overflow-hidden"
+                style={{
+                  animationDelay: `${200 + idx * 50}ms`,
+                  height: "160px",
+                }}
+              >
+                <div className="anim-shimmer w-full h-full rounded-lg" />
+              </div>
+            );
+          }
+
           return (
-            <InstrumentCard
+            <div
               key={sym}
-              symbol={sym}
-              percentChange={pctChange}
-              trendLabel={trend}
-              confidence={confidence}
-              aiAnalysis={analysis?.summary ?? null}
-              loading={isLoading}
-            />
+              className="anim-fade-up"
+              style={{ animationDelay: `${200 + idx * 50}ms` }}
+            >
+              <InstrumentCard
+                symbol={sym}
+                percentChange={pctChange}
+                trendLabel={trend}
+                confidence={confidence}
+                aiAnalysis={analysis?.summary ?? null}
+                loading={isLoading}
+              />
+            </div>
           );
         })}
       </div>

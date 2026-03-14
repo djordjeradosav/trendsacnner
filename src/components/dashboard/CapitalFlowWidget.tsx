@@ -22,17 +22,18 @@ export function CapitalFlowWidget({ timeframe }: { timeframe: string }) {
   }, []);
 
   const lastUpdate = `${padZ(now.getUTCHours())}:${padZ(now.getUTCMinutes())}`;
+  const hasData = strengths.length > 0;
 
   return (
     <div
-      className="rounded-lg p-4 mt-4"
+      className="rounded-lg p-4 mt-4 h-full flex flex-col"
       style={{
         background: "hsl(var(--secondary))",
         border: "0.5px solid hsl(var(--border))",
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3 shrink-0">
         <div className="flex items-center gap-1.5">
           <Wifi className="w-4 h-4" style={{ color: "hsl(var(--muted-foreground))" }} />
           <span className="font-semibold" style={{ fontSize: "14px", color: "hsl(var(--foreground))" }}>
@@ -50,7 +51,7 @@ export function CapitalFlowWidget({ timeframe }: { timeframe: string }) {
               fontSize: "9px",
               borderRadius: "4px",
               padding: "2px 7px",
-              background: "#0d2b1a",
+              background: "hsl(var(--bullish) / 0.1)",
               color: "hsl(var(--bullish))",
             }}
           >
@@ -60,20 +61,18 @@ export function CapitalFlowWidget({ timeframe }: { timeframe: string }) {
       </div>
 
       {/* Flow bars */}
-      <div className="space-y-3">
-        {strengths.map((item) => {
-          const deviation = item.strength - 50;
-          // Bar fill: deviation of 50 = 100% of half, deviation of 25 = 50% of half
-          const fillPercent = Math.abs(deviation); // 0-50 range, represents % of half
-          const isPositive = deviation >= 0;
-          const displayPct = ((deviation / 50) * 5).toFixed(2); // scale to reasonable %
-          const color = isPositive ? "hsl(var(--bullish))" : "hsl(var(--destructive))";
-          const showDelta = item.delta !== null && Math.abs(item.delta) > 3;
+      <div className="space-y-2 flex-1">
+        {hasData ? (
+          strengths.map((item) => {
+            const deviation = item.strength - 50;
+            const fillPercent = Math.abs(deviation);
+            const isPositive = deviation >= 0;
+            const displayPct = ((deviation / 50) * 5).toFixed(2);
+            const color = isPositive ? "hsl(var(--bullish))" : "hsl(var(--destructive))";
+            const showDelta = item.delta !== null && Math.abs(item.delta) > 3;
 
-          return (
-            <div key={item.currency}>
-              <div className="flex items-center gap-2">
-                {/* Currency code */}
+            return (
+              <div key={item.currency} className="flex items-center gap-2">
                 <span
                   className="font-display font-bold shrink-0"
                   style={{ fontSize: "11px", color: "hsl(var(--foreground))", width: "36px" }}
@@ -81,37 +80,25 @@ export function CapitalFlowWidget({ timeframe }: { timeframe: string }) {
                   {item.currency}
                 </span>
 
-                {/* Bar */}
                 <div className="flex-1 relative" style={{ height: "4px" }}>
-                  <div
-                    className="absolute inset-0 rounded-full"
-                    style={{ background: "hsl(var(--border))" }}
-                  />
-                  {/* Center line */}
+                  <div className="absolute inset-0 rounded-full" style={{ background: "hsl(var(--border))" }} />
                   <div
                     className="absolute top-0 bottom-0 w-px"
                     style={{ left: "50%", background: "hsl(var(--muted-foreground) / 0.3)" }}
                   />
-                  {/* Fill bar */}
                   <div
                     className="absolute top-0 bottom-0 rounded-full"
                     style={{
                       background: color,
-                      transition: mounted ? "width 800ms cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+                      transition: "width 600ms cubic-bezier(0.16, 1, 0.3, 1)",
                       width: mounted ? `${fillPercent}%` : "0%",
-                      ...(isPositive
-                        ? { left: "50%" }
-                        : { right: "50%" }),
+                      ...(isPositive ? { left: "50%" } : { right: "50%" }),
                     }}
                   />
                 </div>
 
-                {/* Value */}
                 <div className="shrink-0 text-right" style={{ width: "52px" }}>
-                  <span
-                    className="font-display"
-                    style={{ fontSize: "11px", color }}
-                  >
+                  <span className="font-display" style={{ fontSize: "11px", color }}>
                     {isPositive ? "+" : ""}{displayPct}%
                   </span>
                   {showDelta && (
@@ -128,14 +115,30 @@ export function CapitalFlowWidget({ timeframe }: { timeframe: string }) {
                   )}
                 </div>
               </div>
+            );
+          })
+        ) : (
+          /* Empty state — flat grey bars at 50% */
+          ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"].map((cur) => (
+            <div key={cur} className="flex items-center gap-2">
+              <span
+                className="font-display font-bold shrink-0"
+                style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))", width: "36px" }}
+              >
+                {cur}
+              </span>
+              <div className="flex-1 relative" style={{ height: "4px" }}>
+                <div className="absolute inset-0 rounded-full" style={{ background: "hsl(var(--border))" }} />
+                <div
+                  className="absolute top-0 bottom-0 w-px"
+                  style={{ left: "50%", background: "hsl(var(--muted-foreground) / 0.3)" }}
+                />
+              </div>
+              <span className="font-display shrink-0" style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))", width: "52px", textAlign: "right" }}>
+                —
+              </span>
             </div>
-          );
-        })}
-
-        {strengths.length === 0 && (
-          <p style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))", textAlign: "center", padding: "12px 0" }}>
-            Run a scan to see currency strength data
-          </p>
+          ))
         )}
       </div>
     </div>

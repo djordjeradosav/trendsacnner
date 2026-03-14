@@ -1,10 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { SkeletonDashboard } from "@/components/dashboard/SkeletonDashboard";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { DebugPanel } from "@/components/debug/DebugPanel";
-import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
 import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { DashboardGreeting } from "@/components/dashboard/DashboardGreeting";
 import { MarketSessionBar } from "@/components/dashboard/MarketSessionBar";
@@ -119,10 +117,6 @@ const Index = () => {
     controllerRef.current?.cancel();
   };
 
-  const marketsLabel = markets
-    .map((m) => `${m.count} ${m.category}`)
-    .join(", ");
-
   return (
     <AppLayout
       lastScan={lastScan}
@@ -139,37 +133,71 @@ const Index = () => {
       currentSymbol={scanSymbol}
     >
       <BreakingNewsBanner />
-      <DashboardGreeting />
 
-      <div className="mt-4">
-        <MarketSessionBar />
-      </div>
+      {/* Full-viewport dashboard grid */}
+      <div
+        className="flex flex-col"
+        style={{ height: "calc(100vh - 72px)", overflow: "hidden" }}
+      >
+        {/* Session bar — fade from top */}
+        <div className="anim-fade-down shrink-0" style={{ animationDelay: "0ms" }}>
+          <MarketSessionBar />
+        </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 mb-6">
-        <TimeframeSelector
-          selected={selectedTimeframe}
-          onChange={setTimeframe}
-          disabled={scanning}
-        />
-      </div>
+        {/* Greeting — fade up */}
+        <div className="anim-fade-up mt-3 shrink-0" style={{ animationDelay: "100ms" }}>
+          <DashboardGreeting />
+        </div>
 
-      {scanning && (
-        <div className="mb-4">
-          <ScanProgress
-            done={scanDone}
-            total={scanTotal}
-            currentSymbol={scanSymbol}
-            onCancel={handleCancelScan}
+        {/* Timeframe + scan controls */}
+        <div className="flex items-center gap-4 mt-3 shrink-0 anim-fade-up" style={{ animationDelay: "150ms" }}>
+          <TimeframeSelector
+            selected={selectedTimeframe}
+            onChange={setTimeframe}
+            disabled={scanning}
           />
         </div>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
-        <AIMacroDesk timeframe={selectedTimeframe} />
-        <div>
-          <ForYouPanel />
-          <CapitalFlowWidget timeframe={selectedTimeframe} />
-          <CalendarWidget />
+        {scanning && (
+          <div className="mt-3 shrink-0">
+            <ScanProgress
+              done={scanDone}
+              total={scanTotal}
+              currentSymbol={scanSymbol}
+              onCancel={handleCancelScan}
+            />
+          </div>
+        )}
+
+        {/* Main 2-column grid */}
+        <div
+          className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 mt-4 flex-1 min-h-0"
+        >
+          {/* Left column — macro desk with internal scroll */}
+          <div className="min-h-0 flex flex-col">
+            <div className="flex-1 overflow-y-auto pr-1" style={{ maxHeight: "480px" }}>
+              <AIMacroDesk timeframe={selectedTimeframe} />
+            </div>
+          </div>
+
+          {/* Right column — stacked widgets, fade from right */}
+          <div
+            className="anim-fade-right flex flex-col gap-0 min-h-0 overflow-y-auto"
+            style={{ animationDelay: "150ms" }}
+          >
+            {/* For You — flexible height */}
+            <div style={{ minHeight: "300px", flex: "1 1 auto" }}>
+              <ForYouPanel />
+            </div>
+            {/* Capital Flow — fixed */}
+            <div style={{ height: "220px", flexShrink: 0 }}>
+              <CapitalFlowWidget timeframe={selectedTimeframe} />
+            </div>
+            {/* Calendar — fixed */}
+            <div style={{ height: "200px", flexShrink: 0 }}>
+              <CalendarWidget />
+            </div>
+          </div>
         </div>
       </div>
 

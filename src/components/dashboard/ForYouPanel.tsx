@@ -8,7 +8,6 @@ export function ForYouPanel() {
   const [allArticles, setAllArticles] = useState<NewsArticle[]>([]);
   const [briefing, setBriefing] = useState<string | null>(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
-  const tickerRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
 
   const today = new Date();
@@ -18,7 +17,6 @@ export function ForYouPanel() {
     month: "short",
   });
 
-  // Fetch news
   useEffect(() => {
     const fetchNews = async () => {
       const { data } = await supabase
@@ -34,7 +32,6 @@ export function ForYouPanel() {
     fetchNews();
   }, []);
 
-  // Fetch AI briefing
   useEffect(() => {
     const fetchBriefing = async () => {
       setBriefingLoading(true);
@@ -61,18 +58,15 @@ export function ForYouPanel() {
   };
 
   const sentimentBg = (s: string | null) => {
-    if (s === "positive") return "#0d2b1a";
-    if (s === "negative") return "#2b0d0d";
-    return "#1a2635";
+    if (s === "positive") return "hsl(var(--bullish) / 0.1)";
+    if (s === "negative") return "hsl(var(--destructive) / 0.1)";
+    return "hsl(var(--secondary))";
   };
 
-  // Marquee items — duplicate for seamless loop
-  const tickerItems = allArticles.length > 0
-    ? [...allArticles, ...allArticles]
-    : [];
-
-  // Calculate animation duration based on content
+  const tickerItems = allArticles.length > 0 ? [...allArticles, ...allArticles] : [];
   const animDuration = Math.max(tickerItems.length * 3, 30);
+
+  const hasContent = topArticle || briefing;
 
   return (
     <div className="flex flex-col h-full">
@@ -102,22 +96,24 @@ export function ForYouPanel() {
           border: "0.5px solid hsl(var(--border))",
         }}
       >
-        {topArticle ? (
+        {hasContent ? (
           <>
-            <h3
-              className="font-medium"
-              style={{
-                fontSize: "16px",
-                color: "hsl(var(--foreground))",
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                lineHeight: "1.4",
-              }}
-            >
-              {topArticle.headline}
-            </h3>
+            {topArticle && (
+              <h3
+                className="font-medium"
+                style={{
+                  fontSize: "16px",
+                  color: "hsl(var(--foreground))",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  lineHeight: "1.4",
+                }}
+              >
+                {topArticle.headline}
+              </h3>
+            )}
 
             {/* Market mood badges */}
             <div className="flex items-center gap-2 mt-2">
@@ -130,8 +126,9 @@ export function ForYouPanel() {
                   fontSize: "10px",
                   borderRadius: "4px",
                   padding: "2px 7px",
-                  background: "#1a2635",
+                  background: "hsl(var(--secondary))",
                   color: "hsl(var(--muted-foreground))",
+                  border: "0.5px solid hsl(var(--border))",
                 }}
               >
                 Neutral
@@ -151,12 +148,12 @@ export function ForYouPanel() {
               </span>
             </div>
 
-            {/* Body — AI briefing replaces article summary */}
+            {/* Body */}
             <div className="mt-3 relative">
               {briefingLoading ? (
                 <div className="space-y-1.5">
                   {[...Array(4)].map((_, i) => (
-                    <div key={i} className="h-3 rounded bg-border/30 animate-pulse" style={{ width: `${100 - i * 10}%` }} />
+                    <div key={i} className="h-3 rounded anim-shimmer" style={{ width: `${100 - i * 10}%` }} />
                   ))}
                 </div>
               ) : (
@@ -171,10 +168,9 @@ export function ForYouPanel() {
                     overflow: "hidden",
                   }}
                 >
-                  {briefing || topArticle.summary || "No briefing available yet. Run a scan to generate AI analysis."}
+                  {briefing || topArticle?.summary || "No briefing available yet."}
                 </p>
               )}
-              {/* Fade gradient */}
               <div
                 className="absolute bottom-0 left-0 right-0 h-6 pointer-events-none"
                 style={{
@@ -184,7 +180,7 @@ export function ForYouPanel() {
             </div>
 
             {/* Read more */}
-            {topArticle.url && (
+            {topArticle?.url && (
               <a
                 href={topArticle.url}
                 target="_blank"
@@ -196,39 +192,40 @@ export function ForYouPanel() {
               </a>
             )}
 
-            {/* Sentiment indicator */}
-            <div className="flex items-center gap-2 mt-3">
-              <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}>
-                Sentiment:
-              </span>
-              <span
-                className="font-display capitalize"
-                style={{
-                  fontSize: "10px",
-                  borderRadius: "4px",
-                  padding: "2px 7px",
-                  background: sentimentBg(topArticle.sentiment),
-                  color: sentimentColor(topArticle.sentiment),
-                }}
-              >
-                {topArticle.sentiment || "neutral"}
-              </span>
-              <span style={{ fontSize: "10px", color: "hsl(200 30% 33%)" }}>
-                via {topArticle.source}
-              </span>
-            </div>
+            {/* Sentiment */}
+            {topArticle && (
+              <div className="flex items-center gap-2 mt-3">
+                <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}>
+                  Sentiment:
+                </span>
+                <span
+                  className="font-display capitalize"
+                  style={{
+                    fontSize: "10px",
+                    borderRadius: "4px",
+                    padding: "2px 7px",
+                    background: sentimentBg(topArticle.sentiment),
+                    color: sentimentColor(topArticle.sentiment),
+                  }}
+                >
+                  {topArticle.sentiment || "neutral"}
+                </span>
+                <span style={{ fontSize: "10px", color: "hsl(var(--muted-foreground) / 0.5)" }}>
+                  via {topArticle.source}
+                </span>
+              </div>
+            )}
           </>
         ) : (
+          /* Empty state — CTA */
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Sparkles className="w-8 h-8 mb-2" style={{ color: "hsl(var(--border))" }} />
-            <p style={{ fontSize: "13px", color: "hsl(var(--muted-foreground))" }}>
-              No news yet. Articles will appear after the next fetch cycle.
+            <p style={{ fontSize: "13px", color: "hsl(var(--foreground))" }}>
+              Run your first scan to generate your market briefing
             </p>
-            {briefing && (
-              <p className="mt-3" style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))", lineHeight: "1.6" }}>
-                {briefing}
-              </p>
-            )}
+            <p className="mt-1" style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))" }}>
+              AI insights will appear here after data is available
+            </p>
           </div>
         )}
       </div>
@@ -246,7 +243,6 @@ export function ForYouPanel() {
           onMouseLeave={() => setPaused(false)}
         >
           <div
-            ref={tickerRef}
             className="flex items-center h-full whitespace-nowrap"
             style={{
               animation: `ticker-scroll ${animDuration}s linear infinite`,
@@ -279,14 +275,6 @@ export function ForYouPanel() {
           </div>
         </div>
       )}
-
-      {/* Ticker animation keyframes injected via style tag */}
-      <style>{`
-        @keyframes ticker-scroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-      `}</style>
     </div>
   );
 }
