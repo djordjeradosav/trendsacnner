@@ -183,6 +183,45 @@ export type Database = {
         }
         Relationships: []
       }
+      economic_events: {
+        Row: {
+          actual: string | null
+          country: string | null
+          created_at: string
+          currency: string | null
+          event_name: string
+          forecast: string | null
+          id: string
+          impact: string
+          previous: string | null
+          scheduled_at: string
+        }
+        Insert: {
+          actual?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          event_name: string
+          forecast?: string | null
+          id?: string
+          impact?: string
+          previous?: string | null
+          scheduled_at: string
+        }
+        Update: {
+          actual?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          event_name?: string
+          forecast?: string | null
+          id?: string
+          impact?: string
+          previous?: string | null
+          scheduled_at?: string
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           component: string
