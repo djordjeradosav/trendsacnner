@@ -10,6 +10,7 @@ import { DashboardGreeting } from "@/components/dashboard/DashboardGreeting";
 import { MarketSessionBar } from "@/components/dashboard/MarketSessionBar";
 import { AIMacroDesk } from "@/components/dashboard/AIMacroDesk";
 import { ForYouPanel } from "@/components/dashboard/ForYouPanel";
+import { CapitalFlowWidget } from "@/components/dashboard/CapitalFlowWidget";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { runFullScan, createScanController } from "@/services/scannerService";
