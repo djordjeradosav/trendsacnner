@@ -213,6 +213,45 @@ export type Database = {
         }
         Relationships: []
       }
+      news_articles: {
+        Row: {
+          fetched_at: string | null
+          headline: string
+          id: string
+          image_url: string | null
+          published_at: string | null
+          relevant_pairs: string[] | null
+          sentiment: string | null
+          source: string | null
+          summary: string | null
+          url: string | null
+        }
+        Insert: {
+          fetched_at?: string | null
+          headline: string
+          id?: string
+          image_url?: string | null
+          published_at?: string | null
+          relevant_pairs?: string[] | null
+          sentiment?: string | null
+          source?: string | null
+          summary?: string | null
+          url?: string | null
+        }
+        Update: {
+          fetched_at?: string | null
+          headline?: string
+          id?: string
+          image_url?: string | null
+          published_at?: string | null
+          relevant_pairs?: string[] | null
+          sentiment?: string | null
+          source?: string | null
+          summary?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
       pair_analyses: {
         Row: {
           analysis: Json
