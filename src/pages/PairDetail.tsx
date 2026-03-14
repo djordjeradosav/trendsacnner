@@ -515,6 +515,9 @@ export default function PairDetail() {
           <div ref={scoreChartRef} className="rounded overflow-hidden" />
         </div>
       )}
+
+      {/* Latest News for this pair */}
+      {pair && <PairNewsSection symbol={pair.symbol} />}
     </AppLayout>
   );
 }
