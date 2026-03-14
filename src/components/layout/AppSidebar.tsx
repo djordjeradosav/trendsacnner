@@ -4,6 +4,7 @@ import {
   BarChart3,
   Calendar,
   Globe,
+  Newspaper,
   Brain,
   BookOpen,
   Users,
@@ -17,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 const mainNav = [
   { label: "Dashboard", icon: Home, path: "/dashboard" },
   { label: "Reports", icon: BarChart3, path: "/alerts" },
+  { label: "News", icon: Newspaper, path: "/news" },
   { label: "Calendar", icon: Calendar, path: "/watchlist" },
   { label: "Macro Desk", icon: Globe, path: "/scanner" },
   { label: "Psychology", icon: Brain, path: null, soon: true },
