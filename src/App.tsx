@@ -14,6 +14,7 @@ import ScannerPage from "./pages/Scanner";
 import PairDetail from "./pages/PairDetail";
 import WatchlistPage from "./pages/Watchlist";
 import AlertsPage from "./pages/Alerts";
+import NewsPage from "./pages/News";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/pair/:symbol" element={<RequireAuth><PairDetail /></RequireAuth>} />
           <Route path="/watchlist" element={<RequireAuth><WatchlistPage /></RequireAuth>} />
           <Route path="/alerts" element={<RequireAuth><AlertsPage /></RequireAuth>} />
+          <Route path="/news" element={<RequireAuth><NewsPage /></RequireAuth>} />
           <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
           <Route path="*" element={<NotFound />} />
         </Routes>

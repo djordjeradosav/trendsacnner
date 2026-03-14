@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
+import { PairNewsSection } from "@/components/news/PairNewsSection";
 import {
   calcEMA,
   calcRSI,
@@ -514,6 +515,9 @@ export default function PairDetail() {
           <div ref={scoreChartRef} className="rounded overflow-hidden" />
         </div>
       )}
+
+      {/* Latest News for this pair */}
+      {pair && <PairNewsSection symbol={pair.symbol} />}
     </AppLayout>
   );
 }
