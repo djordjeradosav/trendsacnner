@@ -162,7 +162,7 @@ const Index = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
         <AIMacroDesk timeframe={selectedTimeframe} />
-        <MarketBriefCard timeframe={selectedTimeframe} />
+        <ForYouPanel />
       </div>
 
       {isDev && (
