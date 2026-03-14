@@ -169,6 +169,7 @@ const Index = () => {
         <div>
           <ForYouPanel />
           <CapitalFlowWidget timeframe={selectedTimeframe} />
+          <CalendarWidget />
         </div>
       </div>
 
