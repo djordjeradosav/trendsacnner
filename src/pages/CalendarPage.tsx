@@ -112,6 +112,7 @@ export default function CalendarPage() {
           )}
         </div>
       </div>
+      <EventDetailDrawer />
     </AppLayout>
   );
 }

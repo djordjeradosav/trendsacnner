@@ -11,6 +11,7 @@ interface AlertRule {
   threshold: number;
   direction: string;
   is_active: boolean;
+  description: string | null;
   event_metadata: any;
   webhook_url: string | null;
 }
