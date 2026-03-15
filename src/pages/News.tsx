@@ -26,7 +26,13 @@ function timeAgo(dateStr: string | null) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export default function NewsPage() {
+function decodeEntities(str: string | null): string {
+  if (!str) return "";
+  const txt = document.createElement("textarea");
+  txt.innerHTML = str;
+  return txt.value;
+}
+
   const navigate = useNavigate();
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [sentiment, setSentiment] = useState("All");
