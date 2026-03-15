@@ -38,6 +38,7 @@ export function AppLayout({
   currentSymbol,
 }: AppLayoutProps) {
   const chatContext = useChatContext(timeframe);
+  usePushNotifications(); // activate event notifications globally
 
   return (
     <div className="min-h-screen">
