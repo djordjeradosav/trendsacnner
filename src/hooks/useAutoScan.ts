@@ -25,7 +25,7 @@ export function useAutoScan(onAutoScan?: () => Promise<void>) {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nextScanRef = useRef<number | null>(null);
 
-  // Load settings from DB
+  // Load settings from DB and subscribe to changes
   useEffect(() => {
     if (!user) return;
 
@@ -42,6 +42,25 @@ export function useAutoScan(onAutoScan?: () => Promise<void>) {
     };
 
     loadSettings();
+
+    // Listen for settings changes (e.g. from Settings page)
+    const channel = supabase
+      .channel("user-settings-autoscan")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_settings", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const newRow = payload.new as { scan_interval?: string };
+          if (newRow?.scan_interval) {
+            setScanIntervalState(newRow.scan_interval);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, [user]);
 
   const setScanInterval = useCallback(
