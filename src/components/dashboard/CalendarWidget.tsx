@@ -86,7 +86,7 @@ export function CalendarWidget() {
                   {ev.event_name.length > 26 ? ev.event_name.slice(0, 26) + "…" : ev.event_name}
                 </span>
                 {ev.forecast && (
-                  <span className="text-[9px] font-mono shrink-0" style={{ color: "#5a7080" }}>
+                  <span className="text-[9px] font-mono shrink-0 text-muted-foreground">
                     F: {ev.forecast}
                   </span>
                 )}
