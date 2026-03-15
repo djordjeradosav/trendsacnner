@@ -467,10 +467,11 @@ export default function PairDetail() {
               <span className={`text-3xl font-display font-bold ${trendColor}`}>{scoreResult.score}</span>
             </div>
             <div className="space-y-3">
-              <GaugeBar label="EMA Alignment" value={scoreResult.emaScore} max={40} raw={`EMA stack → +${scoreResult.emaScore}pts`} color="bg-blue-500" />
-              <GaugeBar label="ADX Strength" value={scoreResult.adxScore} max={20} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.adxScore}pts`} color="bg-amber-500" />
-              <GaugeBar label="RSI Bias" value={scoreResult.rsiScore} max={20} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.rsiScore}pts`} color="bg-purple-500" />
-              <GaugeBar label="MACD Momentum" value={scoreResult.macdScore} max={20} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.macdScore}pts`} color="bg-emerald-500" />
+              <GaugeBar label="EMA Alignment" value={scoreResult.emaScore} max={35} raw={`EMA stack → +${scoreResult.emaScore}pts`} color="bg-blue-500" />
+              <GaugeBar label="ADX Strength" value={scoreResult.adxScore} max={18} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.adxScore}pts`} color="bg-amber-500" />
+              <GaugeBar label="RSI Bias" value={scoreResult.rsiScore} max={18} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.rsiScore}pts`} color="bg-purple-500" />
+              <GaugeBar label="MACD Momentum" value={scoreResult.macdScore} max={18} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.macdScore}pts`} color="bg-emerald-500" />
+              <GaugeBar label="News Sentiment" value={scoreResult.newsScore ?? 6} max={11} raw={`News → +${scoreResult.newsScore ?? 6}pts`} color="bg-cyan-500" />
             </div>
             <div className="mt-4 pt-3 border-t border-border">
               <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
