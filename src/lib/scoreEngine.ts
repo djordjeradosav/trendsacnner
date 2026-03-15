@@ -167,9 +167,10 @@ export async function scorePair(
   pairId: string,
   candles: Candle[],
   timeframe: string,
-  newsScore?: number | null
+  newsScore?: number | null,
+  socialScore?: number | null
 ): Promise<ScoreResult> {
-  const result = calcTrendScore(candles, newsScore);
+  const result = calcTrendScore(candles, newsScore, socialScore);
 
   const { error } = await supabase.from("scores").upsert(
     {
