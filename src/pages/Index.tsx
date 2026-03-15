@@ -186,7 +186,7 @@ const Index = () => {
         )}
 
         {/* Live Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2 anim-fade-up shrink-0" style={{ animationDelay: "120ms" }}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2 anim-fade-up shrink-0" style={{ animationDelay: "120ms" }}>
           <StatCard
             label="Total Pairs"
             value={stats.total || "—"}
