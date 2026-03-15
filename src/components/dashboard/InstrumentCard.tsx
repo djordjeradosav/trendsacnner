@@ -40,10 +40,10 @@ export function InstrumentCard({
 
   const trendBg =
     trendLabel === "Bullish"
-      ? "#0d2b1a"
+      ? "hsl(var(--bullish) / 0.1)"
       : trendLabel === "Bearish"
-      ? "#2b0d0d"
-      : "#1a2635";
+      ? "hsl(var(--bearish) / 0.1)"
+      : "hsl(var(--accent))";
   const trendColor =
     trendLabel === "Bullish"
       ? "hsl(var(--bullish))"
