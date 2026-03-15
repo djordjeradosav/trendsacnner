@@ -162,6 +162,43 @@ async function fetchForexFactoryNews(): Promise<UnifiedArticle[]> {
     }
     const html = await resp.text();
 
+    // Try multiple patterns for FF news headlines
+    const patterns = [
+      /<a[^>]*class="[^"]*flexposts__title[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
+      /<a[^>]*href="(\/news\/[^"]+)"[^>]*title="([^"]+)"/gi,
+      /<a[^>]*href="(https:\/\/www\.forexfactory\.com\/news\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
+    ];
+
+    const seen = new Set<string>();
+    for (const regex of patterns) {
+      let match;
+      while ((match = regex.exec(html)) !== null) {
+        const rawUrl = match[1];
+        const url = rawUrl.startsWith("http") ? rawUrl : `https://www.forexfactory.com${rawUrl}`;
+        const headline = match[2].replace(/<[^>]+>/g, "").trim();
+        if (!headline || headline.length < 15 || seen.has(headline)) continue;
+        seen.add(headline);
+        articles.push({
+          headline,
+          summary: "",
+          source: "ForexFactory",
+          url,
+          published_at: new Date().toISOString(),
+          sentiment: simpleSentiment(headline),
+          relevant_pairs: matchPairs(headline),
+          image_url: null,
+        });
+      }
+    }
+
+    console.log(`ForexFactory: scraped ${articles.length} articles`);
+  } catch (e) {
+    console.error("ForexFactory scrape failed:", e);
+  }
+  return articles;
+}
+    const html = await resp.text();
+
     // Extract news items from FF HTML structure
     // FF uses <a class="flexposts__title"> or similar patterns
     const titleRegex = /<a[^>]*class="[^"]*flexposts__title[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
