@@ -44,8 +44,8 @@ function LiveDot() {
 function StatCard({ label, value, icon, color, sub }: { label: string; value: string | number; icon: React.ReactNode; color: string; sub?: string }) {
   return (
     <div
-      className="rounded-lg p-3 flex items-center gap-3 transition-colors"
-      style={{ background: "#0d1117", border: "1px solid #1e2d3d" }}
+      className="rounded-lg p-3 flex items-center gap-3 transition-colors bg-card border border-border/50"
+    >
     >
       <div className="p-2 rounded-md" style={{ background: color + "15" }}>
         {icon}
