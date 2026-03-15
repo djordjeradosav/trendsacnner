@@ -5,7 +5,7 @@ import { InstrumentCard } from "./InstrumentCard";
 import { useAllScores, ScoreRow } from "@/hooks/useScores";
 import { supabase } from "@/integrations/supabase/client";
 
-const DESK_SYMBOLS = ["US30", "US100", "XAUUSD", "GBPUSD"];
+const DESK_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US30", "US100", "USOIL", "AUDUSD"];
 
 interface PairInfo {
   id: string;
