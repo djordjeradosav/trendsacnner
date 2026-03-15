@@ -225,8 +225,8 @@ const Index = () => {
           <StatCard
             label="Auto-Scan"
             value={isAutoScanEnabled ? "ON" : "OFF"}
-            icon={<Zap className="w-4 h-4" style={{ color: isAutoScanEnabled ? "#22c55e" : "#5a7080" }} />}
-            color={isAutoScanEnabled ? "#22c55e" : "#5a7080"}
+            icon={<Zap className="w-4 h-4" style={{ color: isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }} />}
+            color={isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))"}
             sub="Every 10 min"
           />
         </div>
