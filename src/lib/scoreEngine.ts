@@ -183,6 +183,7 @@ export async function scorePair(
       rsi_score: result.rsiScore,
       macd_score: result.macdScore,
       news_score: result.newsScore,
+      social_score: result.socialScore,
       ema20: result.ema20,
       ema50: result.ema50,
       ema200: result.ema200,
