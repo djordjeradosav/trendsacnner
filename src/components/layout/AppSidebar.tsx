@@ -95,11 +95,7 @@ export function AppSidebar() {
               <span className="hidden md:inline">{item.label}</span>
               {item.soon && (
                 <span
-                  className="hidden md:inline-flex ml-auto text-[9px] rounded px-[5px] py-[1px]"
-                  style={{
-                    background: "#1a2635",
-                    color: "hsl(200 30% 33%)",
-                  }}
+                  className="hidden md:inline-flex ml-auto text-[9px] rounded px-[5px] py-[1px] bg-secondary text-muted-foreground"
                 >
                   Soon
                 </span>
