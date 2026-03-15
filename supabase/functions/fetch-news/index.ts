@@ -237,7 +237,7 @@ async function fetchInvestopediaNews(): Promise<UnifiedArticle[]> {
     while ((m = re.exec(html)) !== null) {
       const url = m[1];
       if (url.includes("/markets-news-") || url.includes("/news-")) continue;
-      let headline = m[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").replace(/\s+/g, " ").trim();
+      let headline = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").replace(/\s+/g, " ").trim());
       if (!headline || headline.length < 15 || seen.has(url)) continue;
       seen.add(url);
 
