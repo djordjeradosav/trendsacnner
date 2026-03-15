@@ -17,9 +17,9 @@ export function MobileScanFAB({ scanning, scanDone, scanTotal, currentSymbol, on
       <button
         onClick={onRunScan}
         disabled={scanning}
-        className="fixed bottom-20 right-4 z-50 md:hidden w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center disabled:opacity-60 active:scale-95 transition-transform"
+        className="fixed bottom-20 left-4 z-50 md:hidden w-12 h-12 rounded-full bg-accent text-foreground border border-border shadow-lg flex items-center justify-center disabled:opacity-60 active:scale-95 transition-transform"
       >
-        {scanning ? <Loader2 className="w-6 h-6 animate-spin" /> : <Radar className="w-6 h-6" />}
+        {scanning ? <Loader2 className="w-5 h-5 animate-spin" /> : <Radar className="w-5 h-5" />}
       </button>
 
       {/* Bottom sheet scan progress */}

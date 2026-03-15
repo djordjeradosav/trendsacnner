@@ -28,7 +28,7 @@ export function TopHeader({
   autoScanAgo,
 }: TopHeaderProps) {
   return (
-    <header className="h-14 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 md:px-6">
+    <header className="h-14 border-b border-border bg-background md:bg-card/50 md:backdrop-blur-sm flex items-center justify-between px-4 md:px-6">
       {/* Mobile: logo + hamburger. Desktop: scan info */}
       <div className="flex items-center gap-3">
         {/* Mobile logo */}

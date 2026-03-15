@@ -151,7 +151,7 @@ export function ChatAssistant({ scanContext }: ChatAssistantProps) {
 
       {/* Chat drawer */}
       {open && (
-        <div className="fixed right-0 top-0 bottom-0 w-[400px] z-50 bg-card border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+        <div className="fixed right-0 top-0 bottom-0 w-full md:w-[400px] z-[101] bg-card border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
