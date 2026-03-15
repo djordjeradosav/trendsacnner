@@ -111,7 +111,7 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
       </div>
 
       {/* Grid — staggered card entrance */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-2">
         {DESK_SYMBOLS.map((sym, idx) => {
           const pair = pairs.find((p) => p.symbol === sym);
           const score = pair ? scoreMap.get(pair.id) : undefined;
