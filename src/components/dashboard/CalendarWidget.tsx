@@ -82,7 +82,7 @@ export function CalendarWidget() {
                 <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: curColor, width: "28px" }}>
                   {ev.currency || ""}
                 </span>
-                <span className="text-[11px] truncate flex-1" style={{ color: "#c0d0e0" }} title={ev.event_name}>
+                <span className="text-[11px] truncate flex-1 text-foreground/80" title={ev.event_name}>
                   {ev.event_name.length > 26 ? ev.event_name.slice(0, 26) + "…" : ev.event_name}
                 </span>
                 {ev.forecast && (
