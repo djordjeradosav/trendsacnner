@@ -61,7 +61,7 @@ export function CalendarWidget() {
       <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5">
         {loading ? (
           Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-6 rounded animate-pulse" style={{ background: "#131a22" }} />
+            <div key={i} className="h-6 rounded animate-pulse bg-secondary" />
           ))
         ) : highImpact.length === 0 ? (
           <p className="text-[10px]" style={{ color: "#5a7080" }}>No upcoming impact events</p>
