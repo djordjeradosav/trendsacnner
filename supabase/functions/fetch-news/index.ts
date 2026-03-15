@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -7,14 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Pair symbols we track — used for keyword matching
-const TRACKED_SYMBOLS = [
-  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD",
-  "EURGBP", "EURJPY", "GBPJPY", "XAUUSD", "XAGUSD", "US30", "US100",
-  "US500", "USOIL", "UKOIL", "NATGAS",
-];
-
-// Keyword map for matching articles to pairs
 const KEYWORD_MAP: Record<string, string[]> = {
   EURUSD: ["eur/usd", "eurusd", "euro dollar", "euro", "ecb"],
   GBPUSD: ["gbp/usd", "gbpusd", "cable", "pound", "sterling", "boe", "bank of england"],
@@ -40,11 +31,21 @@ function matchPairs(text: string): string[] {
   const lower = text.toLowerCase();
   const matched: string[] = [];
   for (const [sym, keywords] of Object.entries(KEYWORD_MAP)) {
-    if (keywords.some((kw) => lower.includes(kw))) {
-      matched.push(sym);
-    }
+    if (keywords.some((kw) => lower.includes(kw))) matched.push(sym);
   }
   return matched;
+}
+
+function simpleSentiment(text: string): string {
+  const lower = text.toLowerCase();
+  const pos = ["rally", "surge", "gain", "bullish", "rise", "soar", "jump", "climb", "strong", "beat", "upbeat", "optimis", "higher", "record high"];
+  const neg = ["drop", "fall", "crash", "bearish", "decline", "plunge", "slump", "weak", "miss", "pessimis", "fear", "sell-off", "selloff", "lower", "slide", "tumble"];
+  let score = 0;
+  for (const w of pos) if (lower.includes(w)) score++;
+  for (const w of neg) if (lower.includes(w)) score--;
+  if (score > 0) return "positive";
+  if (score < 0) return "negative";
+  return "neutral";
 }
 
 interface UnifiedArticle {
@@ -58,7 +59,193 @@ interface UnifiedArticle {
   image_url: string | null;
 }
 
-serve(async (req) => {
+// ── SOURCE 1: NewsAPI ──
+async function fetchNewsAPI(apiKey: string): Promise<UnifiedArticle[]> {
+  const articles: UnifiedArticle[] = [];
+  try {
+    const url = `https://newsapi.org/v2/everything?q=forex+gold+oil+futures+markets&language=en&sortBy=publishedAt&pageSize=30&apiKey=${apiKey}`;
+    const resp = await fetch(url);
+    if (resp.ok) {
+      const data = await resp.json();
+      for (const a of data.articles ?? []) {
+        const text = `${a.title ?? ""} ${a.description ?? ""}`;
+        articles.push({
+          headline: a.title ?? "Untitled",
+          summary: a.description ?? "",
+          source: a.source?.name ?? "NewsAPI",
+          url: a.url ?? "",
+          published_at: a.publishedAt ?? new Date().toISOString(),
+          sentiment: simpleSentiment(text),
+          relevant_pairs: matchPairs(text),
+          image_url: a.urlToImage ?? null,
+        });
+      }
+    }
+  } catch (e) {
+    console.error("NewsAPI failed:", e);
+  }
+  return articles;
+}
+
+// ── SOURCE 2: Alpha Vantage ──
+async function fetchAlphaVantage(apiKey: string): Promise<UnifiedArticle[]> {
+  const articles: UnifiedArticle[] = [];
+  try {
+    const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&topics=forex,commodities,financial_markets&limit=20&apikey=${apiKey}`;
+    const resp = await fetch(url);
+    if (resp.ok) {
+      const data = await resp.json();
+      for (const item of data.feed ?? []) {
+        const text = `${item.title ?? ""} ${item.summary ?? ""}`;
+        const score = parseFloat(item.overall_sentiment_score ?? "0");
+        let sentiment = "neutral";
+        if (score >= 0.15) sentiment = "positive";
+        else if (score <= -0.15) sentiment = "negative";
+        articles.push({
+          headline: item.title ?? "Untitled",
+          summary: item.summary ?? "",
+          source: item.source ?? "Alpha Vantage",
+          url: item.url ?? "",
+          published_at: item.time_published ? parseAVDate(item.time_published) : new Date().toISOString(),
+          sentiment,
+          relevant_pairs: matchPairs(text),
+          image_url: item.banner_image ?? null,
+        });
+      }
+    }
+  } catch (e) {
+    console.error("Alpha Vantage failed:", e);
+  }
+  return articles;
+}
+
+function parseAVDate(dateStr: string): string {
+  try {
+    return new Date(`${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}T${dateStr.slice(9,11)}:${dateStr.slice(11,13)}:${dateStr.slice(13,15)}Z`).toISOString();
+  } catch { return new Date().toISOString(); }
+}
+
+// ── SOURCE 3: ForexFactory News ──
+async function fetchForexFactoryNews(): Promise<UnifiedArticle[]> {
+  const articles: UnifiedArticle[] = [];
+  try {
+    const resp = await fetch("https://www.forexfactory.com/news", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html",
+      },
+    });
+    if (!resp.ok) { console.error("FF news:", resp.status); return articles; }
+    const html = await resp.text();
+
+    const patterns = [
+      /<a[^>]*class="[^"]*flexposts__title[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
+      /<a[^>]*href="(\/news\/[^"]+)"[^>]*title="([^"]+)"/gi,
+      /<a[^>]*href="(\/news\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
+    ];
+    const seen = new Set<string>();
+    for (const re of patterns) {
+      let m;
+      while ((m = re.exec(html)) !== null) {
+        const url = m[1].startsWith("http") ? m[1] : `https://www.forexfactory.com${m[1]}`;
+        const headline = m[2].replace(/<[^>]+>/g, "").trim();
+        if (!headline || headline.length < 15 || seen.has(headline)) continue;
+        seen.add(headline);
+        articles.push({ headline, summary: "", source: "ForexFactory", url, published_at: new Date().toISOString(), sentiment: simpleSentiment(headline), relevant_pairs: matchPairs(headline), image_url: null });
+      }
+    }
+    console.log(`ForexFactory: ${articles.length} articles`);
+  } catch (e) { console.error("FF scrape failed:", e); }
+  return articles;
+}
+
+// ── SOURCE 4: MyFXBook News ──
+async function fetchMyFXBookNews(): Promise<UnifiedArticle[]> {
+  const articles: UnifiedArticle[] = [];
+  try {
+    const resp = await fetch("https://www.myfxbook.com/news", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html",
+      },
+    });
+    if (!resp.ok) { console.error("MyFXBook:", resp.status); return articles; }
+    const html = await resp.text();
+
+    // Match links like /news/us-dollar-climbs-against-majors/47019
+    const re = /<a[^>]*href="(\/news\/[a-z0-9-]+\/\d+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const seen = new Set<string>();
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const url = `https://www.myfxbook.com${m[1]}`;
+      const headline = m[2].replace(/<[^>]+>/g, "").trim();
+      if (!headline || headline.length < 15 || seen.has(url)) continue;
+      seen.add(url);
+
+      // Extract summary from nearby paragraph
+      const after = html.slice((m.index || 0) + m[0].length, (m.index || 0) + m[0].length + 600);
+      const pMatch = after.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      const summary = pMatch ? pMatch[1].replace(/<[^>]+>/g, "").trim().slice(0, 300) : "";
+
+      // Extract image
+      const before = html.slice(Math.max(0, (m.index || 0) - 400), m.index || 0);
+      const imgMatch = before.match(/src="(https:\/\/static\.mfbcdn\.net\/images\/news\/[^"]+)"/);
+
+      articles.push({
+        headline, summary, source: "MyFXBook", url,
+        published_at: new Date().toISOString(),
+        sentiment: simpleSentiment(headline + " " + summary),
+        relevant_pairs: matchPairs(headline + " " + summary),
+        image_url: imgMatch?.[1] || null,
+      });
+    }
+    console.log(`MyFXBook: ${articles.length} articles`);
+  } catch (e) { console.error("MyFXBook scrape failed:", e); }
+  return articles;
+}
+
+// ── SOURCE 5: Investopedia Markets News ──
+async function fetchInvestopediaNews(): Promise<UnifiedArticle[]> {
+  const articles: UnifiedArticle[] = [];
+  try {
+    const resp = await fetch("https://www.investopedia.com/markets-news-4427704", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html",
+      },
+    });
+    if (!resp.ok) { console.error("Investopedia:", resp.status); return articles; }
+    const html = await resp.text();
+
+    // Match Investopedia article links: https://www.investopedia.com/slug-NNNNN
+    const re = /href="(https:\/\/www\.investopedia\.com\/[a-z0-9-]+-\d{5,})"[^>]*>([\s\S]*?)<\/a>/gi;
+    const seen = new Set<string>();
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const url = m[1];
+      if (url.includes("/markets-news-") || url.includes("/news-")) continue;
+      let headline = m[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").replace(/\s+/g, " ").trim();
+      if (!headline || headline.length < 15 || seen.has(url)) continue;
+      seen.add(url);
+
+      const before = html.slice(Math.max(0, (m.index || 0) - 500), m.index || 0);
+      const imgMatch = before.match(/src="(https:\/\/www\.investopedia\.com\/thmb\/[^"]+)"/);
+
+      articles.push({
+        headline, summary: "", source: "Investopedia", url,
+        published_at: new Date().toISOString(),
+        sentiment: simpleSentiment(headline),
+        relevant_pairs: matchPairs(headline),
+        image_url: imgMatch?.[1] || null,
+      });
+    }
+    console.log(`Investopedia: ${articles.length} articles`);
+  } catch (e) { console.error("Investopedia failed:", e); }
+  return articles;
+}
+
+// ── MAIN HANDLER ──
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -70,115 +257,64 @@ serve(async (req) => {
     const NEWS_API_KEY = Deno.env.get("NEWS_API_KEY");
     const ALPHA_VANTAGE_KEY = Deno.env.get("ALPHA_VANTAGE_KEY");
 
-    const articles: UnifiedArticle[] = [];
+    // Fetch all sources in parallel
+    const results = await Promise.allSettled([
+      NEWS_API_KEY ? fetchNewsAPI(NEWS_API_KEY) : Promise.resolve([]),
+      ALPHA_VANTAGE_KEY ? fetchAlphaVantage(ALPHA_VANTAGE_KEY) : Promise.resolve([]),
+      fetchForexFactoryNews(),
+      fetchMyFXBookNews(),
+      fetchInvestopediaNews(),
+    ]);
 
-    // 1. NewsAPI
-    if (NEWS_API_KEY) {
-      try {
-        const url = `https://newsapi.org/v2/everything?q=forex+gold+oil+futures+markets&language=en&sortBy=publishedAt&pageSize=30&apiKey=${NEWS_API_KEY}`;
-        const resp = await fetch(url);
-        if (resp.ok) {
-          const data = await resp.json();
-          for (const a of data.articles ?? []) {
-            const text = `${a.title ?? ""} ${a.description ?? ""}`;
-            const pairs = matchPairs(text);
-            articles.push({
-              headline: a.title ?? "Untitled",
-              summary: a.description ?? "",
-              source: a.source?.name ?? "NewsAPI",
-              url: a.url ?? "",
-              published_at: a.publishedAt ?? new Date().toISOString(),
-              sentiment: "neutral", // NewsAPI doesn't provide sentiment
-              relevant_pairs: pairs,
-              image_url: a.urlToImage ?? null,
-            });
-          }
-        } else {
-          console.error("NewsAPI error:", resp.status, await resp.text());
+    const allArticles: UnifiedArticle[] = [];
+    const sourceCounts: Record<string, number> = {};
+
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        for (const a of result.value) {
+          allArticles.push(a);
+          sourceCounts[a.source] = (sourceCounts[a.source] || 0) + 1;
         }
-      } catch (e) {
-        console.error("NewsAPI fetch failed:", e);
       }
     }
 
-    // 2. Alpha Vantage News Sentiment
-    if (ALPHA_VANTAGE_KEY) {
-      try {
-        const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&topics=forex,commodities,financial_markets&limit=20&apikey=${ALPHA_VANTAGE_KEY}`;
-        const resp = await fetch(url);
-        if (resp.ok) {
-          const data = await resp.json();
-          for (const item of data.feed ?? []) {
-            const text = `${item.title ?? ""} ${item.summary ?? ""}`;
-            const pairs = matchPairs(text);
+    console.log("Source counts:", JSON.stringify(sourceCounts));
 
-            // Map Alpha Vantage sentiment score
-            const score = parseFloat(item.overall_sentiment_score ?? "0");
-            let sentiment = "neutral";
-            if (score >= 0.15) sentiment = "positive";
-            else if (score <= -0.15) sentiment = "negative";
-
-            // Enrich NewsAPI articles with AV sentiment if they match
-            const existingIdx = articles.findIndex(
-              (a) => a.headline.toLowerCase() === (item.title ?? "").toLowerCase()
-            );
-            if (existingIdx >= 0) {
-              articles[existingIdx].sentiment = sentiment;
-              // Merge pairs
-              const merged = new Set([
-                ...articles[existingIdx].relevant_pairs,
-                ...pairs,
-              ]);
-              articles[existingIdx].relevant_pairs = [...merged];
-            } else {
-              articles.push({
-                headline: item.title ?? "Untitled",
-                summary: item.summary ?? "",
-                source: item.source ?? "Alpha Vantage",
-                url: item.url ?? "",
-                published_at: item.time_published
-                  ? parseAVDate(item.time_published)
-                  : new Date().toISOString(),
-                sentiment,
-                relevant_pairs: pairs,
-                image_url: item.banner_image ?? null,
-              });
-            }
-          }
-        } else {
-          console.error("Alpha Vantage error:", resp.status, await resp.text());
-        }
-      } catch (e) {
-        console.error("Alpha Vantage fetch failed:", e);
-      }
-    }
-
-    if (articles.length === 0) {
+    if (allArticles.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, count: 0, message: "No articles fetched. Check API keys." }),
+        JSON.stringify({ success: true, count: 0, sources: sourceCounts, message: "No articles fetched." }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // 3. Upsert into news_articles (deduplicate by url)
-    // First delete old articles (> 48h) to keep table lean
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    // Deduplicate by headline
+    const seen = new Set<string>();
+    const unique: UnifiedArticle[] = [];
+    for (const a of allArticles) {
+      const key = a.headline.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 60);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(a);
+    }
+
+    // Delete old articles (> 72h)
+    const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
     await supabase.from("news_articles").delete().lt("published_at", cutoff);
 
-    // Insert new articles, skip duplicates by checking URL
+    // Insert new, skip URL duplicates
     let inserted = 0;
-    for (const article of articles) {
+    for (const article of unique) {
+      if (!article.url) continue;
       const { data: existing } = await supabase
         .from("news_articles")
         .select("id")
         .eq("url", article.url)
         .limit(1);
-
       if (existing && existing.length > 0) continue;
 
       const { error } = await supabase.from("news_articles").insert({
         headline: article.headline,
-        summary: article.summary,
+        summary: article.summary || null,
         source: article.source,
         url: article.url,
         published_at: article.published_at,
@@ -187,12 +323,11 @@ serve(async (req) => {
         image_url: article.image_url,
         fetched_at: new Date().toISOString(),
       });
-
       if (!error) inserted++;
     }
 
     return new Response(
-      JSON.stringify({ success: true, total: articles.length, inserted }),
+      JSON.stringify({ success: true, total: unique.length, inserted, sources: sourceCounts }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
@@ -203,18 +338,3 @@ serve(async (req) => {
     );
   }
 });
-
-/** Parse Alpha Vantage date format: 20240115T120000 -> ISO string */
-function parseAVDate(dateStr: string): string {
-  try {
-    const y = dateStr.slice(0, 4);
-    const m = dateStr.slice(4, 6);
-    const d = dateStr.slice(6, 8);
-    const h = dateStr.slice(9, 11);
-    const min = dateStr.slice(11, 13);
-    const s = dateStr.slice(13, 15);
-    return new Date(`${y}-${m}-${d}T${h}:${min}:${s}Z`).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
