@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.scan-reddit]
 verify_jwt = false
+
+[functions.generate-event-prediction]
+verify_jwt = false
+
+[functions.check-prediction-accuracy]
+verify_jwt = false
