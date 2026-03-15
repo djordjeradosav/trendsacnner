@@ -312,6 +312,39 @@ export type Database = {
         }
         Relationships: []
       }
+      event_predictions: {
+        Row: {
+          actual_outcome: string | null
+          created_at: string | null
+          currency: string | null
+          event_name: string
+          id: string
+          prediction: Json
+          scheduled_at: string
+          was_correct: boolean | null
+        }
+        Insert: {
+          actual_outcome?: string | null
+          created_at?: string | null
+          currency?: string | null
+          event_name: string
+          id?: string
+          prediction: Json
+          scheduled_at: string
+          was_correct?: boolean | null
+        }
+        Update: {
+          actual_outcome?: string | null
+          created_at?: string | null
+          currency?: string | null
+          event_name?: string
+          id?: string
+          prediction?: Json
+          scheduled_at?: string
+          was_correct?: boolean | null
+        }
+        Relationships: []
+      }
       market_briefs: {
         Row: {
           brief: Json
