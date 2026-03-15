@@ -182,6 +182,32 @@ async function generatePrediction(sb: any, evt: any, apiKey: string) {
   const dovishCount = (cbTexts.match(/dovish|rate cut|easing|accommodative/g) || []).length;
   const cbLanguage = hawkishCount > dovishCount ? "hawkish" : dovishCount > hawkishCount ? "dovish" : "neutral";
 
+  // 5. Historical reaction data from event_reactions
+  const { data: pastReactions } = await sb
+    .from("event_reactions")
+    .select("pair_symbol, change_60m, beat_miss, pips_move, direction")
+    .eq("beat_miss", "beat")
+    .limit(50);
+
+  const reactionsByPair: Record<string, { beatAvg: number; missAvg: number; count: number }> = {};
+  if (pastReactions) {
+    for (const r of pastReactions) {
+      if (!reactionsByPair[r.pair_symbol]) reactionsByPair[r.pair_symbol] = { beatAvg: 0, missAvg: 0, count: 0 };
+      reactionsByPair[r.pair_symbol].beatAvg += r.change_60m || 0;
+      reactionsByPair[r.pair_symbol].count++;
+    }
+    for (const pair of Object.keys(reactionsByPair)) {
+      if (reactionsByPair[pair].count > 0) {
+        reactionsByPair[pair].beatAvg = reactionsByPair[pair].beatAvg / reactionsByPair[pair].count;
+      }
+    }
+  }
+
+  const reactionContext = Object.entries(reactionsByPair)
+    .slice(0, 5)
+    .map(([pair, data]) => `${pair} moves avg ${data.beatAvg > 0 ? "+" : ""}${data.beatAvg.toFixed(3)}% on beats (${data.count} samples)`)
+    .join("; ");
+
   // Build prompt
   const prompt = `Event: ${evt.event_name} (${currency})
 Scheduled: ${evt.scheduled_at}
