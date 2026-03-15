@@ -109,7 +109,7 @@ const Index = () => {
     }
   }, [scanning, selectedTimeframe, toast]);
 
-  const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo } = useAutoScan(executeScan);
+  const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo, scanInterval, scanIntervalOptions } = useAutoScan(executeScan);
 
   // Auto-refresh dashboard data every 10 minutes
   useEffect(() => {
