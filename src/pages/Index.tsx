@@ -163,16 +163,16 @@ const Index = () => {
         </div>
 
         {/* Greeting + Controls */}
-        <div className="flex items-center justify-between anim-fade-up shrink-0" style={{ animationDelay: "80ms" }}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 anim-fade-up shrink-0" style={{ animationDelay: "80ms" }}>
           <DashboardGreeting />
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-card border border-border/50">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-card border border-border/50">
               <LiveDot />
               <span className="text-[10px] font-mono" style={{ color: sentimentColor }}>
                 {marketSentiment}
               </span>
-              <span className="text-[10px] font-mono" style={{ color: "#5a7080" }}>
-                Score: {stats.avg || "—"}
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {stats.avg || "—"}
               </span>
             </div>
             <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scanning} />
