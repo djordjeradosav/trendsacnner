@@ -61,6 +61,25 @@ serve(async (req) => {
       const predicted = pred.prediction?.prediction || "inline";
       const wasCorrect = predicted === actualOutcome;
 
+      // Check if reaction data confirms direction prediction
+      let reactionMatch: boolean | null = null;
+      const { data: reactionData } = await sb
+        .from("event_reactions")
+        .select("pair_symbol, change_60m, direction, pips_move")
+        .eq("event_id", pred.id)
+        .limit(10);
+
+      if (reactionData && reactionData.length > 0) {
+        const primaryReaction = reactionData[0];
+        const predictedDir = pred.prediction?.primaryScenario?.direction;
+        if (predictedDir && primaryReaction.direction) {
+          const dirMatches =
+            (predictedDir === "bullish" && primaryReaction.direction === "up") ||
+            (predictedDir === "bearish" && primaryReaction.direction === "down");
+          reactionMatch = dirMatches;
+        }
+      }
+
       await sb
         .from("event_predictions")
         .update({ was_correct: wasCorrect, actual_outcome: actualOutcome })
@@ -71,6 +90,8 @@ serve(async (req) => {
         predicted,
         actual: actualOutcome,
         correct: wasCorrect,
+        reactionMatch,
+        reactions: reactionData?.length || 0,
       });
     }
 
