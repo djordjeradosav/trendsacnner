@@ -19,38 +19,18 @@ export function DashboardGreeting() {
     || "Trader";
 
   return (
-    <div className="flex items-start justify-between">
-      <div className="space-y-1">
-        <h1
-          className="font-medium text-foreground"
-          style={{ fontSize: "26px" }}
-        >
-          {greeting},{" "}
-          <span className="capitalize">{displayName}</span>.
-        </h1>
-        <p className="text-[13px]" style={{ color: "hsl(var(--muted-foreground))" }}>
-          <span style={{ color: "hsl(var(--bullish))" }}>↻</span>
-          {"  "}Trading assistant that never sleeps
-        </p>
-      </div>
-
-      <button
-        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors"
-        style={{
-          border: "0.5px solid hsl(var(--border))",
-          color: "hsl(var(--muted-foreground))",
-          background: "transparent",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "hsl(var(--secondary))";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "transparent";
-        }}
-      >
-        <Settings2 className="w-3.5 h-3.5" />
-        Personalize
-      </button>
+    <div className="space-y-0.5">
+      <h1 className="font-medium text-[22px]" style={{ color: "#e0ecf4" }}>
+        {greeting},{" "}
+        <span className="capitalize" style={{ color: "hsl(var(--primary))" }}>{displayName}</span>
+      </h1>
+      <p className="text-[12px] flex items-center gap-1.5" style={{ color: "#5a7080" }}>
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "hsl(var(--primary))" }} />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "hsl(var(--primary))" }} />
+        </span>
+        Live market monitoring active · Auto-scan every 10 min
+      </p>
     </div>
   );
 }
