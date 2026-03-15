@@ -47,8 +47,7 @@ export function AppSidebar() {
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 h-14">
         <div className="w-8 h-8 bg-secondary flex items-center justify-center text-primary rounded-3xl">
-          <span className="text-primary font-display font-bold text-sm">
-</span>
+          <span className="text-primary font-display font-bold text-sm">T</span>
         </div>
         <span className="text-sm font-semibold text-foreground tracking-tight">
           TrendScannerAI
