@@ -17,6 +17,7 @@ export function InstrumentCard({
   confidence,
   aiAnalysis,
   loading,
+  newsScore,
 }: InstrumentCardProps) {
   const changeColor =
     percentChange === null
