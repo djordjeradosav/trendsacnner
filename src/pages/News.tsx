@@ -260,7 +260,7 @@ function NewsCard({ article, navigate }: { article: NewsArticle; navigate: (path
             lineHeight: "1.5",
           }}
         >
-          {article.summary}
+          {decodeEntities(article.summary)}
         </p>
       )}
 
