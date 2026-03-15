@@ -47,7 +47,7 @@ export function MobileMenuButton() {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="md:hidden p-2 text-muted-foreground">
+      <button onClick={() => { hapticTap(); setOpen(true); }} className="md:hidden p-2 text-muted-foreground">
         <Menu className="w-5 h-5" />
       </button>
 
