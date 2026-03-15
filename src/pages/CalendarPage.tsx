@@ -1,203 +1,116 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useEconomicCalendar, getFlag, getAffectedPairs } from "@/hooks/useEconomicCalendar";
-import { Calendar, Clock } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import {
+  useCalendarWeek,
+  getFlag,
+  getAffectedPairs,
+  CURRENCY_COLORS,
+  type EconomicEvent,
+} from "@/hooks/useEconomicCalendar";
+import { CalendarFilters } from "@/components/calendar/CalendarFilters";
+import { CalendarTable } from "@/components/calendar/CalendarTable";
+import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
-const FILTER_OPTIONS = ["All", "High Impact", "USD", "EUR", "GBP", "JPY"] as const;
-
-function CountdownTimer({ event }: { event: { event_name: string; scheduled_at: string } | null }) {
-  const [now, setNow] = useState(Date.now());
-
-  // Refresh every second
-  useState(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  });
-
-  if (!event) return null;
-
-  const diff = new Date(event.scheduled_at).getTime() - now;
-  if (diff <= 0) return null;
-
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  const mins = Math.floor((diff % 3600000) / 60000);
-  const isUrgent = diff < 30 * 60 * 1000;
-
-  return (
-    <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border bg-card"
-      style={isUrgent ? { borderColor: "hsl(var(--caution))", animation: "pulse 1.5s infinite" } : {}}
-    >
-      <Clock className="w-3.5 h-3.5" style={{ color: isUrgent ? "hsl(var(--caution))" : "hsl(var(--info))" }} />
-      <span className="text-xs font-mono" style={{ color: isUrgent ? "hsl(var(--caution))" : "hsl(var(--foreground))" }}>
-        Next: {event.event_name.slice(0, 20)} in {days > 0 ? `${days}d ` : ""}{hours}h {mins}m
-      </span>
-    </div>
-  );
-}
+const formatWeekRange = (start: Date, end: Date) => {
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  return `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}`;
+};
 
 export default function CalendarPage() {
-  const { events, loading, nextHighImpact } = useEconomicCalendar(200);
-  const [filter, setFilter] = useState<string>("All");
-  const navigate = useNavigate();
+  const {
+    events, loading, weekStart, weekEnd,
+    goNextWeek, goPrevWeek, goThisWeek, weekOffset,
+  } = useCalendarWeek();
+
+  const [impactFilter, setImpactFilter] = useState<string>("All");
+  const [currencyFilters, setCurrencyFilters] = useState<string[]>([]);
+
+  const toggleCurrency = useCallback((cur: string) => {
+    setCurrencyFilters((prev) =>
+      prev.includes(cur) ? prev.filter((c) => c !== cur) : [...prev, cur]
+    );
+  }, []);
 
   const filtered = useMemo(() => {
-    if (filter === "All") return events;
-    if (filter === "High Impact") return events.filter((e) => e.impact === "high");
-    return events.filter((e) => (e.currency || "").toUpperCase() === filter);
-  }, [events, filter]);
-
-  // Group by day
-  const grouped = useMemo(() => {
-    const map: Record<string, typeof filtered> = {};
-    filtered.forEach((ev) => {
-      const day = new Date(ev.scheduled_at).toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "short",
-        day: "numeric",
-      });
-      if (!map[day]) map[day] = [];
-      map[day].push(ev);
-    });
-    return Object.entries(map);
-  }, [filtered]);
+    let result = events;
+    if (impactFilter === "High Impact Only") {
+      result = result.filter((e) => e.impact === "high");
+    }
+    if (currencyFilters.length > 0) {
+      result = result.filter((e) =>
+        currencyFilters.includes((e.currency || "").toUpperCase())
+      );
+    }
+    return result;
+  }, [events, impactFilter, currencyFilters]);
 
   return (
     <AppLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-info" />
-          <h1 className="text-lg font-semibold text-foreground">Economic Calendar</h1>
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-primary" />
+            <h1 className="text-lg font-semibold text-foreground">Economic Calendar</h1>
+          </div>
+
+          {/* Week navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goPrevWeek}
+              className="p-1.5 rounded hover:bg-secondary transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4 text-muted-foreground" />
+            </button>
+            <span className="text-xs font-mono text-foreground min-w-[160px] text-center">
+              {formatWeekRange(weekStart, weekEnd)}
+            </span>
+            <button
+              onClick={goNextWeek}
+              className="p-1.5 rounded hover:bg-secondary transition-colors"
+            >
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+            {weekOffset !== 0 && (
+              <button
+                onClick={goThisWeek}
+                className="text-[10px] font-mono px-2 py-1 rounded border border-border bg-secondary text-primary hover:bg-accent transition-colors ml-1"
+              >
+                Today
+              </button>
+            )}
+          </div>
         </div>
-        <CountdownTimer event={nextHighImpact} />
-      </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {FILTER_OPTIONS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className="px-3 py-1 rounded-md text-xs font-mono transition-colors border"
-            style={{
-              background: filter === f ? "hsl(var(--secondary))" : "transparent",
-              borderColor: filter === f ? "hsl(var(--border))" : "transparent",
-              color: filter === f ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
-            }}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+        {/* Filters */}
+        <CalendarFilters
+          impactFilter={impactFilter}
+          setImpactFilter={setImpactFilter}
+          currencyFilters={currencyFilters}
+          toggleCurrency={toggleCurrency}
+        />
 
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-24 rounded-lg bg-secondary animate-pulse" />
-          ))}
-        </div>
-      ) : grouped.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No upcoming events found.</p>
-      ) : (
-        <div className="space-y-6">
-          {grouped.map(([day, dayEvents]) => (
-            <div key={day}>
-              <h2 className="text-xs font-mono font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-                {day}
-              </h2>
-              <div className="space-y-1">
-                {dayEvents.map((ev) => {
-                  const isHigh = ev.impact === "high";
-                  const isMed = ev.impact === "medium";
-                  const time = new Date(ev.scheduled_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  });
-                  const pairs = getAffectedPairs(ev);
-
-                  return (
-                    <div
-                      key={ev.id}
-                      className="flex items-start gap-3 py-2.5 px-3 rounded-lg border border-border bg-card"
-                      style={{
-                        borderLeftWidth: "3px",
-                        borderLeftColor: isHigh
-                          ? "hsl(var(--destructive))"
-                          : isMed
-                          ? "hsl(var(--caution))"
-                          : "hsl(var(--border))",
-                      }}
-                    >
-                      {/* Impact dot */}
-                      <span
-                        className="w-2 h-2 rounded-full mt-1.5 shrink-0"
-                        style={{
-                          background: isHigh
-                            ? "hsl(var(--destructive))"
-                            : isMed
-                            ? "hsl(var(--caution))"
-                            : "hsl(var(--muted-foreground))",
-                        }}
-                      />
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[11px] font-mono text-muted-foreground">{time}</span>
-                          <span className="text-[11px]">
-                            {getFlag(ev.currency)}{" "}
-                            <span className="font-mono text-muted-foreground">{ev.currency || ""}</span>
-                          </span>
-                        </div>
-
-                        <p className="text-sm font-medium text-foreground leading-snug">{ev.event_name}</p>
-
-                        <div className="flex items-center gap-3 mt-1.5">
-                          {ev.forecast && (
-                            <span className="text-[10px] font-mono text-muted-foreground">
-                              Forecast: {ev.forecast}
-                            </span>
-                          )}
-                          {ev.previous && (
-                            <span className="text-[10px] font-mono text-muted-foreground">
-                              Previous: {ev.previous}
-                            </span>
-                          )}
-                          {ev.actual && (
-                            <span className="text-[10px] font-mono text-bullish">
-                              Actual: {ev.actual}
-                            </span>
-                          )}
-                        </div>
-
-                        {pairs.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {pairs.map((p) => (
-                              <button
-                                key={p}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/pair/${p}`);
-                                }}
-                                className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border bg-secondary text-info hover:bg-accent transition-colors"
-                              >
-                                {p}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        {/* Table */}
+        <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-border">
+          {loading ? (
+            <div className="space-y-0">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-11 border-b border-border animate-pulse"
+                  style={{ background: i % 2 === 0 ? "hsl(var(--card))" : "hsl(var(--secondary))" }}
+                />
+              ))}
             </div>
-          ))}
+          ) : filtered.length === 0 ? (
+            <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
+              No events found for this week.
+            </div>
+          ) : (
+            <CalendarTable events={filtered} />
+          )}
         </div>
-      )}
+      </div>
     </AppLayout>
   );
 }
