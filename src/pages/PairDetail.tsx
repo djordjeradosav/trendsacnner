@@ -72,7 +72,7 @@ export default function PairDetail() {
   const [pair, setPair] = useState<PairInfo | null>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [timeframe, setTimeframe] = useState("1h");
-  const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  const [scoreResult, setScoreResult] = useState<EnhancedScoreResult | null>(null);
   const [scoreHistory, setScoreHistory] = useState<{ time: Time; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [overlays, setOverlays] = useState({ ema20: true, ema50: true, ema200: false, bb: false });
