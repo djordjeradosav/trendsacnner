@@ -20,7 +20,7 @@ import {
   calcBollingerBands,
   getLatestValue,
 } from "@/lib/indicators";
-import { calcTrendScore, type ScoreResult } from "@/lib/scoreEngine";
+import { calcTrendScore, type EnhancedScoreResult } from "@/lib/scoreEngine";
 import {
   createChart,
   type IChartApi,
