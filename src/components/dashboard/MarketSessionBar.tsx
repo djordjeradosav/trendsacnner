@@ -7,10 +7,21 @@ interface SessionInfo {
   countdown: string;
 }
 
+function isForexWeekend(now: Date): boolean {
+  // Forex market closes Friday 22:00 UTC and reopens Sunday 22:00 UTC
+  const day = now.getUTCDay(); // 0=Sun, 6=Sat
+  const utcH = now.getUTCHours();
+  if (day === 6) return true; // All Saturday
+  if (day === 0 && utcH < 22) return true; // Sunday before 22:00 UTC
+  if (day === 5 && utcH >= 22) return true; // Friday after 22:00 UTC
+  return false;
+}
+
 function getSessionInfo(now: Date): SessionInfo[] {
   const utcH = now.getUTCHours();
   const utcM = now.getUTCMinutes();
   const t = utcH * 60 + utcM;
+  const weekend = isForexWeekend(now);
 
   const fmt = (mins: number) => {
     const h = Math.floor(mins / 60);
@@ -24,6 +35,11 @@ function getSessionInfo(now: Date): SessionInfo[] {
     closeMin: number,
     preStart?: number
   ): SessionInfo => {
+    // Force closed on weekends
+    if (weekend) {
+      return { name, status: "closed", label: "CLOSED", countdown: "weekend" };
+    }
+
     const wraps = closeMin < openMin;
 
     let isOpen: boolean;
