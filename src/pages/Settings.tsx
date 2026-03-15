@@ -323,10 +323,23 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-sm text-foreground font-display">Dark mode</span>
-                <p className="text-xs text-muted-foreground">Always on — light mode coming soon</p>
+                <span className="text-sm text-foreground font-display">Theme</span>
+                <p className="text-xs text-muted-foreground">Switch between dark and light mode</p>
               </div>
-              <Switch checked disabled />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`p-2 rounded-lg border transition-colors ${theme === "light" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Sun className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`p-2 rounded-lg border transition-colors ${theme === "dark" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Moon className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <ToggleRow
               label="Compact view"
