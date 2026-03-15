@@ -48,9 +48,9 @@ function StatCard({ label, value, icon, color, sub }: { label: string; value: st
         {icon}
       </div>
       <div>
-        <div className="text-[10px] font-mono uppercase tracking-wider" style={{ color: "#5a7080" }}>{label}</div>
+        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</div>
         <div className="text-[18px] font-bold tabular-nums" style={{ color }}>{value}</div>
-        {sub && <div className="text-[9px] font-mono" style={{ color: "#5a7080" }}>{sub}</div>}
+        {sub && <div className="text-[9px] font-mono text-muted-foreground">{sub}</div>}
       </div>
     </div>
   );

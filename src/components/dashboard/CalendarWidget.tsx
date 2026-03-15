@@ -97,7 +97,7 @@ export function CalendarWidget() {
       </div>
 
       <div className="mt-1 text-center shrink-0">
-        <span className="text-[9px] font-mono" style={{ color: "#5a7080" }}>View full calendar →</span>
+        <span className="text-[9px] font-mono text-muted-foreground">View full calendar →</span>
       </div>
     </div>
   );
