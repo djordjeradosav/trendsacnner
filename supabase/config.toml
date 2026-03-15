@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.fetch-calendar]
 verify_jwt = false
+
+[functions.fetch-ff-calendar]
+verify_jwt = false
