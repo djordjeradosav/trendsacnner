@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { LayoutDashboard, Radar, Bell, Star, Calendar } from "lucide-react";
+import { hapticTap } from "@/lib/haptics";
 
 const tabs = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
