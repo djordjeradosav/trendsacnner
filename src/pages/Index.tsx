@@ -232,7 +232,7 @@ const Index = () => {
         </div>
 
         {/* Heatmap */}
-        <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", height: "200px" }}>
+        <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", minHeight: "160px" }}>
           <HeatmapWidget timeframe={selectedTimeframe} />
         </div>
 
