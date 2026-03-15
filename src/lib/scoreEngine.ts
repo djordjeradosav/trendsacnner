@@ -122,11 +122,21 @@ export function calcTrendScore(candles: Candle[], newsScore?: number | null, soc
       ? scoreMACD(macdHist, macdHistPrev)
       : 9;
 
-  // News score: 0-11, default 6 (neutral) if not provided
+  // Sentiment score: blend news (0-11) and social (0-11)
+  // If both available: news * 0.5 + social * 0.5, scaled to 0-11
+  // If only one: use it directly
   const effectiveNewsScore = newsScore != null ? newsScore : 6;
+  const effectiveSocialScore = socialScore != null ? socialScore : null;
+  
+  let sentimentScore: number;
+  if (effectiveSocialScore != null) {
+    sentimentScore = Math.round(effectiveNewsScore * 0.5 + effectiveSocialScore * 0.5);
+  } else {
+    sentimentScore = effectiveNewsScore;
+  }
 
   const score = Math.round(
-    Math.max(0, Math.min(100, emaScore + adxScore + rsiScore + macdScore + effectiveNewsScore))
+    Math.max(0, Math.min(100, emaScore + adxScore + rsiScore + macdScore + sentimentScore))
   );
 
   const trend: "bullish" | "neutral" | "bearish" =
@@ -140,6 +150,7 @@ export function calcTrendScore(candles: Candle[], newsScore?: number | null, soc
     rsiScore,
     macdScore,
     newsScore: newsScore ?? null,
+    socialScore: socialScore ?? null,
     ema20: isNaN(ema20) ? 0 : ema20,
     ema50: isNaN(ema50) ? 0 : ema50,
     ema200: isNaN(ema200) ? 0 : ema200,
