@@ -82,7 +82,7 @@ export function AppSidebar() {
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                  e.currentTarget.style.background = "hsl(var(--accent))";
                 }
               }}
               onMouseLeave={(e) => {
