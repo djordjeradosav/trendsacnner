@@ -158,6 +158,13 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
                 aiAnalysis={analysis?.summary ?? null}
                 loading={isLoading}
                 newsScore={score?.news_score ?? null}
+                dataQuality={
+                  score?.news_score != null && score?.social_score != null ? "full"
+                  : score?.social_score == null && score?.news_score != null ? "no-social"
+                  : score?.news_score == null && score?.social_score != null ? "no-news"
+                  : "technical-only"
+                }
+                scannedAt={score?.scanned_at ?? null}
               />
             </div>
           );
