@@ -151,7 +151,7 @@ const Index = () => {
     >
       <BreakingNewsBanner />
 
-      <div className="flex flex-col gap-3" style={{ minHeight: "calc(100vh - 72px)" }}>
+      <div className="flex flex-col gap-3">
         {/* Live Price Ticker */}
         <div className="anim-fade-down shrink-0">
           <PriceTicker />
