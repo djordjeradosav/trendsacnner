@@ -47,7 +47,7 @@ export function CalendarWidget() {
       <div className="flex items-center justify-between mb-2 shrink-0">
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4" style={{ color: "hsl(var(--primary))" }} />
-          <span className="text-[12px] font-semibold" style={{ color: "#e0ecf4" }}>Economic Calendar</span>
+          <span className="text-[12px] font-semibold text-card-foreground">Economic Calendar</span>
         </div>
         {next && (
           <div className="flex items-center gap-1.5">
