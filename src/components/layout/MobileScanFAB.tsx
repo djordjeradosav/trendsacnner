@@ -1,5 +1,6 @@
 import { Radar, Loader2, X } from "lucide-react";
 import { ScanProgress } from "@/components/scanner/ScanProgress";
+import { hapticHeavy } from "@/lib/haptics";
 
 interface MobileScanFABProps {
   scanning: boolean;
