@@ -40,11 +40,8 @@ export function CalendarWidget() {
 
   return (
     <div
-      className="rounded-lg p-3 h-full flex flex-col cursor-pointer transition-colors"
-      style={{ background: "#0d1117", border: "1px solid #1e2d3d" }}
+      className="rounded-lg p-3 h-full flex flex-col cursor-pointer transition-colors bg-card border border-border hover:border-accent-foreground/20"
       onClick={() => navigate("/calendar")}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#2a3f55"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#1e2d3d"; }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-2 shrink-0">
