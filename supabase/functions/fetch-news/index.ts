@@ -161,7 +161,7 @@ async function fetchForexFactoryNews(): Promise<UnifiedArticle[]> {
       let m;
       while ((m = re.exec(html)) !== null) {
         const url = m[1].startsWith("http") ? m[1] : `https://www.forexfactory.com${m[1]}`;
-        const headline = m[2].replace(/<[^>]+>/g, "").trim();
+        const headline = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, "").trim());
         if (!headline || headline.length < 15 || seen.has(headline)) continue;
         seen.add(headline);
         articles.push({ headline, summary: "", source: "ForexFactory", url, published_at: new Date().toISOString(), sentiment: simpleSentiment(headline), relevant_pairs: matchPairs(headline), image_url: null });
