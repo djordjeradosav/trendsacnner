@@ -71,6 +71,7 @@ export type Database = {
           created_at: string
           description: string | null
           direction: string
+          event_metadata: Json | null
           id: string
           is_active: boolean
           last_triggered_at: string | null
@@ -85,6 +86,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           direction: string
+          event_metadata?: Json | null
           id?: string
           is_active?: boolean
           last_triggered_at?: string | null
@@ -99,6 +101,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           direction?: string
+          event_metadata?: Json | null
           id?: string
           is_active?: boolean
           last_triggered_at?: string | null
@@ -246,6 +249,60 @@ export type Database = {
           error_message?: string
           id?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      event_analyses: {
+        Row: {
+          analysis: Json
+          created_at: string | null
+          currency: string | null
+          event_name: string
+          id: string
+        }
+        Insert: {
+          analysis: Json
+          created_at?: string | null
+          currency?: string | null
+          event_name: string
+          id?: string
+        }
+        Update: {
+          analysis?: Json
+          created_at?: string | null
+          currency?: string | null
+          event_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      event_notes: {
+        Row: {
+          content: string | null
+          currency: string | null
+          event_name: string
+          id: string
+          scheduled_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          currency?: string | null
+          event_name: string
+          id?: string
+          scheduled_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          currency?: string | null
+          event_name?: string
+          id?: string
+          scheduled_at?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -462,6 +519,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_favourites: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          event_name: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          event_name: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          event_name?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_settings: {
         Row: {
