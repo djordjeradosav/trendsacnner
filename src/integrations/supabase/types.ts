@@ -345,6 +345,68 @@ export type Database = {
         }
         Relationships: []
       }
+      event_reactions: {
+        Row: {
+          actual_value: string | null
+          beat_miss: string | null
+          change_15m: number | null
+          change_30m: number | null
+          change_60m: number | null
+          created_at: string | null
+          direction: string | null
+          event_id: string | null
+          forecast_value: string | null
+          id: string
+          max_move_60m: number | null
+          pair_symbol: string
+          pips_move: number | null
+          price_at_release: number | null
+          surprise: number | null
+        }
+        Insert: {
+          actual_value?: string | null
+          beat_miss?: string | null
+          change_15m?: number | null
+          change_30m?: number | null
+          change_60m?: number | null
+          created_at?: string | null
+          direction?: string | null
+          event_id?: string | null
+          forecast_value?: string | null
+          id?: string
+          max_move_60m?: number | null
+          pair_symbol: string
+          pips_move?: number | null
+          price_at_release?: number | null
+          surprise?: number | null
+        }
+        Update: {
+          actual_value?: string | null
+          beat_miss?: string | null
+          change_15m?: number | null
+          change_30m?: number | null
+          change_60m?: number | null
+          created_at?: string | null
+          direction?: string | null
+          event_id?: string | null
+          forecast_value?: string | null
+          id?: string
+          max_move_60m?: number | null
+          pair_symbol?: string
+          pips_move?: number | null
+          price_at_release?: number | null
+          surprise?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_reactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "economic_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       market_briefs: {
         Row: {
           brief: Json

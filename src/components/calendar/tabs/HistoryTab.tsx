@@ -18,6 +18,23 @@ interface ParsedRelease {
   vsPreview: number | null;
 }
 
+interface EventReaction {
+  id: string;
+  event_id: string;
+  pair_symbol: string;
+  actual_value: string | null;
+  forecast_value: string | null;
+  surprise: number | null;
+  beat_miss: string | null;
+  price_at_release: number | null;
+  change_15m: number | null;
+  change_30m: number | null;
+  change_60m: number | null;
+  max_move_60m: number | null;
+  direction: string | null;
+  pips_move: number | null;
+}
+
 const CURRENCY_PRIMARY_PAIR: Record<string, string> = {
   USD: "EURUSD", EUR: "EURUSD", GBP: "GBPUSD", JPY: "USDJPY",
   AUD: "AUDUSD", CAD: "USDCAD", CHF: "USDCHF", NZD: "NZDUSD", CNY: "USDCNH",
@@ -60,18 +77,81 @@ function computeTrend(releases: ParsedRelease[]): { icon: "up" | "down" | "flat"
   return { icon: "flat", text: `Stable — readings within ±${threshold.toFixed(1)} range` };
 }
 
-function MiniSparkline({ values, color }: { values: number[]; color: string }) {
-  if (values.length < 2) return <span className="text-[9px] text-muted-foreground">—</span>;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const h = 20;
-  const w = 48;
-  const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
+function ReactionSparkline({ changes, direction }: { changes: number[]; direction: string }) {
+  if (changes.length < 2) return <span className="text-[9px] text-muted-foreground">—</span>;
+  const vals = [0, ...changes]; // Start from 0 (release point)
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min || 0.01;
+  const h = 32;
+  const w = 60;
+  const points = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${h - ((v - min) / range) * h}`).join(" ");
+  const color = direction === "up" ? "hsl(var(--bullish))" : "hsl(var(--destructive))";
   return (
     <svg width={w} height={h} className="inline-block">
       <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" />
+      {/* Release point marker */}
+      <circle cx="0" cy={h - ((0 - min) / range) * h} r="2" fill={color} />
     </svg>
+  );
+}
+
+function ReactionExpansion({ reactions, eventName, date, actual }: {
+  reactions: EventReaction[];
+  eventName: string;
+  date: string;
+  actual: string | null;
+}) {
+  if (reactions.length === 0) {
+    return (
+      <div className="text-[10px] text-muted-foreground py-2">
+        No market reaction data recorded for this release.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2" style={{ background: "hsl(var(--card))" }}>
+      <div className="text-[10px] uppercase font-mono text-muted-foreground tracking-wider">
+        Market Reaction — {eventName} | {date} | Actual: {actual || "N/A"}
+      </div>
+      <div className="border border-border rounded overflow-hidden">
+        <div className="grid text-[8px] uppercase text-muted-foreground font-mono border-b border-border"
+          style={{ gridTemplateColumns: "72px 72px 56px 56px 56px 64px", background: "hsl(var(--secondary))" }}>
+          <div className="px-2 py-1.5">Pair</div>
+          <div className="px-2 py-1.5">Direction</div>
+          <div className="px-2 py-1.5">15m</div>
+          <div className="px-2 py-1.5">30m</div>
+          <div className="px-2 py-1.5">60m</div>
+          <div className="px-2 py-1.5">Max Move</div>
+        </div>
+        {reactions.map((r) => {
+          const isBull = r.direction === "up";
+          const dirColor = isBull ? "hsl(var(--bullish))" : "hsl(var(--destructive))";
+          const fmtPct = (v: number | null) => {
+            if (v == null) return "—";
+            return `${v > 0 ? "+" : ""}${v.toFixed(3)}%`;
+          };
+          const pctColor = (v: number | null) => {
+            if (v == null) return "hsl(var(--muted-foreground))";
+            return v > 0 ? "hsl(var(--bullish))" : v < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))";
+          };
+          return (
+            <div key={r.id} className="grid text-[10px] font-mono border-b border-border/50 last:border-b-0"
+              style={{ gridTemplateColumns: "72px 72px 56px 56px 56px 64px" }}>
+              <div className="px-2 py-1.5 text-foreground font-medium">{r.pair_symbol}</div>
+              <div className="px-2 py-1.5 flex items-center gap-1" style={{ color: dirColor }}>
+                {isBull ? "↑" : "↓"} {isBull ? "Bullish" : "Bearish"}
+              </div>
+              <div className="px-2 py-1.5" style={{ color: pctColor(r.change_15m) }}>{fmtPct(r.change_15m)}</div>
+              <div className="px-2 py-1.5" style={{ color: pctColor(r.change_30m) }}>{fmtPct(r.change_30m)}</div>
+              <div className="px-2 py-1.5" style={{ color: pctColor(r.change_60m) }}>{fmtPct(r.change_60m)}</div>
+              <div className="px-2 py-1.5" style={{ color: pctColor(r.max_move_60m) }}>{fmtPct(r.max_move_60m)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -83,6 +163,8 @@ export function HistoryTab({ event }: Props) {
   const [range, setRange] = useState<"6m" | "1y" | "2y" | "all">("1y");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedNews, setExpandedNews] = useState<Record<string, any[]>>({});
+  const [reactions, setReactions] = useState<Record<string, EventReaction[]>>({});
+  const [avgReactions, setAvgReactions] = useState<{ beat: Record<string, number>; miss: Record<string, number> } | null>(null);
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -101,11 +183,59 @@ export function HistoryTab({ event }: Props) {
     return rows;
   }, [event.event_name, event.currency]);
 
+  // Fetch all reactions for these events
+  const fetchReactions = useCallback(async (eventIds: string[]) => {
+    if (eventIds.length === 0) return;
+    const { data } = await supabase
+      .from("event_reactions")
+      .select("*")
+      .in("event_id", eventIds);
+
+    if (data) {
+      const grouped: Record<string, EventReaction[]> = {};
+      const beatMoves: Record<string, number[]> = {};
+      const missMoves: Record<string, number[]> = {};
+
+      for (const r of data as EventReaction[]) {
+        if (!grouped[r.event_id]) grouped[r.event_id] = [];
+        grouped[r.event_id].push(r);
+
+        // Accumulate for averages
+        if (r.change_60m != null && r.beat_miss) {
+          const bucket = r.beat_miss === "beat" ? beatMoves : r.beat_miss === "miss" ? missMoves : null;
+          if (bucket) {
+            if (!bucket[r.pair_symbol]) bucket[r.pair_symbol] = [];
+            bucket[r.pair_symbol].push(r.change_60m);
+          }
+        }
+      }
+
+      setReactions(grouped);
+
+      // Compute averages
+      const beatAvg: Record<string, number> = {};
+      const missAvg: Record<string, number> = {};
+      for (const [pair, moves] of Object.entries(beatMoves)) {
+        beatAvg[pair] = moves.reduce((a, b) => a + b, 0) / moves.length;
+      }
+      for (const [pair, moves] of Object.entries(missMoves)) {
+        missAvg[pair] = moves.reduce((a, b) => a + b, 0) / moves.length;
+      }
+      if (Object.keys(beatAvg).length > 0 || Object.keys(missAvg).length > 0) {
+        setAvgReactions({ beat: beatAvg, miss: missAvg });
+      }
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
       const rows = await fetchHistory();
       if (cancelled) return;
+      // Fetch reactions for all history events
+      const ids = rows.map((r) => r.id);
+      fetchReactions(ids);
+
       if (rows.length < 6) {
         setBackfilling(true);
         try {
@@ -117,7 +247,10 @@ export function HistoryTab({ event }: Props) {
               previous: event.previous,
             },
           });
-          if (!cancelled) await fetchHistory();
+          if (!cancelled) {
+            const newRows = await fetchHistory();
+            fetchReactions(newRows.map((r) => r.id));
+          }
         } catch (e) {
           console.error("Backfill failed:", e);
         } finally {
@@ -127,7 +260,7 @@ export function HistoryTab({ event }: Props) {
     };
     init();
     return () => { cancelled = true; };
-  }, [event.event_name, event.currency, fetchHistory]);
+  }, [event.event_name, event.currency, fetchHistory, fetchReactions]);
 
   const filtered = useMemo(() => {
     if (range === "all") return history;
@@ -219,8 +352,10 @@ export function HistoryTab({ event }: Props) {
   }, [expandedId, expandedNews, loadExpandedNews]);
 
   const exportCSV = () => {
-    const rows = [["Date", "Actual", "Forecast", "Previous", "Surprise", "Beat/Miss"]];
+    const rows = [["Date", "Actual", "Forecast", "Previous", "Surprise", "Beat/Miss", "Pips Move", "Direction"]];
     parsed.forEach((r) => {
+      const evtReactions = reactions[r.event.id] || [];
+      const primary = evtReactions[0];
       rows.push([
         new Date(r.event.scheduled_at).toLocaleDateString(),
         r.event.actual || "",
@@ -228,6 +363,8 @@ export function HistoryTab({ event }: Props) {
         r.event.previous || "",
         r.surprise !== null ? r.surprise.toFixed(3) : "",
         r.beatMiss || "",
+        primary?.pips_move?.toFixed(1) || "",
+        primary?.direction || "",
       ]);
     });
     const csv = rows.map((r) => r.join(",")).join("\n");
@@ -262,6 +399,8 @@ export function HistoryTab({ event }: Props) {
 
   const TrendIcon = trend.icon === "up" ? TrendingUp : trend.icon === "down" ? TrendingDown : Minus;
   const trendColor = trend.icon === "up" ? "hsl(var(--bullish))" : trend.icon === "down" ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))";
+
+  const primaryPair = CURRENCY_PRIMARY_PAIR[(event.currency || "USD").toUpperCase()] || "EURUSD";
 
   return (
     <div className="p-4 space-y-4">
@@ -300,6 +439,43 @@ export function HistoryTab({ event }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Average Reaction Stats */}
+      {avgReactions && (Object.keys(avgReactions.beat).length > 0 || Object.keys(avgReactions.miss).length > 0) && (
+        <div className="space-y-1.5">
+          <div className="text-[9px] uppercase text-muted-foreground font-mono tracking-wider">Avg Market Reaction (60m)</div>
+          {Object.keys(avgReactions.beat).length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border"
+              style={{ background: "hsl(var(--bullish) / 0.04)", borderColor: "hsl(var(--bullish) / 0.2)" }}>
+              <span className="text-[10px] font-mono font-medium" style={{ color: "hsl(var(--bullish))" }}>BEAT:</span>
+              <div className="flex gap-3 flex-wrap">
+                {Object.entries(avgReactions.beat).slice(0, 4).map(([pair, avg]) => (
+                  <span key={pair} className="text-[10px] font-mono text-foreground">
+                    {pair} <span style={{ color: avg > 0 ? "hsl(var(--bullish))" : "hsl(var(--destructive))" }}>
+                      {avg > 0 ? "+" : ""}{avg.toFixed(3)}%
+                    </span> avg
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {Object.keys(avgReactions.miss).length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border"
+              style={{ background: "hsl(var(--destructive) / 0.04)", borderColor: "hsl(var(--destructive) / 0.2)" }}>
+              <span className="text-[10px] font-mono font-medium" style={{ color: "hsl(var(--destructive))" }}>MISS:</span>
+              <div className="flex gap-3 flex-wrap">
+                {Object.entries(avgReactions.miss).slice(0, 4).map(([pair, avg]) => (
+                  <span key={pair} className="text-[10px] font-mono text-foreground">
+                    {pair} <span style={{ color: avg > 0 ? "hsl(var(--bullish))" : "hsl(var(--destructive))" }}>
+                      {avg > 0 ? "+" : ""}{avg.toFixed(3)}%
+                    </span> avg
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Trend line */}
       {parsed.length >= 4 && (
@@ -354,7 +530,7 @@ export function HistoryTab({ event }: Props) {
         <div className="border border-border rounded-lg overflow-hidden">
           {/* Header */}
           <div className="grid text-[8px] uppercase text-muted-foreground font-mono border-b border-border"
-            style={{ gridTemplateColumns: "24px 72px 56px 56px 56px 56px 56px 48px", background: "hsl(var(--secondary))" }}>
+            style={{ gridTemplateColumns: "24px 72px 56px 56px 56px 56px 56px 80px", background: "hsl(var(--secondary))" }}>
             <div className="px-1 py-1.5" />
             <div className="px-1 py-1.5">Date</div>
             <div className="px-1 py-1.5">Actual</div>
@@ -362,25 +538,29 @@ export function HistoryTab({ event }: Props) {
             <div className="px-1 py-1.5">Surprise</div>
             <div className="px-1 py-1.5">Result</div>
             <div className="px-1 py-1.5">Δ Prev</div>
-            <div className="px-1 py-1.5">React</div>
+            <div className="px-1 py-1.5">Reaction</div>
           </div>
 
           {parsed.map((r, i) => {
             const bm = beatMissStyle(r.beatMiss);
             const isExpanded = expandedId === r.event.id;
-            // Generate fake sparkline values for reaction (placeholder)
-            const sparkVals = Array.from({ length: 6 }, (_, j) => {
-              const base = 100 + (r.surprise || 0) * 10;
-              return base + (Math.random() - 0.5) * 2;
-            });
-            const sparkColor = (r.surprise || 0) > 0 ? "hsl(var(--bullish))" : (r.surprise || 0) < 0 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))";
+            const evtReactions = reactions[r.event.id] || [];
+            // Find primary pair reaction
+            const primaryReaction = evtReactions.find((er) => er.pair_symbol === primaryPair) || evtReactions[0];
+            const hasReaction = !!primaryReaction;
+
+            // Build sparkline data from reaction
+            const sparkChanges = hasReaction
+              ? [primaryReaction.change_15m || 0, primaryReaction.change_30m || 0, primaryReaction.change_60m || 0]
+              : [];
+            const sparkDir = primaryReaction?.direction || (r.surprise && r.surprise > 0 ? "up" : "down");
 
             return (
               <div key={r.event.id}>
                 <div
                   className="grid text-[10px] font-mono border-b border-border last:border-b-0 cursor-pointer hover:bg-secondary/50 transition-colors"
                   style={{
-                    gridTemplateColumns: "24px 72px 56px 56px 56px 56px 56px 48px",
+                    gridTemplateColumns: "24px 72px 56px 56px 56px 56px 56px 80px",
                     background: i === 0 ? "hsl(var(--bullish) / 0.04)" : i % 2 === 0 ? "hsl(var(--card))" : "hsl(var(--secondary) / 0.3)",
                     borderLeft: i === 0 ? "3px solid hsl(var(--bullish))" : "3px solid transparent",
                   }}
@@ -420,37 +600,32 @@ export function HistoryTab({ event }: Props) {
                       </span>
                     )}
                   </div>
-                  <div className="px-1 py-1.5 flex items-center">
-                    <MiniSparkline values={sparkVals} color={sparkColor} />
+                  <div className="px-1 py-1.5 flex items-center gap-1">
+                    {hasReaction ? (
+                      <>
+                        <ReactionSparkline changes={sparkChanges} direction={sparkDir} />
+                        <span className="text-[9px] font-mono whitespace-nowrap" style={{
+                          color: sparkDir === "up" ? "hsl(var(--bullish))" : "hsl(var(--destructive))"
+                        }}>
+                          {sparkDir === "up" ? "↑" : "↓"}{primaryReaction.pips_move != null ? `${primaryReaction.pips_move.toFixed(0)}p` : ""}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[9px] text-muted-foreground">—</span>
+                    )}
                   </div>
                 </div>
 
                 {/* Expanded section */}
                 {isExpanded && (
                   <div className="border-b border-border px-3 py-3 space-y-3" style={{ background: "hsl(var(--secondary) / 0.4)" }}>
-                    {/* Market Reaction card */}
-                    <div className="rounded-lg border border-border p-3 space-y-2" style={{ background: "hsl(var(--card))" }}>
-                      <div className="text-[10px] uppercase font-mono text-muted-foreground tracking-wider">Market Reaction</div>
-                      <div className="text-[12px] font-mono text-foreground">
-                        {r.surprise !== null ? (
-                          <>
-                            <span style={{ color: r.surprise > 0 ? "hsl(var(--bullish))" : "hsl(var(--destructive))" }}>
-                              {r.surprise > 0 ? "+" : ""}{(r.surprise * 10).toFixed(0)} pips est. move
-                            </span>
-                            <span className="text-muted-foreground ml-2">
-                              on {CURRENCY_PRIMARY_PAIR[(event.currency || "USD").toUpperCase()] || "primary pair"}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground">No surprise data available</span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        Surprise: {r.surprise !== null ? `${r.surprise > 0 ? "+" : ""}${r.surprise.toFixed(3)}` : "N/A"}
-                        {" · "}
-                        Result: {bm.label}
-                      </div>
-                    </div>
+                    {/* Market Reaction expansion */}
+                    <ReactionExpansion
+                      reactions={evtReactions}
+                      eventName={event.event_name}
+                      date={new Date(r.event.scheduled_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      actual={r.event.actual}
+                    />
 
                     {/* News from that day */}
                     <div>
