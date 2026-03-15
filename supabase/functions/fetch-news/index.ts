@@ -191,7 +191,7 @@ async function fetchMyFXBookNews(): Promise<UnifiedArticle[]> {
     let m;
     while ((m = re.exec(html)) !== null) {
       const url = `https://www.myfxbook.com${m[1]}`;
-      const headline = m[2].replace(/<[^>]+>/g, "").trim();
+      const headline = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, "").trim());
       if (!headline || headline.length < 15 || seen.has(url)) continue;
       seen.add(url);
 
