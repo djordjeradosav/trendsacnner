@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import { useAuth } from "@/hooks/useAuth";
 import { Radar, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
@@ -14,6 +15,12 @@ export default function LoginPage() {
   const [forgotMode, setForgotMode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { session } = useAuth();
+
+  // Redirect if already logged in (e.g. after Google OAuth)
+  useEffect(() => {
+    if (session) navigate("/dashboard", { replace: true });
+  }, [session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

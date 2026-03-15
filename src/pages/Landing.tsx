@@ -1,7 +1,12 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Radar, TrendingUp, Zap, Shield } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LandingPage() {
+  const { session, loading } = useAuth();
+
+  if (loading) return null;
+  if (session) return <Navigate to="/dashboard" replace />;
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Nav */}
