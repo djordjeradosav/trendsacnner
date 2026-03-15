@@ -12,6 +12,8 @@ import { CapitalFlowWidget } from "@/components/dashboard/CapitalFlowWidget";
 import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
 import { BreakingNewsBanner } from "@/components/news/BreakingNewsBanner";
 import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
+import { PriceTicker } from "@/components/dashboard/PriceTicker";
+import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useAllScores } from "@/hooks/useScores";
@@ -41,10 +43,7 @@ function LiveDot() {
 
 function StatCard({ label, value, icon, color, sub }: { label: string; value: string | number; icon: React.ReactNode; color: string; sub?: string }) {
   return (
-    <div
-      className="rounded-lg p-3 flex items-center gap-3 transition-colors"
-      style={{ background: "#0d1117", border: "1px solid #1e2d3d" }}
-    >
+    <div className="rounded-lg p-3 flex items-center gap-3 transition-colors bg-card border border-border/50">
       <div className="p-2 rounded-md" style={{ background: color + "15" }}>
         {icon}
       </div>
@@ -153,6 +152,11 @@ const Index = () => {
       <BreakingNewsBanner />
 
       <div className="flex flex-col gap-3" style={{ minHeight: "calc(100vh - 72px)" }}>
+        {/* Live Price Ticker */}
+        <div className="anim-fade-down shrink-0">
+          <PriceTicker />
+        </div>
+
         {/* Session Bar */}
         <div className="anim-fade-down shrink-0">
           <MarketSessionBar />
@@ -162,7 +166,7 @@ const Index = () => {
         <div className="flex items-center justify-between anim-fade-up shrink-0" style={{ animationDelay: "80ms" }}>
           <DashboardGreeting />
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md" style={{ background: "#131a22", border: "1px solid #1e2d3d" }}>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-card border border-border/50">
               <LiveDot />
               <span className="text-[10px] font-mono" style={{ color: sentimentColor }}>
                 {marketSentiment}
@@ -227,11 +231,16 @@ const Index = () => {
           />
         </div>
 
+        {/* Heatmap */}
+        <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", height: "200px" }}>
+          <HeatmapWidget timeframe={selectedTimeframe} />
+        </div>
+
         {/* Main 3-column grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_360px] gap-3 flex-1 min-h-0">
           {/* Col 1: AI Macro Desk */}
           <div className="min-h-0 anim-fade-up" style={{ animationDelay: "160ms" }}>
-            <div className="rounded-lg p-4 h-full overflow-y-auto" style={{ background: "#0d1117", border: "1px solid #1e2d3d" }}>
+            <div className="rounded-lg p-4 h-full overflow-y-auto bg-card border border-border/50">
               <AIMacroDesk timeframe={selectedTimeframe} />
             </div>
           </div>
@@ -248,7 +257,7 @@ const Index = () => {
 
           {/* Col 3: For You + Calendar */}
           <div className="flex flex-col gap-3 min-h-0 anim-fade-right" style={{ animationDelay: "240ms" }}>
-            <div className="flex-1 min-h-0 rounded-lg p-4 overflow-y-auto" style={{ background: "#0d1117", border: "1px solid #1e2d3d" }}>
+            <div className="flex-1 min-h-0 rounded-lg p-4 overflow-y-auto bg-card border border-border/50">
               <ForYouPanel />
             </div>
             <div className="shrink-0" style={{ height: "220px" }}>
