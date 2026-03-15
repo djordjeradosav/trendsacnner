@@ -338,83 +338,53 @@ async function fetchMyFXBookNews(): Promise<UnifiedArticle[]> {
 }
 
 // ──────────────────────────────────────────────
-// SOURCE 5: Investopedia Markets News (RSS)
+// SOURCE 5: Investopedia Markets News (scrape)
 // ──────────────────────────────────────────────
 async function fetchInvestopediaNews(): Promise<UnifiedArticle[]> {
   const articles: UnifiedArticle[] = [];
   try {
-    // Try RSS feed first
-    const rssUrl = "https://www.investopedia.com/feedbuilder/feed/getfeed?feedName=rss_headline";
-    const resp = await fetch(rssUrl, {
+    const resp = await fetch("https://www.investopedia.com/markets-news-4427704", {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        "Accept": "text/html",
       },
     });
-
-    if (resp.ok) {
-      const xml = await resp.text();
-      // Parse RSS items
-      const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
-      let match;
-      while ((match = itemRegex.exec(xml)) !== null) {
-        const itemContent = match[1];
-        const title = itemContent.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/)?.[1]
-          || itemContent.match(/<title>(.*?)<\/title>/)?.[1]
-          || "";
-        const link = itemContent.match(/<link>(.*?)<\/link>/)?.[1] || "";
-        const desc = itemContent.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/)?.[1]
-          || itemContent.match(/<description>(.*?)<\/description>/)?.[1]
-          || "";
-        const pubDate = itemContent.match(/<pubDate>(.*?)<\/pubDate>/)?.[1] || "";
-        const imgMatch = itemContent.match(/<media:content[^>]*url="([^"]+)"/);
-
-        if (!title || title.length < 10) continue;
-
-        const cleanDesc = desc.replace(/<[^>]+>/g, "").trim();
-        const text = `${title} ${cleanDesc}`;
-
-        articles.push({
-          headline: title.trim(),
-          summary: cleanDesc.slice(0, 300),
-          source: "Investopedia",
-          url: link.trim(),
-          published_at: pubDate ? new Date(pubDate).toISOString() : new Date().toISOString(),
-          sentiment: simpleSentiment(text),
-          relevant_pairs: matchPairs(text),
-          image_url: imgMatch?.[1] || null,
-        });
-      }
+    if (!resp.ok) {
+      console.error("Investopedia status:", resp.status);
+      return articles;
     }
+    const html = await resp.text();
 
-    // Fallback: scrape the page directly
-    if (articles.length === 0) {
-      const pageResp = await fetch("https://www.investopedia.com/markets-news-4427704", {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-          "Accept": "text/html",
-        },
+    // Investopedia uses pattern: href="https://www.investopedia.com/article-slug-NNNNN"
+    // with title text nearby. Extract from anchor tags with investopedia URLs
+    const linkRegex = /href="(https:\/\/www\.investopedia\.com\/[a-z0-9-]+-\d{5,})"[^>]*>([\s\S]*?)<\/a>/gi;
+    const seen = new Set<string>();
+    let match;
+    while ((match = linkRegex.exec(html)) !== null) {
+      const url = match[1];
+      // Skip non-article URLs
+      if (url.includes("/markets-news-") || url.includes("/news-")) continue;
+
+      let headline = match[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").trim();
+      // Clean up whitespace
+      headline = headline.replace(/\s+/g, " ").trim();
+      if (!headline || headline.length < 15 || seen.has(url)) continue;
+      seen.add(url);
+
+      // Try to extract image from nearby content
+      const nearbyBefore = html.slice(Math.max(0, (match.index || 0) - 500), match.index || 0);
+      const imgMatch = nearbyBefore.match(/src="(https:\/\/www\.investopedia\.com\/thmb\/[^"]+)"/);
+
+      articles.push({
+        headline,
+        summary: "",
+        source: "Investopedia",
+        url,
+        published_at: new Date().toISOString(),
+        sentiment: simpleSentiment(headline),
+        relevant_pairs: matchPairs(headline),
+        image_url: imgMatch?.[1] || null,
       });
-      if (pageResp.ok) {
-        const html = await pageResp.text();
-        // Investopedia uses card-based layout with headlines in anchors
-        const headlineRegex = /<a[^>]*class="[^"]*mntl-card-list-items[^"]*"[^>]*href="([^"]*)"[^>]*>[\s\S]*?<span[^>]*class="[^"]*card__title-text[^"]*"[^>]*>([\s\S]*?)<\/span>/gi;
-        let m;
-        while ((m = headlineRegex.exec(html)) !== null) {
-          const headline = m[2].replace(/<[^>]+>/g, "").trim();
-          if (!headline || headline.length < 10) continue;
-          articles.push({
-            headline,
-            summary: "",
-            source: "Investopedia",
-            url: m[1],
-            published_at: new Date().toISOString(),
-            sentiment: simpleSentiment(headline),
-            relevant_pairs: matchPairs(headline),
-            image_url: null,
-          });
-        }
-      }
     }
 
     console.log(`Investopedia: scraped ${articles.length} articles`);
