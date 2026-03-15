@@ -4,6 +4,7 @@ import { MobileTabBar } from "./MobileTabBar";
 import { ChatAssistant } from "@/components/chat/ChatAssistant";
 import { useChatContext } from "@/hooks/useChatContext";
 import { MobileScanFAB } from "./MobileScanFAB";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 interface AppLayoutProps {
   children: React.ReactNode;
