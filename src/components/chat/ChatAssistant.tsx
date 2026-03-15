@@ -142,7 +142,7 @@ export function ChatAssistant({ scanContext }: ChatAssistantProps) {
       {/* Floating button */}
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => { hapticTap(); setOpen(true); }}
           className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-12 h-12 md:w-14 md:h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
           aria-label="Open AI chat"
         >
