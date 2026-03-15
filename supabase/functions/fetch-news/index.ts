@@ -264,6 +264,52 @@ async function fetchMyFXBookNews(): Promise<UnifiedArticle[]> {
     }
     const html = await resp.text();
 
+    // MyFXBook uses links like /news/slug/47019
+    const patterns = [
+      /<a[^>]*href="(\/news\/[a-z0-9-]+\/\d+)"[^>]*>([\s\S]*?)<\/a>/gi,
+      /<a[^>]*href="(https:\/\/www\.myfxbook\.com\/news\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
+    ];
+
+    const seen = new Set<string>();
+    for (const regex of patterns) {
+      let match;
+      while ((match = regex.exec(html)) !== null) {
+        const rawUrl = match[1];
+        const url = rawUrl.startsWith("http") ? rawUrl : `https://www.myfxbook.com${rawUrl}`;
+        const headline = match[2].replace(/<[^>]+>/g, "").trim();
+        if (!headline || headline.length < 15 || seen.has(headline)) continue;
+        seen.add(headline);
+
+        // Try to extract summary from nearby text
+        const afterMatch = html.slice((match.index || 0) + match[0].length, (match.index || 0) + match[0].length + 500);
+        const summaryMatch = afterMatch.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+        const summary = summaryMatch ? summaryMatch[1].replace(/<[^>]+>/g, "").trim().slice(0, 300) : "";
+
+        // Try to extract image
+        const beforeMatch = html.slice(Math.max(0, (match.index || 0) - 300), match.index || 0);
+        const imgMatch = beforeMatch.match(/src="(https:\/\/static\.mfbcdn\.net\/images\/news\/[^"]+)"/);
+
+        articles.push({
+          headline,
+          summary,
+          source: "MyFXBook",
+          url,
+          published_at: new Date().toISOString(),
+          sentiment: simpleSentiment(headline + " " + summary),
+          relevant_pairs: matchPairs(headline + " " + summary),
+          image_url: imgMatch?.[1] || null,
+        });
+      }
+    }
+
+    console.log(`MyFXBook: scraped ${articles.length} articles`);
+  } catch (e) {
+    console.error("MyFXBook scrape failed:", e);
+  }
+  return articles;
+}
+    const html = await resp.text();
+
     // MyFXBook uses news article links with headlines
     const titleRegex = /<a[^>]*href="(\/news\/\d+[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
     let match;
