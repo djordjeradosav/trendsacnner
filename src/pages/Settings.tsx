@@ -58,6 +58,7 @@ export default function SettingsPage() {
   // Markets toggles
   const [markets, setMarkets] = useState({ forex: true, futures: true, commodity: true });
   const { permission: pushPermission, requestPermission } = usePushNotifications();
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (!user) return;
