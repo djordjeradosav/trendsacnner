@@ -31,17 +31,15 @@ function matchPairs(text: string): string[] {
   const lower = text.toLowerCase();
   const matched: string[] = [];
   for (const [sym, keywords] of Object.entries(KEYWORD_MAP)) {
-    if (keywords.some((kw) => lower.includes(kw))) {
-      matched.push(sym);
-    }
+    if (keywords.some((kw) => lower.includes(kw))) matched.push(sym);
   }
   return matched;
 }
 
 function simpleSentiment(text: string): string {
   const lower = text.toLowerCase();
-  const pos = ["rally", "surge", "gain", "bullish", "rise", "soar", "jump", "climb", "strong", "beat", "upbeat", "optimis"];
-  const neg = ["drop", "fall", "crash", "bearish", "decline", "plunge", "slump", "weak", "miss", "pessimis", "fear", "sell-off", "selloff"];
+  const pos = ["rally", "surge", "gain", "bullish", "rise", "soar", "jump", "climb", "strong", "beat", "upbeat", "optimis", "higher", "record high"];
+  const neg = ["drop", "fall", "crash", "bearish", "decline", "plunge", "slump", "weak", "miss", "pessimis", "fear", "sell-off", "selloff", "lower", "slide", "tumble"];
   let score = 0;
   for (const w of pos) if (lower.includes(w)) score++;
   for (const w of neg) if (lower.includes(w)) score--;
@@ -61,9 +59,7 @@ interface UnifiedArticle {
   image_url: string | null;
 }
 
-// ──────────────────────────────────────────────
-// SOURCE 1: NewsAPI
-// ──────────────────────────────────────────────
+// ── SOURCE 1: NewsAPI ──
 async function fetchNewsAPI(apiKey: string): Promise<UnifiedArticle[]> {
   const articles: UnifiedArticle[] = [];
   try {
@@ -84,18 +80,14 @@ async function fetchNewsAPI(apiKey: string): Promise<UnifiedArticle[]> {
           image_url: a.urlToImage ?? null,
         });
       }
-    } else {
-      console.error("NewsAPI error:", resp.status);
     }
   } catch (e) {
-    console.error("NewsAPI fetch failed:", e);
+    console.error("NewsAPI failed:", e);
   }
   return articles;
 }
 
-// ──────────────────────────────────────────────
-// SOURCE 2: Alpha Vantage News Sentiment
-// ──────────────────────────────────────────────
+// ── SOURCE 2: Alpha Vantage ──
 async function fetchAlphaVantage(apiKey: string): Promise<UnifiedArticle[]> {
   const articles: UnifiedArticle[] = [];
   try {
@@ -109,15 +101,12 @@ async function fetchAlphaVantage(apiKey: string): Promise<UnifiedArticle[]> {
         let sentiment = "neutral";
         if (score >= 0.15) sentiment = "positive";
         else if (score <= -0.15) sentiment = "negative";
-
         articles.push({
           headline: item.title ?? "Untitled",
           summary: item.summary ?? "",
           source: item.source ?? "Alpha Vantage",
           url: item.url ?? "",
-          published_at: item.time_published
-            ? parseAVDate(item.time_published)
-            : new Date().toISOString(),
+          published_at: item.time_published ? parseAVDate(item.time_published) : new Date().toISOString(),
           sentiment,
           relevant_pairs: matchPairs(text),
           image_url: item.banner_image ?? null,
@@ -125,278 +114,137 @@ async function fetchAlphaVantage(apiKey: string): Promise<UnifiedArticle[]> {
       }
     }
   } catch (e) {
-    console.error("Alpha Vantage fetch failed:", e);
+    console.error("Alpha Vantage failed:", e);
   }
   return articles;
 }
 
 function parseAVDate(dateStr: string): string {
   try {
-    const y = dateStr.slice(0, 4);
-    const m = dateStr.slice(4, 6);
-    const d = dateStr.slice(6, 8);
-    const h = dateStr.slice(9, 11);
-    const min = dateStr.slice(11, 13);
-    const s = dateStr.slice(13, 15);
-    return new Date(`${y}-${m}-${d}T${h}:${min}:${s}Z`).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
+    return new Date(`${dateStr.slice(0,4)}-${dateStr.slice(4,6)}-${dateStr.slice(6,8)}T${dateStr.slice(9,11)}:${dateStr.slice(11,13)}:${dateStr.slice(13,15)}Z`).toISOString();
+  } catch { return new Date().toISOString(); }
 }
 
-// ──────────────────────────────────────────────
-// SOURCE 3: ForexFactory News (scrape HTML)
-// ──────────────────────────────────────────────
+// ── SOURCE 3: ForexFactory News ──
 async function fetchForexFactoryNews(): Promise<UnifiedArticle[]> {
   const articles: UnifiedArticle[] = [];
   try {
     const resp = await fetch("https://www.forexfactory.com/news", {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html",
       },
     });
-    if (!resp.ok) {
-      console.error("ForexFactory news status:", resp.status);
-      return articles;
-    }
+    if (!resp.ok) { console.error("FF news:", resp.status); return articles; }
     const html = await resp.text();
 
-    // Try multiple patterns for FF news headlines
     const patterns = [
       /<a[^>]*class="[^"]*flexposts__title[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi,
       /<a[^>]*href="(\/news\/[^"]+)"[^>]*title="([^"]+)"/gi,
-      /<a[^>]*href="(https:\/\/www\.forexfactory\.com\/news\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
+      /<a[^>]*href="(\/news\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
     ];
-
     const seen = new Set<string>();
-    for (const regex of patterns) {
-      let match;
-      while ((match = regex.exec(html)) !== null) {
-        const rawUrl = match[1];
-        const url = rawUrl.startsWith("http") ? rawUrl : `https://www.forexfactory.com${rawUrl}`;
-        const headline = match[2].replace(/<[^>]+>/g, "").trim();
+    for (const re of patterns) {
+      let m;
+      while ((m = re.exec(html)) !== null) {
+        const url = m[1].startsWith("http") ? m[1] : `https://www.forexfactory.com${m[1]}`;
+        const headline = m[2].replace(/<[^>]+>/g, "").trim();
         if (!headline || headline.length < 15 || seen.has(headline)) continue;
         seen.add(headline);
-        articles.push({
-          headline,
-          summary: "",
-          source: "ForexFactory",
-          url,
-          published_at: new Date().toISOString(),
-          sentiment: simpleSentiment(headline),
-          relevant_pairs: matchPairs(headline),
-          image_url: null,
-        });
+        articles.push({ headline, summary: "", source: "ForexFactory", url, published_at: new Date().toISOString(), sentiment: simpleSentiment(headline), relevant_pairs: matchPairs(headline), image_url: null });
       }
     }
-
-    console.log(`ForexFactory: scraped ${articles.length} articles`);
-  } catch (e) {
-    console.error("ForexFactory scrape failed:", e);
-  }
-  return articles;
-}
-    const html = await resp.text();
-
-    // Extract news items from FF HTML structure
-    // FF uses <a class="flexposts__title"> or similar patterns
-    const titleRegex = /<a[^>]*class="[^"]*flexposts__title[^"]*"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-    let match;
-    while ((match = titleRegex.exec(html)) !== null) {
-      const url = match[1].startsWith("http") ? match[1] : `https://www.forexfactory.com${match[1]}`;
-      const headline = match[2].replace(/<[^>]+>/g, "").trim();
-      if (!headline) continue;
-      const text = headline;
-      articles.push({
-        headline,
-        summary: "",
-        source: "ForexFactory",
-        url,
-        published_at: new Date().toISOString(),
-        sentiment: simpleSentiment(text),
-        relevant_pairs: matchPairs(text),
-        image_url: null,
-      });
-    }
-
-    // Fallback: try generic anchor patterns with news-like URLs
-    if (articles.length === 0) {
-      const fallbackRegex = /<a[^>]*href="(\/news\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-      while ((match = fallbackRegex.exec(html)) !== null) {
-        const headline = match[2].replace(/<[^>]+>/g, "").trim();
-        if (!headline || headline.length < 15) continue;
-        articles.push({
-          headline,
-          summary: "",
-          source: "ForexFactory",
-          url: `https://www.forexfactory.com${match[1]}`,
-          published_at: new Date().toISOString(),
-          sentiment: simpleSentiment(headline),
-          relevant_pairs: matchPairs(headline),
-          image_url: null,
-        });
-      }
-    }
-
-    console.log(`ForexFactory: scraped ${articles.length} articles`);
-  } catch (e) {
-    console.error("ForexFactory scrape failed:", e);
-  }
+    console.log(`ForexFactory: ${articles.length} articles`);
+  } catch (e) { console.error("FF scrape failed:", e); }
   return articles;
 }
 
-// ──────────────────────────────────────────────
-// SOURCE 4: MyFXBook News (scrape HTML)
-// ──────────────────────────────────────────────
+// ── SOURCE 4: MyFXBook News ──
 async function fetchMyFXBookNews(): Promise<UnifiedArticle[]> {
   const articles: UnifiedArticle[] = [];
   try {
     const resp = await fetch("https://www.myfxbook.com/news", {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html",
       },
     });
-    if (!resp.ok) {
-      console.error("MyFXBook news status:", resp.status);
-      return articles;
-    }
+    if (!resp.ok) { console.error("MyFXBook:", resp.status); return articles; }
     const html = await resp.text();
 
-    // MyFXBook uses links like /news/slug/47019
-    const patterns = [
-      /<a[^>]*href="(\/news\/[a-z0-9-]+\/\d+)"[^>]*>([\s\S]*?)<\/a>/gi,
-      /<a[^>]*href="(https:\/\/www\.myfxbook\.com\/news\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi,
-    ];
-
+    // Match links like /news/us-dollar-climbs-against-majors/47019
+    const re = /<a[^>]*href="(\/news\/[a-z0-9-]+\/\d+)"[^>]*>([\s\S]*?)<\/a>/gi;
     const seen = new Set<string>();
-    for (const regex of patterns) {
-      let match;
-      while ((match = regex.exec(html)) !== null) {
-        const rawUrl = match[1];
-        const url = rawUrl.startsWith("http") ? rawUrl : `https://www.myfxbook.com${rawUrl}`;
-        const headline = match[2].replace(/<[^>]+>/g, "").trim();
-        if (!headline || headline.length < 15 || seen.has(headline)) continue;
-        seen.add(headline);
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const url = `https://www.myfxbook.com${m[1]}`;
+      const headline = m[2].replace(/<[^>]+>/g, "").trim();
+      if (!headline || headline.length < 15 || seen.has(url)) continue;
+      seen.add(url);
 
-        // Try to extract summary from nearby text
-        const afterMatch = html.slice((match.index || 0) + match[0].length, (match.index || 0) + match[0].length + 500);
-        const summaryMatch = afterMatch.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
-        const summary = summaryMatch ? summaryMatch[1].replace(/<[^>]+>/g, "").trim().slice(0, 300) : "";
+      // Extract summary from nearby paragraph
+      const after = html.slice((m.index || 0) + m[0].length, (m.index || 0) + m[0].length + 600);
+      const pMatch = after.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      const summary = pMatch ? pMatch[1].replace(/<[^>]+>/g, "").trim().slice(0, 300) : "";
 
-        // Try to extract image
-        const beforeMatch = html.slice(Math.max(0, (match.index || 0) - 300), match.index || 0);
-        const imgMatch = beforeMatch.match(/src="(https:\/\/static\.mfbcdn\.net\/images\/news\/[^"]+)"/);
+      // Extract image
+      const before = html.slice(Math.max(0, (m.index || 0) - 400), m.index || 0);
+      const imgMatch = before.match(/src="(https:\/\/static\.mfbcdn\.net\/images\/news\/[^"]+)"/);
 
-        articles.push({
-          headline,
-          summary,
-          source: "MyFXBook",
-          url,
-          published_at: new Date().toISOString(),
-          sentiment: simpleSentiment(headline + " " + summary),
-          relevant_pairs: matchPairs(headline + " " + summary),
-          image_url: imgMatch?.[1] || null,
-        });
-      }
-    }
-
-    console.log(`MyFXBook: scraped ${articles.length} articles`);
-  } catch (e) {
-    console.error("MyFXBook scrape failed:", e);
-  }
-  return articles;
-}
-    const html = await resp.text();
-
-    // MyFXBook uses news article links with headlines
-    const titleRegex = /<a[^>]*href="(\/news\/\d+[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-    let match;
-    const seen = new Set<string>();
-    while ((match = titleRegex.exec(html)) !== null) {
-      const headline = match[2].replace(/<[^>]+>/g, "").trim();
-      if (!headline || headline.length < 15 || seen.has(headline)) continue;
-      seen.add(headline);
       articles.push({
-        headline,
-        summary: "",
-        source: "MyFXBook",
-        url: `https://www.myfxbook.com${match[1]}`,
+        headline, summary, source: "MyFXBook", url,
         published_at: new Date().toISOString(),
-        sentiment: simpleSentiment(headline),
-        relevant_pairs: matchPairs(headline),
-        image_url: null,
+        sentiment: simpleSentiment(headline + " " + summary),
+        relevant_pairs: matchPairs(headline + " " + summary),
+        image_url: imgMatch?.[1] || null,
       });
     }
-
-    console.log(`MyFXBook: scraped ${articles.length} articles`);
-  } catch (e) {
-    console.error("MyFXBook scrape failed:", e);
-  }
+    console.log(`MyFXBook: ${articles.length} articles`);
+  } catch (e) { console.error("MyFXBook scrape failed:", e); }
   return articles;
 }
 
-// ──────────────────────────────────────────────
-// SOURCE 5: Investopedia Markets News (scrape)
-// ──────────────────────────────────────────────
+// ── SOURCE 5: Investopedia Markets News ──
 async function fetchInvestopediaNews(): Promise<UnifiedArticle[]> {
   const articles: UnifiedArticle[] = [];
   try {
     const resp = await fetch("https://www.investopedia.com/markets-news-4427704", {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "text/html",
       },
     });
-    if (!resp.ok) {
-      console.error("Investopedia status:", resp.status);
-      return articles;
-    }
+    if (!resp.ok) { console.error("Investopedia:", resp.status); return articles; }
     const html = await resp.text();
 
-    // Investopedia uses pattern: href="https://www.investopedia.com/article-slug-NNNNN"
-    // with title text nearby. Extract from anchor tags with investopedia URLs
-    const linkRegex = /href="(https:\/\/www\.investopedia\.com\/[a-z0-9-]+-\d{5,})"[^>]*>([\s\S]*?)<\/a>/gi;
+    // Match Investopedia article links: https://www.investopedia.com/slug-NNNNN
+    const re = /href="(https:\/\/www\.investopedia\.com\/[a-z0-9-]+-\d{5,})"[^>]*>([\s\S]*?)<\/a>/gi;
     const seen = new Set<string>();
-    let match;
-    while ((match = linkRegex.exec(html)) !== null) {
-      const url = match[1];
-      // Skip non-article URLs
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const url = m[1];
       if (url.includes("/markets-news-") || url.includes("/news-")) continue;
-
-      let headline = match[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").trim();
-      // Clean up whitespace
-      headline = headline.replace(/\s+/g, " ").trim();
+      let headline = m[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").replace(/\s+/g, " ").trim();
       if (!headline || headline.length < 15 || seen.has(url)) continue;
       seen.add(url);
 
-      // Try to extract image from nearby content
-      const nearbyBefore = html.slice(Math.max(0, (match.index || 0) - 500), match.index || 0);
-      const imgMatch = nearbyBefore.match(/src="(https:\/\/www\.investopedia\.com\/thmb\/[^"]+)"/);
+      const before = html.slice(Math.max(0, (m.index || 0) - 500), m.index || 0);
+      const imgMatch = before.match(/src="(https:\/\/www\.investopedia\.com\/thmb\/[^"]+)"/);
 
       articles.push({
-        headline,
-        summary: "",
-        source: "Investopedia",
-        url,
+        headline, summary: "", source: "Investopedia", url,
         published_at: new Date().toISOString(),
         sentiment: simpleSentiment(headline),
         relevant_pairs: matchPairs(headline),
         image_url: imgMatch?.[1] || null,
       });
     }
-
-    console.log(`Investopedia: scraped ${articles.length} articles`);
-  } catch (e) {
-    console.error("Investopedia fetch failed:", e);
-  }
+    console.log(`Investopedia: ${articles.length} articles`);
+  } catch (e) { console.error("Investopedia failed:", e); }
   return articles;
 }
 
-// ──────────────────────────────────────────────
-// MAIN HANDLER
-// ──────────────────────────────────────────────
+// ── MAIN HANDLER ──
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -439,7 +287,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Deduplicate by headline similarity
+    // Deduplicate by headline
     const seen = new Set<string>();
     const unique: UnifiedArticle[] = [];
     for (const a of allArticles) {
@@ -449,21 +297,19 @@ Deno.serve(async (req) => {
       unique.push(a);
     }
 
-    // Delete old articles (> 48h)
-    const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    // Delete old articles (> 72h)
+    const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
     await supabase.from("news_articles").delete().lt("published_at", cutoff);
 
-    // Insert new articles, skip duplicates by URL
+    // Insert new, skip URL duplicates
     let inserted = 0;
     for (const article of unique) {
       if (!article.url) continue;
-
       const { data: existing } = await supabase
         .from("news_articles")
         .select("id")
         .eq("url", article.url)
         .limit(1);
-
       if (existing && existing.length > 0) continue;
 
       const { error } = await supabase.from("news_articles").insert({
@@ -477,7 +323,6 @@ Deno.serve(async (req) => {
         image_url: article.image_url,
         fetched_at: new Date().toISOString(),
       });
-
       if (!error) inserted++;
     }
 
