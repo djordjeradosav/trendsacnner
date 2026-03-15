@@ -7,6 +7,7 @@ interface InstrumentCardProps {
   confidence: number;
   aiAnalysis: string | null;
   loading?: boolean;
+  newsScore?: number | null;
 }
 
 export function InstrumentCard({
@@ -16,6 +17,7 @@ export function InstrumentCard({
   confidence,
   aiAnalysis,
   loading,
+  newsScore,
 }: InstrumentCardProps) {
   const changeColor =
     percentChange === null
@@ -116,6 +118,20 @@ export function InstrumentCard({
             background: barColor,
           }}
         />
+      </div>
+
+      {/* News sentiment indicator */}
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <span style={{
+          fontSize: "9px",
+          color: newsScore != null && newsScore >= 7
+            ? "hsl(var(--bullish))"
+            : newsScore != null && newsScore <= 4
+            ? "hsl(var(--destructive))"
+            : "hsl(var(--muted-foreground))",
+        }}>
+          {newsScore != null && newsScore >= 7 ? "🟢 News positive" : newsScore != null && newsScore <= 4 ? "🔴 News negative" : "⚪ News neutral"}
+        </span>
       </div>
 
       {/* AI Analysis */}

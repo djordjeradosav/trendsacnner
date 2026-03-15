@@ -25,6 +25,7 @@ export interface ScoreResult {
   adxScore: number;
   rsiScore: number;
   macdScore: number;
+  newsScore: number | null;
   ema20: number;
   ema50: number;
   ema200: number;
@@ -34,7 +35,7 @@ export interface ScoreResult {
   macdHistPrev: number;
 }
 
-// ─── EMA Alignment (0–40) ───────────────────────────────────────────────────
+// ─── EMA Alignment (0–35) ───────────────────────────────────────────────────
 
 function scoreEMA(
   price: number,
@@ -42,43 +43,42 @@ function scoreEMA(
   ema50: number,
   ema200: number
 ): number {
-  if (price > ema20 && ema20 > ema50 && ema50 > ema200) return 40;
-  if (price > ema20 && ema20 > ema50) return 27;
-  if (price > ema20) return 13;
+  if (price > ema20 && ema20 > ema50 && ema50 > ema200) return 35;
+  if (price > ema20 && ema20 > ema50) return 24;
+  if (price > ema20) return 11;
   if (price < ema20 && ema20 < ema50 && ema50 < ema200) return 0;
-  return 20; // mixed / choppy
+  return 17; // mixed / choppy
 }
 
-// ─── ADX Strength (0–20) ────────────────────────────────────────────────────
+// ─── ADX Strength (0–18) ────────────────────────────────────────────────────
 
 function scoreADX(adx: number): number {
-  if (adx >= 40) return 20;
-  if (adx >= 25) return 15;
-  if (adx >= 15) return 8;
+  if (adx >= 40) return 18;
+  if (adx >= 25) return 13;
+  if (adx >= 15) return 7;
   return 3;
 }
 
-// ─── RSI Bias (0–20) ────────────────────────────────────────────────────────
+// ─── RSI Bias (0–18) ────────────────────────────────────────────────────────
 
 function scoreRSI(rsi: number): number {
-  const raw = ((rsi - 50) / 50) * 20;
-  return Math.max(0, Math.min(20, raw));
+  const raw = ((rsi - 50) / 50) * 18;
+  return Math.max(0, Math.min(18, raw));
 }
 
-// ─── MACD Momentum (0–20) ───────────────────────────────────────────────────
+// ─── MACD Momentum (0–18) ───────────────────────────────────────────────────
 
 function scoreMACD(hist: number, histPrev: number): number {
   const increasing = hist > histPrev;
-  if (hist > 0 && increasing) return 20;
-  if (hist > 0 && !increasing) return 13;
-  if (hist <= 0 && increasing) return 7;
+  if (hist > 0 && increasing) return 18;
+  if (hist > 0 && !increasing) return 12;
+  if (hist <= 0 && increasing) return 6;
   return 0; // negative and decreasing
 }
 
 // ─── Composite ──────────────────────────────────────────────────────────────
 
-export function calcTrendScore(candles: Candle[]): ScoreResult {
-  // Sort ascending by timestamp
+export function calcTrendScore(candles: Candle[], newsScore?: number | null): ScoreResult {
   const sorted = [...candles].sort(
     (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
   );
@@ -86,10 +86,6 @@ export function calcTrendScore(candles: Candle[]): ScoreResult {
   const closes = sorted.map((c) => c.close);
   const highs = sorted.map((c) => c.high);
   const lows = sorted.map((c) => c.low);
-
-  if (closes.length < 200) {
-    // Need at least 200 candles for EMA200; compute what we can
-  }
 
   const ema20Arr = calcEMA(closes, 20);
   const ema50Arr = calcEMA(closes, 50);
@@ -106,7 +102,6 @@ export function calcTrendScore(candles: Candle[]): ScoreResult {
   const adx = getLatestValue(adxArr);
   const macdHist = getLatestValue(histogram);
 
-  // Get previous histogram value
   let macdHistPrev = NaN;
   for (let i = histogram.length - 2; i >= 0; i--) {
     if (!isNaN(histogram[i])) {
@@ -115,20 +110,22 @@ export function calcTrendScore(candles: Candle[]): ScoreResult {
     }
   }
 
-  // Compute sub-scores (use safe defaults if indicators lack data)
   const emaScore = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200)
     ? scoreEMA(price, ema20, ema50, ema200)
-    : 20; // neutral if insufficient data
+    : 17;
 
   const adxScore = !isNaN(adx) ? scoreADX(adx) : 3;
-  const rsiScore = !isNaN(rsi) ? scoreRSI(rsi) : 10;
+  const rsiScore = !isNaN(rsi) ? scoreRSI(rsi) : 9;
   const macdScore =
     !isNaN(macdHist) && !isNaN(macdHistPrev)
       ? scoreMACD(macdHist, macdHistPrev)
-      : 10;
+      : 9;
+
+  // News score: 0-11, default 6 (neutral) if not provided
+  const effectiveNewsScore = newsScore != null ? newsScore : 6;
 
   const score = Math.round(
-    Math.max(0, Math.min(100, emaScore + adxScore + rsiScore + macdScore))
+    Math.max(0, Math.min(100, emaScore + adxScore + rsiScore + macdScore + effectiveNewsScore))
   );
 
   const trend: "bullish" | "neutral" | "bearish" =
@@ -141,6 +138,7 @@ export function calcTrendScore(candles: Candle[]): ScoreResult {
     adxScore,
     rsiScore,
     macdScore,
+    newsScore: newsScore ?? null,
     ema20: isNaN(ema20) ? 0 : ema20,
     ema50: isNaN(ema50) ? 0 : ema50,
     ema200: isNaN(ema200) ? 0 : ema200,
@@ -156,9 +154,10 @@ export function calcTrendScore(candles: Candle[]): ScoreResult {
 export async function scorePair(
   pairId: string,
   candles: Candle[],
-  timeframe: string
+  timeframe: string,
+  newsScore?: number | null
 ): Promise<ScoreResult> {
-  const result = calcTrendScore(candles);
+  const result = calcTrendScore(candles, newsScore);
 
   const { error } = await supabase.from("scores").upsert(
     {
@@ -170,6 +169,7 @@ export async function scorePair(
       adx_score: result.adxScore,
       rsi_score: result.rsiScore,
       macd_score: result.macdScore,
+      news_score: result.newsScore,
       ema20: result.ema20,
       ema50: result.ema50,
       ema200: result.ema200,
