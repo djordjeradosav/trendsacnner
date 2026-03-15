@@ -50,20 +50,20 @@ export default function CalendarPage() {
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {/* Top bar */}
-        <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-lg shrink-0 bg-secondary border border-border">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-primary" />
+        {/* Top bar — responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 px-3 py-2 rounded-lg shrink-0 bg-secondary border border-border">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Calendar className="w-5 h-5 text-primary shrink-0" />
             <h1 className="text-[15px] font-semibold text-foreground">
               Economic Calendar
             </h1>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-accent text-muted-foreground">
-              {eventCount} events · {highCount} high impact
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-accent text-muted-foreground whitespace-nowrap">
+              {eventCount} events · {highCount} high
             </span>
           </div>
 
-          {/* Week navigation */}
-          <div className="flex items-center gap-1">
+          {/* Week navigation — wraps on small screens */}
+          <div className="flex items-center gap-1 flex-wrap">
             <button
               onClick={goPrevWeek}
               className="p-1.5 rounded transition-colors hover:bg-accent"
@@ -71,11 +71,11 @@ export default function CalendarPage() {
               <ChevronLeft className="w-4 h-4 text-muted-foreground" />
             </button>
 
-            <div className="flex items-center gap-2 px-3 py-1 rounded bg-accent border border-border">
-              <span className="text-[12px] font-semibold text-foreground">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-accent border border-border">
+              <span className="text-[11px] font-semibold text-foreground hidden sm:inline">
                 This Week:
               </span>
-              <span className="text-[12px] font-mono text-primary">
+              <span className="text-[11px] font-mono text-primary">
                 {formatWeekRange(weekStart, weekEnd)}
               </span>
             </div>
@@ -90,7 +90,7 @@ export default function CalendarPage() {
             {weekOffset !== 0 && (
               <button
                 onClick={goThisWeek}
-                className="text-[10px] font-mono px-2 py-1 rounded transition-colors ml-1 bg-accent border border-border text-primary"
+                className="text-[10px] font-mono px-2 py-1 rounded transition-colors bg-accent border border-border text-primary"
               >
                 Today
               </button>
@@ -98,7 +98,7 @@ export default function CalendarPage() {
 
             <button
               onClick={refetch}
-              className="p-1.5 rounded transition-colors hover:bg-accent ml-1"
+              className="p-1.5 rounded transition-colors hover:bg-accent"
               title="Refresh data"
             >
               <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
@@ -114,9 +114,9 @@ export default function CalendarPage() {
           toggleCurrency={toggleCurrency}
         />
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 mb-2 px-1">
-          <div className="flex items-center gap-1">
+        {/* Legend — scrollable on mobile */}
+        <div className="flex items-center gap-3 mb-2 px-1 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="flex gap-[1px]">
               <span className="w-[4px] h-3 rounded-[1px]" style={{ background: "#ef4444" }} />
               <span className="w-[4px] h-3 rounded-[1px]" style={{ background: "#ef4444" }} />
@@ -124,7 +124,7 @@ export default function CalendarPage() {
             </span>
             <span className="text-[10px] text-muted-foreground">High</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="flex gap-[1px]">
               <span className="w-[4px] h-3 rounded-[1px]" style={{ background: "#f59e0b" }} />
               <span className="w-[4px] h-3 rounded-[1px]" style={{ background: "#f59e0b" }} />
@@ -132,7 +132,7 @@ export default function CalendarPage() {
             </span>
             <span className="text-[10px] text-muted-foreground">Medium</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="flex gap-[1px]">
               <span className="w-[4px] h-3 rounded-[1px]" style={{ background: "#22c55e" }} />
               <span className="w-[4px] h-3 rounded-[1px] bg-border" />
@@ -140,18 +140,18 @@ export default function CalendarPage() {
             </span>
             <span className="text-[10px] text-muted-foreground">Low</span>
           </div>
-          <span className="w-px h-4 bg-border" />
-          <div className="flex items-center gap-1">
+          <span className="w-px h-4 bg-border shrink-0" />
+          <div className="flex items-center gap-1 shrink-0">
             <span className="text-[10px] font-bold text-bullish">Green</span>
-            <span className="text-[10px] text-muted-foreground">= Better than forecast</span>
+            <span className="text-[10px] text-muted-foreground">= Beat</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 shrink-0">
             <span className="text-[10px] font-bold text-bearish">Red</span>
-            <span className="text-[10px] text-muted-foreground">= Worse than forecast</span>
+            <span className="text-[10px] text-muted-foreground">= Miss</span>
           </div>
         </div>
 
-        {/* Table */}
+        {/* Table — horizontally scrollable on mobile */}
         <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-border">
           {loading ? (
             <div className="space-y-0">
@@ -171,7 +171,9 @@ export default function CalendarPage() {
               No events found for this week.
             </div>
           ) : (
-            <CalendarTable events={filtered} />
+            <div className="min-w-[600px]">
+              <CalendarTable events={filtered} />
+            </div>
           )}
         </div>
       </div>
