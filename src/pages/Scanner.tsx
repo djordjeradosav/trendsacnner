@@ -42,11 +42,11 @@ interface PairScore {
 }
 
 function getScoreBg(score: number): string {
-  if (score >= 80) return "bg-[hsl(142_40%_12%)] border-[hsl(142_50%_30%)]";
-  if (score >= 65) return "bg-[hsl(142_30%_8%)] border-[hsl(142_40%_20%)]";
+  if (score >= 80) return "bg-bullish/15 border-bullish/30";
+  if (score >= 65) return "bg-bullish/10 border-bullish/20";
   if (score >= 50) return "bg-secondary border-border";
-  if (score >= 36) return "bg-[hsl(0_30%_8%)] border-[hsl(0_40%_20%)]";
-  return "bg-[hsl(0_40%_12%)] border-[hsl(0_50%_30%)]";
+  if (score >= 36) return "bg-bearish/10 border-bearish/20";
+  return "bg-bearish/15 border-bearish/30";
 }
 
 function getScoreColor(score: number): string {
