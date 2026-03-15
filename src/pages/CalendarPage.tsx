@@ -9,6 +9,7 @@ import {
 } from "@/hooks/useEconomicCalendar";
 import { CalendarFilters } from "@/components/calendar/CalendarFilters";
 import { CalendarTable } from "@/components/calendar/CalendarTable";
+import { EventDetailDrawer } from "@/components/calendar/EventDetailDrawer";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 
 const formatWeekRange = (start: Date, end: Date) => {
