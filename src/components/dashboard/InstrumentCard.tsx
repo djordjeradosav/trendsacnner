@@ -98,7 +98,7 @@ export function InstrumentCard({
 
       {/* Confidence row */}
       <div className="mt-2.5 flex items-center gap-2">
-        <span style={{ fontSize: "10px", color: "hsl(200 30% 33%)" }}>Confidence</span>
+        <span className="text-[10px] text-muted-foreground">Confidence</span>
         <span className="font-display" style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}>{confidence}%</span>
       </div>
       <div className="mt-1 w-full rounded-full overflow-hidden" style={{ height: "3px", background: "hsl(var(--border))" }}>
