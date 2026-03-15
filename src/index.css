@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  :root, .dark {
     /* Base backgrounds */
     --background: 210 33% 5%;       /* #080c10 */
     --foreground: 195 50% 94%;      /* #e8f4f8 */
@@ -59,6 +59,60 @@
     --sidebar-ring: 150 100% 50%;
 
     /* Typography */
+    --font-display: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .light {
+    --background: 210 20% 98%;      /* #f8f9fb */
+    --foreground: 210 30% 12%;      /* #181d24 */
+
+    --card: 0 0% 100%;              /* #ffffff */
+    --card-foreground: 210 30% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 30% 12%;
+
+    --primary: 150 80% 35%;         /* #12a35a */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 15% 93%;       /* #eaedf0 */
+    --secondary-foreground: 210 18% 42%;
+
+    --muted: 210 15% 93%;
+    --muted-foreground: 210 12% 48%;
+
+    --accent: 210 15% 93%;
+    --accent-foreground: 210 30% 12%;
+
+    --destructive: 0 80% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 15% 85%;
+    --input: 210 15% 85%;
+    --ring: 150 80% 35%;
+
+    --radius: 10px;
+
+    /* Trading-specific tokens */
+    --bullish: 150 70% 32%;
+    --bullish-dim: 155 55% 42%;
+    --bearish: 0 75% 48%;
+    --bearish-dim: 0 40% 88%;
+    --neutral-tone: 210 12% 48%;
+    --caution: 25 90% 48%;
+    --info: 200 85% 42%;
+
+    /* Sidebar */
+    --sidebar-background: 210 20% 96%;
+    --sidebar-foreground: 210 12% 48%;
+    --sidebar-primary: 150 80% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 15% 93%;
+    --sidebar-accent-foreground: 210 30% 12%;
+    --sidebar-border: 210 15% 85%;
+    --sidebar-ring: 150 80% 35%;
+
     --font-display: 'JetBrains Mono', 'Fira Code', monospace;
     --font-body: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
