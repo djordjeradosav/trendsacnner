@@ -142,16 +142,16 @@ export function ChatAssistant({ scanContext }: ChatAssistantProps) {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
+          className="fixed bottom-20 right-4 md:bottom-6 md:right-6 z-50 w-12 h-12 md:w-14 md:h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center"
           aria-label="Open AI chat"
         >
-          <MessageCircle className="w-6 h-6" />
+          <MessageCircle className="w-5 h-5 md:w-6 md:h-6" />
         </button>
       )}
 
       {/* Chat drawer */}
       {open && (
-        <div className="fixed right-0 top-0 bottom-0 w-[400px] z-50 bg-card border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+        <div className="fixed right-0 top-0 bottom-0 w-full md:w-[400px] z-[101] bg-card border-l border-border flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">

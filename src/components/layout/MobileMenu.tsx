@@ -59,8 +59,8 @@ export function MobileMenuButton() {
           />
 
           {/* Slide-in panel */}
-          <div className="fixed inset-y-0 right-0 z-[100] w-[280px] max-w-[85vw] bg-card border-l border-border flex flex-col animate-in slide-in-from-right duration-200 shadow-2xl">
-            <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="fixed inset-y-0 right-0 z-[100] w-[280px] max-w-[85vw] bg-background border-l border-border flex flex-col animate-in slide-in-from-right duration-200 shadow-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-border bg-background">
               <div className="flex items-center gap-2">
                 <Radar className="w-5 h-5 text-primary" />
                 <span className="font-display font-bold text-foreground">TrendScan AI</span>
