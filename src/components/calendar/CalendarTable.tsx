@@ -72,7 +72,6 @@ export function CalendarTable({ events }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const openDrawer = useEventDrawer((s) => s.open);
 
-  // Filter out tentative duplicates (no currency) when a real version exists
   const deduped = useMemo(() => {
     const seen = new Set<string>();
     const real = events.filter((e) => e.currency && !e.is_tentative);
@@ -101,7 +100,6 @@ export function CalendarTable({ events }: Props) {
     }));
   }, [deduped]);
 
-  // Auto-scroll to next upcoming event
   useEffect(() => {
     const now = Date.now();
     const nextIdx = deduped.findIndex((e) => new Date(e.scheduled_at).getTime() > now && !e.actual);
@@ -118,13 +116,12 @@ export function CalendarTable({ events }: Props) {
 
   return (
     <div ref={tableRef} className="w-full text-[13px]">
-      {/* Column Headers — ForexFactory style */}
+      {/* Column Headers */}
       <div
-        className="grid sticky top-0 z-10"
+        className="grid sticky top-0 z-10 bg-secondary"
         style={{
           gridTemplateColumns: COLS,
-          background: "#283848",
-          borderBottom: "2px solid #1a2a38",
+          borderBottom: "2px solid hsl(var(--border))",
         }}
       >
         {[
@@ -140,11 +137,10 @@ export function CalendarTable({ events }: Props) {
         ].map((col, i) => (
           <div
             key={i}
-            className="py-2 px-2 text-[11px] font-semibold tracking-wide uppercase"
+            className="py-2 px-2 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground"
             style={{
-              color: "#8fa3b8",
               textAlign: col.align as any,
-              borderRight: i < 8 ? "1px solid #1e2d3d" : "none",
+              borderRight: i < 8 ? "1px solid hsl(var(--border))" : "none",
             }}
           >
             {col.label}
@@ -159,20 +155,20 @@ export function CalendarTable({ events }: Props) {
           <div
             className="flex items-center gap-3 px-3 py-1.5"
             style={{
-              background: day.isToday ? "hsl(var(--primary) / 0.08)" : "#1a2535",
-              borderBottom: "1px solid #1e2d3d",
+              background: day.isToday ? "hsl(var(--primary) / 0.08)" : "hsl(var(--secondary))",
+              borderBottom: "1px solid hsl(var(--border))",
               borderLeft: day.isToday ? "3px solid hsl(var(--primary))" : "3px solid transparent",
             }}
           >
             {day.isToday && (
-              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "hsl(var(--primary))" }}>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
                 Today
               </span>
             )}
-            <span className="text-[12px] font-semibold" style={{ color: "#c0d0e0" }}>
+            <span className="text-[12px] font-semibold text-foreground/80">
               {day.label.weekday}
             </span>
-            <span className="text-[12px] font-mono" style={{ color: "#8fa3b8" }}>
+            <span className="text-[12px] font-mono text-muted-foreground">
               {day.label.monthDay}
             </span>
           </div>
@@ -187,23 +183,23 @@ export function CalendarTable({ events }: Props) {
             const isPast = !!ev.actual;
             const isExpanded = expandedId === ev.id;
             const pairs = getAffectedPairs(ev);
-            const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "#8fa3b8";
+            const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
 
             return (
               <div key={ev.id}>
                 <div
                   data-idx={idx}
-                  className="grid items-center cursor-pointer transition-colors hover:bg-[#1a2535]"
+                  className="grid items-center cursor-pointer transition-colors hover:bg-secondary"
                   onClick={() => setExpandedId(isExpanded ? null : ev.id)}
                   style={{
                     gridTemplateColumns: COLS,
                     height: "40px",
-                    borderBottom: "1px solid #1e2d3d",
+                    borderBottom: "1px solid hsl(var(--border))",
                     background: live
                       ? "hsl(var(--primary) / 0.05)"
                       : idx % 2 === 0
-                      ? "#0d1117"
-                      : "#111820",
+                      ? "hsl(var(--card))"
+                      : "hsl(var(--background))",
                     borderLeft: live
                       ? "3px solid hsl(var(--primary))"
                       : "3px solid transparent",
@@ -211,20 +207,20 @@ export function CalendarTable({ events }: Props) {
                   }}
                 >
                   {/* Date — empty, handled by day header */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid #1e2d3d" }}>
+                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                     {live && (
                       <span className="inline-flex items-center gap-1">
-                        <Play className="w-3 h-3 fill-current" style={{ color: "hsl(var(--primary))" }} />
+                        <Play className="w-3 h-3 fill-current text-primary" />
                       </span>
                     )}
                   </div>
 
                   {/* Time */}
-                  <div className="px-2" style={{ borderRight: "1px solid #1e2d3d" }}>
+                  <div className="px-2" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                     <span
                       className="text-[12px] font-mono"
                       style={{
-                        color: live ? "hsl(var(--primary))" : ev.is_tentative ? "#5a7080" : "#8fa3b8",
+                        color: live ? "hsl(var(--primary))" : ev.is_tentative ? "hsl(var(--muted-foreground))" : "hsl(var(--secondary-foreground))",
                         fontStyle: ev.is_tentative ? "italic" : "normal",
                       }}
                     >
@@ -233,14 +229,14 @@ export function CalendarTable({ events }: Props) {
                   </div>
 
                   {/* Currency */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid #1e2d3d" }}>
+                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                     <span className="text-[12px] font-mono font-bold" style={{ color: curColor }}>
                       {ev.currency || "—"}
                     </span>
                   </div>
 
                   {/* Impact */}
-                  <div className="px-2 flex items-center justify-center" style={{ borderRight: "1px solid #1e2d3d" }}>
+                  <div className="px-2 flex items-center justify-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                     <div className="flex gap-[2px]">
                       {impact === "high" ? (
                         <>
@@ -252,73 +248,73 @@ export function CalendarTable({ events }: Props) {
                         <>
                           <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
                           <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: "#1e2d3d" }} />
+                          <span className="w-[5px] h-4 rounded-[1px] bg-border" />
                         </>
                       ) : impact === "holiday" ? (
                         <span className="text-[10px]" style={{ color: impactColor }}>—</span>
                       ) : (
                         <>
                           <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: "#1e2d3d" }} />
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: "#1e2d3d" }} />
+                          <span className="w-[5px] h-4 rounded-[1px] bg-border" />
+                          <span className="w-[5px] h-4 rounded-[1px] bg-border" />
                         </>
                       )}
                     </div>
                   </div>
 
                   {/* Event name */}
-                  <div className="px-3 flex items-center gap-2 truncate" style={{ borderRight: "1px solid #1e2d3d" }}>
-                    <span className="text-[13px] truncate" style={{ color: "#e0ecf4" }}>
+                  <div className="px-3 flex items-center gap-2 truncate" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                    <span className="text-[13px] truncate text-foreground">
                       {ev.event_name}
                     </span>
                     {pairs.length > 0 && (
                       isExpanded
-                        ? <ChevronDown className="w-3 h-3 shrink-0" style={{ color: "#5a7080" }} />
-                        : <ChevronRight className="w-3 h-3 shrink-0" style={{ color: "#5a7080" }} />
+                        ? <ChevronDown className="w-3 h-3 shrink-0 text-muted-foreground" />
+                        : <ChevronRight className="w-3 h-3 shrink-0 text-muted-foreground" />
                     )}
                   </div>
 
                   {/* Detail button */}
-                  <div className="flex items-center justify-center" style={{ borderRight: "1px solid #1e2d3d" }}>
+                  <div className="flex items-center justify-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                     <button
                       onClick={(e) => { e.stopPropagation(); openDrawer(ev, "overview"); }}
-                      className="p-1 rounded hover:bg-[#1e2d3d] transition-colors"
+                      className="p-1 rounded hover:bg-secondary transition-colors"
                     >
-                      <FolderOpen className="w-3.5 h-3.5" style={{ color: "#5a7080" }} />
+                      <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
                     </button>
                   </div>
 
                   {/* Actual */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid #1e2d3d" }}>
+                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                     {ev.actual ? (
                       <span
                         className="text-[13px] font-mono font-bold"
                         style={{
                           color:
                             comparison === "better"
-                              ? "#22c55e"
+                              ? "hsl(var(--bullish))"
                               : comparison === "worse"
-                              ? "#ef4444"
-                              : "#e0ecf4",
+                              ? "hsl(var(--bearish))"
+                              : "hsl(var(--foreground))",
                         }}
                       >
                         {ev.actual}
                       </span>
                     ) : (
-                      <span className="text-[11px]" style={{ color: "#3d5a70" }}>—</span>
+                      <span className="text-[11px] text-muted-foreground">—</span>
                     )}
                   </div>
 
                   {/* Forecast */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid #1e2d3d" }}>
-                    <span className="text-[13px] font-mono" style={{ color: "#8fa3b8" }}>
+                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                    <span className="text-[13px] font-mono text-muted-foreground">
                       {ev.forecast || "—"}
                     </span>
                   </div>
 
                   {/* Previous */}
                   <div className="px-2 text-center">
-                    <span className="text-[13px] font-mono" style={{ color: "#8fa3b8" }}>
+                    <span className="text-[13px] font-mono text-muted-foreground">
                       {ev.previous || "—"}
                     </span>
                   </div>
@@ -327,24 +323,18 @@ export function CalendarTable({ events }: Props) {
                 {/* Expanded: affected pairs */}
                 {isExpanded && pairs.length > 0 && (
                   <div
-                    className="flex flex-wrap items-center gap-1.5 px-4 py-2"
+                    className="flex flex-wrap items-center gap-1.5 px-4 py-2 bg-secondary"
                     style={{
-                      background: "#131a22",
-                      borderBottom: "1px solid #1e2d3d",
+                      borderBottom: "1px solid hsl(var(--border))",
                       paddingLeft: "268px",
                     }}
                   >
-                    <span className="text-[10px] mr-1" style={{ color: "#5a7080" }}>Affected:</span>
+                    <span className="text-[10px] mr-1 text-muted-foreground">Affected:</span>
                     {pairs.map((p) => (
                       <button
                         key={p}
                         onClick={(e) => { e.stopPropagation(); navigate(`/pair/${p}`); }}
-                        className="text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors"
-                        style={{
-                          background: "#1a2535",
-                          border: "1px solid #1e2d3d",
-                          color: "hsl(var(--primary))",
-                        }}
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors bg-accent border border-border text-primary"
                       >
                         {p}
                       </button>

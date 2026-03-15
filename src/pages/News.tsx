@@ -203,7 +203,7 @@ function NewsCard({ article, navigate }: { article: NewsArticle; navigate: (path
         background: "hsl(var(--card))",
         border: "0.5px solid hsl(var(--border))",
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#2a3f55"; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--ring))"; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))"; }}
     >
       {/* Sentiment dot */}
