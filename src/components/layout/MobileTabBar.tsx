@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { LayoutDashboard, Radar, Bell, Star, Calendar } from "lucide-react";
+import { hapticTap } from "@/lib/haptics";
 
 const tabs = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -22,7 +23,7 @@ export function MobileTabBar() {
         return (
           <button
             key={tab.path}
-            onClick={() => navigate(tab.path)}
+            onClick={() => { hapticTap(); navigate(tab.path); }}
             className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
               isActive ? "text-primary" : "text-muted-foreground"
             }`}

@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Radar, LineChart, Bell, Star, Settings, LogOut, Menu, X, Calendar, Newspaper,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { hapticTap, hapticHeavy } from "@/lib/haptics";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -46,7 +47,7 @@ export function MobileMenuButton() {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="md:hidden p-2 text-muted-foreground">
+      <button onClick={() => { hapticTap(); setOpen(true); }} className="md:hidden p-2 text-muted-foreground">
         <Menu className="w-5 h-5" />
       </button>
 
@@ -85,7 +86,7 @@ export function MobileMenuButton() {
                 return (
                   <button
                     key={item.path}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => { hapticTap(); navigate(item.path); }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? "bg-accent text-foreground"
