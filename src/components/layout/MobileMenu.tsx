@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Radar, LineChart, Bell, Star, Settings, LogOut, Menu, X, Calendar, Newspaper,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { hapticTap, hapticHeavy } from "@/lib/haptics";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
