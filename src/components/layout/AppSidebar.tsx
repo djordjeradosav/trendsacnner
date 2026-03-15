@@ -111,7 +111,7 @@ export function AppSidebar() {
           onClick={() => navigate("/settings")}
           className="w-full flex items-center gap-3 h-[44px] px-3 text-[13px] rounded-md transition-colors"
           style={{ color: "hsl(var(--muted-foreground))" }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--accent))"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
         >
           <Settings className="w-[18px] h-[18px]" />
