@@ -193,6 +193,7 @@ export type Database = {
           forecast: string | null
           id: string
           impact: string
+          is_tentative: boolean | null
           previous: string | null
           scheduled_at: string
         }
@@ -205,6 +206,7 @@ export type Database = {
           forecast?: string | null
           id?: string
           impact?: string
+          is_tentative?: boolean | null
           previous?: string | null
           scheduled_at: string
         }
@@ -217,6 +219,7 @@ export type Database = {
           forecast?: string | null
           id?: string
           impact?: string
+          is_tentative?: boolean | null
           previous?: string | null
           scheduled_at?: string
         }
