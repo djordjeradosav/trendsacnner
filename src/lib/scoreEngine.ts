@@ -26,6 +26,7 @@ export interface ScoreResult {
   rsiScore: number;
   macdScore: number;
   newsScore: number | null;
+  socialScore: number | null;
   ema20: number;
   ema50: number;
   ema200: number;
