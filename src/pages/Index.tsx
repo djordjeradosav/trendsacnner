@@ -12,6 +12,8 @@ import { CapitalFlowWidget } from "@/components/dashboard/CapitalFlowWidget";
 import { CalendarWidget } from "@/components/dashboard/CalendarWidget";
 import { BreakingNewsBanner } from "@/components/news/BreakingNewsBanner";
 import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
+import { PriceTicker } from "@/components/dashboard/PriceTicker";
+import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useAllScores } from "@/hooks/useScores";
