@@ -83,9 +83,23 @@ export function MarketSessionBar() {
 
   const sessions = useMemo(() => getSessionInfo(now), [now]);
 
-  const estOffset = -5;
-  const estDate = new Date(now.getTime() + estOffset * 3600_000);
-  const estStr = `${padZ(estDate.getUTCHours())}:${padZ(estDate.getUTCMinutes())}:${padZ(estDate.getUTCSeconds())} EST`;
+  // Use Intl to get real US Eastern time (handles EST/EDT automatically)
+  const etParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }).formatToParts(now);
+  const etH = etParts.find(p => p.type === "hour")!.value;
+  const etM = etParts.find(p => p.type === "minute")!.value;
+  const etS = etParts.find(p => p.type === "second")!.value;
+  const isDST = (() => {
+    const jan = new Date(now.getFullYear(), 0, 1).getTimezoneOffset();
+    const nyOffset = -new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" })).getTimezoneOffset();
+    // Compare NY offset: -5 in winter (EST), -4 in summer (EDT)
+    const nyNow = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", timeZoneName: "short" }).format(now);
+    return nyNow.includes("EDT");
+  })();
+  const etLabel = isDST ? "EDT" : "EST";
+  const estStr = `${etH}:${etM}:${etS} ${etLabel}`;
   const utcStr = `${padZ(now.getUTCHours())}:${padZ(now.getUTCMinutes())}:${padZ(now.getUTCSeconds())} UTC`;
 
   return (
