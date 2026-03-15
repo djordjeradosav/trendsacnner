@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Calendar, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useEconomicCalendar, getFlag, CURRENCY_COLORS } from "@/hooks/useEconomicCalendar";
+import { CURRENCY_COLORS } from "@/hooks/useEconomicCalendar";
+import { supabase } from "@/integrations/supabase/client";
 
 function Countdown({ targetDate }: { targetDate: string }) {
   const [now, setNow] = useState(Date.now());
