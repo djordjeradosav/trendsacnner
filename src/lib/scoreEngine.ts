@@ -79,7 +79,7 @@ function scoreMACD(hist: number, histPrev: number): number {
 
 // ─── Composite ──────────────────────────────────────────────────────────────
 
-export function calcTrendScore(candles: Candle[], newsScore?: number | null): ScoreResult {
+export function calcTrendScore(candles: Candle[], newsScore?: number | null, socialScore?: number | null): ScoreResult {
   const sorted = [...candles].sort(
     (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
   );
