@@ -104,7 +104,7 @@ export function CalendarWidget() {
             <div key={i} className="h-6 rounded animate-pulse bg-secondary" />
           ))
         ) : highImpact.length === 0 ? (
-          <p className="text-[10px] text-muted-foreground">No upcoming impact events</p>
+          <p className="text-[10px] text-muted-foreground">No high-impact events today</p>
         ) : (
           highImpact.map((ev) => {
             const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
