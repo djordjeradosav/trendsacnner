@@ -7,14 +7,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Pair symbols we track — used for keyword matching
-const TRACKED_SYMBOLS = [
-  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD",
-  "EURGBP", "EURJPY", "GBPJPY", "XAUUSD", "XAGUSD", "US30", "US100",
-  "US500", "USOIL", "UKOIL", "NATGAS",
-];
-
-// Keyword map for matching articles to pairs
 const KEYWORD_MAP: Record<string, string[]> = {
   EURUSD: ["eur/usd", "eurusd", "euro dollar", "euro", "ecb"],
   GBPUSD: ["gbp/usd", "gbpusd", "cable", "pound", "sterling", "boe", "bank of england"],
@@ -58,6 +50,14 @@ interface UnifiedArticle {
   image_url: string | null;
 }
 
+function mapNewsDataSentiment(sentiment: string | undefined): string {
+  if (!sentiment) return "neutral";
+  const s = sentiment.toLowerCase();
+  if (s === "positive") return "positive";
+  if (s === "negative") return "negative";
+  return "neutral";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -72,32 +72,32 @@ serve(async (req) => {
 
     const articles: UnifiedArticle[] = [];
 
-    // 1. NewsAPI
+    // 1. NewsData.io
     if (NEWS_API_KEY) {
       try {
-        const url = `https://newsapi.org/v2/everything?q=forex+gold+oil+futures+markets&language=en&sortBy=publishedAt&pageSize=30&apiKey=${NEWS_API_KEY}`;
+        const url = `https://newsdata.io/api/1/latest?apikey=${NEWS_API_KEY}&q=forex%20OR%20gold%20OR%20oil%20OR%20futures%20OR%20markets&language=en&category=business`;
         const resp = await fetch(url);
         if (resp.ok) {
           const data = await resp.json();
-          for (const a of data.articles ?? []) {
+          for (const a of data.results ?? []) {
             const text = `${a.title ?? ""} ${a.description ?? ""}`;
             const pairs = matchPairs(text);
             articles.push({
               headline: a.title ?? "Untitled",
               summary: a.description ?? "",
-              source: a.source?.name ?? "NewsAPI",
-              url: a.url ?? "",
-              published_at: a.publishedAt ?? new Date().toISOString(),
-              sentiment: "neutral", // NewsAPI doesn't provide sentiment
+              source: a.source_name ?? a.source_id ?? "NewsData",
+              url: a.link ?? "",
+              published_at: a.pubDate ?? new Date().toISOString(),
+              sentiment: mapNewsDataSentiment(a.sentiment),
               relevant_pairs: pairs,
-              image_url: a.urlToImage ?? null,
+              image_url: a.image_url ?? null,
             });
           }
         } else {
-          console.error("NewsAPI error:", resp.status, await resp.text());
+          console.error("NewsData.io error:", resp.status, await resp.text());
         }
       } catch (e) {
-        console.error("NewsAPI fetch failed:", e);
+        console.error("NewsData.io fetch failed:", e);
       }
     }
 
@@ -112,23 +112,17 @@ serve(async (req) => {
             const text = `${item.title ?? ""} ${item.summary ?? ""}`;
             const pairs = matchPairs(text);
 
-            // Map Alpha Vantage sentiment score
             const score = parseFloat(item.overall_sentiment_score ?? "0");
             let sentiment = "neutral";
             if (score >= 0.15) sentiment = "positive";
             else if (score <= -0.15) sentiment = "negative";
 
-            // Enrich NewsAPI articles with AV sentiment if they match
             const existingIdx = articles.findIndex(
               (a) => a.headline.toLowerCase() === (item.title ?? "").toLowerCase()
             );
             if (existingIdx >= 0) {
               articles[existingIdx].sentiment = sentiment;
-              // Merge pairs
-              const merged = new Set([
-                ...articles[existingIdx].relevant_pairs,
-                ...pairs,
-              ]);
+              const merged = new Set([...articles[existingIdx].relevant_pairs, ...pairs]);
               articles[existingIdx].relevant_pairs = [...merged];
             } else {
               articles.push({
@@ -160,12 +154,10 @@ serve(async (req) => {
       );
     }
 
-    // 3. Upsert into news_articles (deduplicate by url)
-    // First delete old articles (> 48h) to keep table lean
+    // Clean old articles (> 48h)
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     await supabase.from("news_articles").delete().lt("published_at", cutoff);
 
-    // Insert new articles, skip duplicates by checking URL
     let inserted = 0;
     for (const article of articles) {
       const { data: existing } = await supabase
@@ -204,7 +196,6 @@ serve(async (req) => {
   }
 });
 
-/** Parse Alpha Vantage date format: 20240115T120000 -> ISO string */
 function parseAVDate(dateStr: string): string {
   try {
     const y = dateStr.slice(0, 4);
