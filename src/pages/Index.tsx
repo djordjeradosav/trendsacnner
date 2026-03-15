@@ -237,30 +237,30 @@ const Index = () => {
         </div>
 
         {/* Main 3-column grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_360px] gap-3 flex-1 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_minmax(300px,380px)] gap-3">
           {/* Col 1: AI Macro Desk */}
-          <div className="min-h-0 anim-fade-up" style={{ animationDelay: "160ms" }}>
+          <div className="min-h-[400px] anim-fade-up" style={{ animationDelay: "160ms" }}>
             <div className="rounded-lg p-4 h-full overflow-y-auto bg-card border border-border/50">
               <AIMacroDesk timeframe={selectedTimeframe} />
             </div>
           </div>
 
           {/* Col 2: Market Brief + Capital Flow */}
-          <div className="flex flex-col gap-3 min-h-0 anim-fade-up" style={{ animationDelay: "200ms" }}>
-            <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex flex-col gap-3 anim-fade-up" style={{ animationDelay: "200ms" }}>
+            <div className="min-h-[280px]">
               <MarketBriefCard timeframe={selectedTimeframe} />
             </div>
-            <div style={{ height: "240px", flexShrink: 0 }}>
+            <div className="min-h-[200px]">
               <CapitalFlowWidget timeframe={selectedTimeframe} />
             </div>
           </div>
 
           {/* Col 3: For You + Calendar */}
-          <div className="flex flex-col gap-3 min-h-0 anim-fade-right" style={{ animationDelay: "240ms" }}>
-            <div className="flex-1 min-h-0 rounded-lg p-4 overflow-y-auto bg-card border border-border/50">
+          <div className="flex flex-col gap-3 lg:col-span-2 xl:col-span-1 anim-fade-right" style={{ animationDelay: "240ms" }}>
+            <div className="min-h-[280px] rounded-lg p-4 overflow-y-auto bg-card border border-border/50">
               <ForYouPanel />
             </div>
-            <div className="shrink-0" style={{ height: "220px" }}>
+            <div className="min-h-[200px]">
               <CalendarWidget />
             </div>
           </div>
