@@ -5,7 +5,7 @@ import { InstrumentCard } from "./InstrumentCard";
 import { useAllScores, ScoreRow } from "@/hooks/useScores";
 import { supabase } from "@/integrations/supabase/client";
 
-const DESK_SYMBOLS = ["US30", "US100", "XAUUSD", "GBPUSD"];
+const DESK_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US30", "US100", "USOIL", "AUDUSD"];
 
 interface PairInfo {
   id: string;
@@ -111,7 +111,7 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
       </div>
 
       {/* Grid — staggered card entrance */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-2">
         {DESK_SYMBOLS.map((sym, idx) => {
           const pair = pairs.find((p) => p.symbol === sym);
           const score = pair ? scoreMap.get(pair.id) : undefined;

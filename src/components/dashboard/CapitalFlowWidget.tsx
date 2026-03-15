@@ -26,10 +26,10 @@ export function CapitalFlowWidget({ timeframe }: { timeframe: string }) {
 
   return (
     <div
-      className="rounded-lg p-4 mt-4 h-full flex flex-col"
+      className="rounded-lg p-4 h-full flex flex-col"
       style={{
-        background: "hsl(var(--secondary))",
-        border: "0.5px solid hsl(var(--border))",
+        background: "#0d1117",
+        border: "1px solid #1e2d3d",
       }}
     >
       {/* Header */}
