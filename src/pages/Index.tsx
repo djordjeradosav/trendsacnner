@@ -227,7 +227,7 @@ const Index = () => {
             value={isAutoScanEnabled ? "ON" : "OFF"}
             icon={<Zap className="w-4 h-4" style={{ color: isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }} />}
             color={isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))"}
-            sub="Every 10 min"
+            sub={isAutoScanEnabled ? scanIntervalOptions.find(o => o.value === scanInterval)?.label ?? scanInterval : "Manual only"}
           />
         </div>
 
