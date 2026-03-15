@@ -48,7 +48,20 @@ function simpleSentiment(text: string): string {
   return "neutral";
 }
 
-interface UnifiedArticle {
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+
   headline: string;
   summary: string;
   source: string;
@@ -148,7 +161,7 @@ async function fetchForexFactoryNews(): Promise<UnifiedArticle[]> {
       let m;
       while ((m = re.exec(html)) !== null) {
         const url = m[1].startsWith("http") ? m[1] : `https://www.forexfactory.com${m[1]}`;
-        const headline = m[2].replace(/<[^>]+>/g, "").trim();
+        const headline = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, "").trim());
         if (!headline || headline.length < 15 || seen.has(headline)) continue;
         seen.add(headline);
         articles.push({ headline, summary: "", source: "ForexFactory", url, published_at: new Date().toISOString(), sentiment: simpleSentiment(headline), relevant_pairs: matchPairs(headline), image_url: null });
@@ -178,7 +191,7 @@ async function fetchMyFXBookNews(): Promise<UnifiedArticle[]> {
     let m;
     while ((m = re.exec(html)) !== null) {
       const url = `https://www.myfxbook.com${m[1]}`;
-      const headline = m[2].replace(/<[^>]+>/g, "").trim();
+      const headline = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, "").trim());
       if (!headline || headline.length < 15 || seen.has(url)) continue;
       seen.add(url);
 
@@ -224,7 +237,7 @@ async function fetchInvestopediaNews(): Promise<UnifiedArticle[]> {
     while ((m = re.exec(html)) !== null) {
       const url = m[1];
       if (url.includes("/markets-news-") || url.includes("/news-")) continue;
-      let headline = m[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").replace(/\s+/g, " ").trim();
+      let headline = decodeHtmlEntities(m[2].replace(/<[^>]+>/g, "").replace(/\\\s*/g, " ").replace(/\s+/g, " ").trim());
       if (!headline || headline.length < 15 || seen.has(url)) continue;
       seen.add(url);
 

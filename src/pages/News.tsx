@@ -26,6 +26,13 @@ function timeAgo(dateStr: string | null) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function decodeEntities(str: string | null): string {
+  if (!str) return "";
+  const txt = document.createElement("textarea");
+  txt.innerHTML = str;
+  return txt.value;
+}
+
 export default function NewsPage() {
   const navigate = useNavigate();
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -238,7 +245,7 @@ function NewsCard({ article, navigate }: { article: NewsArticle; navigate: (path
           lineHeight: "1.4",
         }}
       >
-        {article.headline}
+        {decodeEntities(article.headline)}
       </h3>
 
       {/* Summary */}
@@ -254,7 +261,7 @@ function NewsCard({ article, navigate }: { article: NewsArticle; navigate: (path
             lineHeight: "1.5",
           }}
         >
-          {article.summary}
+          {decodeEntities(article.summary)}
         </p>
       )}
 
