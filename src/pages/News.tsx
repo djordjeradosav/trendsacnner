@@ -33,6 +33,7 @@ function decodeEntities(str: string | null): string {
   return txt.value;
 }
 
+export default function NewsPage() {
   const navigate = useNavigate();
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [sentiment, setSentiment] = useState("All");
