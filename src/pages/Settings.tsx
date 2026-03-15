@@ -7,6 +7,7 @@ import { useAutoScan, scanIntervalOptions } from "@/hooks/useAutoScan";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useToast } from "@/hooks/use-toast";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Timer, Clock, Bell, Volume2, Palette, Database, User, Trash2,
-  Download, TestTube, Send, Shield, Loader2,
+  Download, TestTube, Send, Shield, Loader2, Sun, Moon,
 } from "lucide-react";
 
 function playChime() {
@@ -57,6 +58,7 @@ export default function SettingsPage() {
   // Markets toggles
   const [markets, setMarkets] = useState({ forex: true, futures: true, commodity: true });
   const { permission: pushPermission, requestPermission } = usePushNotifications();
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (!user) return;
@@ -321,10 +323,23 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-sm text-foreground font-display">Dark mode</span>
-                <p className="text-xs text-muted-foreground">Always on — light mode coming soon</p>
+                <span className="text-sm text-foreground font-display">Theme</span>
+                <p className="text-xs text-muted-foreground">Switch between dark and light mode</p>
               </div>
-              <Switch checked disabled />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`p-2 rounded-lg border transition-colors ${theme === "light" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Sun className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`p-2 rounded-lg border transition-colors ${theme === "dark" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Moon className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <ToggleRow
               label="Compact view"
