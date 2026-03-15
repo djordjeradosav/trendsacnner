@@ -1,12 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Radar, Bell, Star, Settings } from "lucide-react";
+import { LayoutDashboard, Radar, Bell, Star, Calendar } from "lucide-react";
 
 const tabs = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Scanner", icon: Radar, path: "/scanner" },
+  { label: "Calendar", icon: Calendar, path: "/calendar" },
   { label: "Alerts", icon: Bell, path: "/alerts" },
   { label: "Watchlist", icon: Star, path: "/watchlist" },
-  { label: "Settings", icon: Settings, path: "/settings" },
 ];
 
 export function MobileTabBar() {
