@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
+import { hapticTap } from "@/lib/haptics";
 
 interface Message {
   role: "user" | "assistant";
