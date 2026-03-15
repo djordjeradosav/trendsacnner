@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAutoScan, scanIntervalOptions } from "@/hooks/useAutoScan";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useToast } from "@/hooks/use-toast";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -55,6 +56,7 @@ export default function SettingsPage() {
 
   // Markets toggles
   const [markets, setMarkets] = useState({ forex: true, futures: true, commodity: true });
+  const { permission: pushPermission, requestPermission } = usePushNotifications();
 
   useEffect(() => {
     if (!user) return;
@@ -271,6 +273,19 @@ export default function SettingsPage() {
                 if (v) playChime();
               }}
             />
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-foreground font-display">Push notifications</span>
+                <p className="text-xs text-muted-foreground">Get browser alerts for high-impact events 15 min before release</p>
+              </div>
+              {pushPermission === "granted" ? (
+                <span className="text-xs text-primary font-mono">✓ Enabled</span>
+              ) : (
+                <Button variant="outline" size="sm" onClick={requestPermission}>
+                  Enable
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="mt-5 space-y-3">

@@ -163,16 +163,16 @@ const Index = () => {
         </div>
 
         {/* Greeting + Controls */}
-        <div className="flex items-center justify-between anim-fade-up shrink-0" style={{ animationDelay: "80ms" }}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 anim-fade-up shrink-0" style={{ animationDelay: "80ms" }}>
           <DashboardGreeting />
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-card border border-border/50">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-card border border-border/50">
               <LiveDot />
               <span className="text-[10px] font-mono" style={{ color: sentimentColor }}>
                 {marketSentiment}
               </span>
-              <span className="text-[10px] font-mono" style={{ color: "#5a7080" }}>
-                Score: {stats.avg || "—"}
+              <span className="text-[10px] font-mono text-muted-foreground">
+                {stats.avg || "—"}
               </span>
             </div>
             <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scanning} />
@@ -186,7 +186,7 @@ const Index = () => {
         )}
 
         {/* Live Stats Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2 anim-fade-up shrink-0" style={{ animationDelay: "120ms" }}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2 anim-fade-up shrink-0" style={{ animationDelay: "120ms" }}>
           <StatCard
             label="Total Pairs"
             value={stats.total || "—"}
@@ -232,7 +232,7 @@ const Index = () => {
         </div>
 
         {/* Heatmap */}
-        <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", height: "200px" }}>
+        <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", minHeight: "160px" }}>
           <HeatmapWidget timeframe={selectedTimeframe} />
         </div>
 

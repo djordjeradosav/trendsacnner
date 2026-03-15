@@ -80,7 +80,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
+        <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
           {cells.map((cell) => (
             <button
               key={cell.pairId}
