@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import type { EconomicEvent } from "@/hooks/useEconomicCalendar";
 import { supabase } from "@/integrations/supabase/client";
-import { Download } from "lucide-react";
+import { Download, AlertTriangle, Radio } from "lucide-react";
 
 interface Props {
   event: EconomicEvent;
@@ -10,24 +10,58 @@ interface Props {
 export function HistoryTab({ event }: Props) {
   const [history, setHistory] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [backfilling, setBackfilling] = useState(false);
+  const [hasSynthetic, setHasSynthetic] = useState(false);
   const [range, setRange] = useState<"6m" | "1y" | "2y" | "all">("1y");
 
-  useEffect(() => {
-    const fetch = async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("economic_events")
-        .select("*")
-        .eq("event_name", event.event_name)
-        .eq("currency", event.currency || "")
-        .not("actual", "is", null)
-        .order("scheduled_at", { ascending: false })
-        .limit(24);
-      setHistory((data as EconomicEvent[]) || []);
-      setLoading(false);
-    };
-    fetch();
+  const fetchHistory = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("economic_events")
+      .select("*")
+      .eq("event_name", event.event_name)
+      .eq("currency", event.currency || "")
+      .not("actual", "is", null)
+      .order("scheduled_at", { ascending: false })
+      .limit(24);
+    const rows = (data as EconomicEvent[]) || [];
+    setHistory(rows);
+    setHasSynthetic(rows.some((r: any) => r.is_synthetic));
+    setLoading(false);
+    return rows;
   }, [event.event_name, event.currency]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      const rows = await fetchHistory();
+      if (cancelled) return;
+
+      // If fewer than 6 historical rows, trigger backfill
+      if (rows.length < 6) {
+        setBackfilling(true);
+        try {
+          await supabase.functions.invoke("backfill-event-history", {
+            body: {
+              event_name: event.event_name,
+              currency: event.currency || "",
+              forecast: event.forecast,
+              previous: event.previous,
+            },
+          });
+          if (!cancelled) {
+            await fetchHistory();
+          }
+        } catch (e) {
+          console.error("Backfill failed:", e);
+        } finally {
+          if (!cancelled) setBackfilling(false);
+        }
+      }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, [event.event_name, event.currency, fetchHistory]);
 
   const filtered = useMemo(() => {
     if (range === "all") return history;
@@ -93,9 +127,12 @@ export function HistoryTab({ event }: Props) {
     URL.revokeObjectURL(url);
   };
 
-  if (loading) {
+  if (loading || backfilling) {
     return (
       <div className="p-4 space-y-2">
+        <div className="text-[11px] text-muted-foreground font-mono mb-2">
+          {backfilling ? "Loading historical data..." : "Loading..."}
+        </div>
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="h-8 rounded bg-secondary animate-pulse" />
         ))}
@@ -105,6 +142,21 @@ export function HistoryTab({ event }: Props) {
 
   return (
     <div className="p-4 space-y-4">
+      {/* Data source badge */}
+      <div className="flex items-center gap-2">
+        {hasSynthetic ? (
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border"
+            style={{ borderColor: "hsl(var(--caution) / 0.4)", color: "hsl(var(--caution))", background: "hsl(var(--caution) / 0.08)" }}>
+            <AlertTriangle className="w-3 h-3" /> Estimated data
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full border"
+            style={{ borderColor: "hsl(var(--bullish) / 0.4)", color: "hsl(var(--bullish))", background: "hsl(var(--bullish) / 0.08)" }}>
+            <Radio className="w-3 h-3" /> Live data
+          </span>
+        )}
+      </div>
+
       {/* Range filter */}
       <div className="flex items-center justify-between">
         <div className="flex gap-1">
@@ -150,7 +202,7 @@ export function HistoryTab({ event }: Props) {
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="text-center text-sm text-muted-foreground py-8">No historical data found.</div>
+        <div className="text-center text-sm text-muted-foreground py-8">Loading data — please wait.</div>
       ) : (
         <div className="border border-border rounded-lg overflow-hidden">
           <div className="grid grid-cols-5 text-[9px] uppercase text-muted-foreground font-mono border-b border-border" style={{ background: "hsl(var(--secondary))" }}>
