@@ -95,7 +95,7 @@ export function usePairScore(pairId: string | undefined, timeframe: string) {
       if (!pairId) return null;
       const { data, error } = await supabase
         .from("scores")
-        .select("id, pair_id, score, trend, timeframe, ema_score, adx_score, rsi_score, macd_score, scanned_at")
+        .select("id, pair_id, score, trend, timeframe, ema_score, adx_score, rsi_score, macd_score, news_score, scanned_at")
         .eq("pair_id", pairId)
         .eq("timeframe", timeframe)
         .order("scanned_at", { ascending: false })
