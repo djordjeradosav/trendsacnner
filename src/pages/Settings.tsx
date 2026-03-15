@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Timer, Clock, Bell, Volume2, Palette, Database, User, Trash2,
-  Download, TestTube, Send, Shield, Loader2,
+  Download, TestTube, Send, Shield, Loader2, Sun, Moon,
 } from "lucide-react";
 
 function playChime() {
