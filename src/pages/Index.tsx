@@ -234,11 +234,16 @@ const Index = () => {
           />
         </div>
 
+        {/* Heatmap */}
+        <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", height: "200px" }}>
+          <HeatmapWidget timeframe={selectedTimeframe} />
+        </div>
+
         {/* Main 3-column grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_360px] gap-3 flex-1 min-h-0">
           {/* Col 1: AI Macro Desk */}
           <div className="min-h-0 anim-fade-up" style={{ animationDelay: "160ms" }}>
-            <div className="rounded-lg p-4 h-full overflow-y-auto" style={{ background: "#0d1117", border: "1px solid #1e2d3d" }}>
+            <div className="rounded-lg p-4 h-full overflow-y-auto bg-card border border-border/50">
               <AIMacroDesk timeframe={selectedTimeframe} />
             </div>
           </div>
@@ -255,7 +260,7 @@ const Index = () => {
 
           {/* Col 3: For You + Calendar */}
           <div className="flex flex-col gap-3 min-h-0 anim-fade-right" style={{ animationDelay: "240ms" }}>
-            <div className="flex-1 min-h-0 rounded-lg p-4 overflow-y-auto" style={{ background: "#0d1117", border: "1px solid #1e2d3d" }}>
+            <div className="flex-1 min-h-0 rounded-lg p-4 overflow-y-auto bg-card border border-border/50">
               <ForYouPanel />
             </div>
             <div className="shrink-0" style={{ height: "220px" }}>
