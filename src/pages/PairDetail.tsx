@@ -9,6 +9,7 @@ import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import { PairNewsSection } from "@/components/news/PairNewsSection";
+import { SocialBuzzCard } from "@/components/social/SocialBuzzCard";
 import {
   calcEMA,
   calcRSI,
@@ -519,6 +520,13 @@ export default function PairDetail() {
 
       {/* Latest News for this pair */}
       {pair && <PairNewsSection symbol={pair.symbol} />}
+
+      {/* Social Buzz */}
+      {pair && (
+        <div className="mb-6">
+          <SocialBuzzCard pairSymbol={pair.symbol} />
+        </div>
+      )}
     </AppLayout>
   );
 }

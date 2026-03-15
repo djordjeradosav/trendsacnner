@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.backfill-event-history]
 verify_jwt = false
+
+[functions.scan-reddit]
+verify_jwt = false

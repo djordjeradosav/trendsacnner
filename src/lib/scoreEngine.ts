@@ -26,6 +26,7 @@ export interface ScoreResult {
   rsiScore: number;
   macdScore: number;
   newsScore: number | null;
+  socialScore: number | null;
   ema20: number;
   ema50: number;
   ema200: number;
@@ -78,7 +79,7 @@ function scoreMACD(hist: number, histPrev: number): number {
 
 // ─── Composite ──────────────────────────────────────────────────────────────
 
-export function calcTrendScore(candles: Candle[], newsScore?: number | null): ScoreResult {
+export function calcTrendScore(candles: Candle[], newsScore?: number | null, socialScore?: number | null): ScoreResult {
   const sorted = [...candles].sort(
     (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
   );
@@ -121,11 +122,21 @@ export function calcTrendScore(candles: Candle[], newsScore?: number | null): Sc
       ? scoreMACD(macdHist, macdHistPrev)
       : 9;
 
-  // News score: 0-11, default 6 (neutral) if not provided
+  // Sentiment score: blend news (0-11) and social (0-11)
+  // If both available: news * 0.5 + social * 0.5, scaled to 0-11
+  // If only one: use it directly
   const effectiveNewsScore = newsScore != null ? newsScore : 6;
+  const effectiveSocialScore = socialScore != null ? socialScore : null;
+  
+  let sentimentScore: number;
+  if (effectiveSocialScore != null) {
+    sentimentScore = Math.round(effectiveNewsScore * 0.5 + effectiveSocialScore * 0.5);
+  } else {
+    sentimentScore = effectiveNewsScore;
+  }
 
   const score = Math.round(
-    Math.max(0, Math.min(100, emaScore + adxScore + rsiScore + macdScore + effectiveNewsScore))
+    Math.max(0, Math.min(100, emaScore + adxScore + rsiScore + macdScore + sentimentScore))
   );
 
   const trend: "bullish" | "neutral" | "bearish" =
@@ -139,6 +150,7 @@ export function calcTrendScore(candles: Candle[], newsScore?: number | null): Sc
     rsiScore,
     macdScore,
     newsScore: newsScore ?? null,
+    socialScore: socialScore ?? null,
     ema20: isNaN(ema20) ? 0 : ema20,
     ema50: isNaN(ema50) ? 0 : ema50,
     ema200: isNaN(ema200) ? 0 : ema200,
@@ -155,9 +167,10 @@ export async function scorePair(
   pairId: string,
   candles: Candle[],
   timeframe: string,
-  newsScore?: number | null
+  newsScore?: number | null,
+  socialScore?: number | null
 ): Promise<ScoreResult> {
-  const result = calcTrendScore(candles, newsScore);
+  const result = calcTrendScore(candles, newsScore, socialScore);
 
   const { error } = await supabase.from("scores").upsert(
     {
@@ -170,6 +183,7 @@ export async function scorePair(
       rsi_score: result.rsiScore,
       macd_score: result.macdScore,
       news_score: result.newsScore,
+      social_score: result.socialScore,
       ema20: result.ema20,
       ema50: result.ema50,
       ema200: result.ema200,

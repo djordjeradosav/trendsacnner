@@ -478,6 +478,7 @@ export type Database = {
           rsi_score: number | null
           scanned_at: string
           score: number
+          social_score: number | null
           timeframe: string
           trend: string
         }
@@ -497,6 +498,7 @@ export type Database = {
           rsi_score?: number | null
           scanned_at?: string
           score: number
+          social_score?: number | null
           timeframe: string
           trend: string
         }
@@ -516,6 +518,7 @@ export type Database = {
           rsi_score?: number | null
           scanned_at?: string
           score?: number
+          social_score?: number | null
           timeframe?: string
           trend?: string
         }
@@ -528,6 +531,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      social_sentiment: {
+        Row: {
+          confidence: number | null
+          content: string | null
+          fetched_at: string | null
+          id: string
+          original_url: string | null
+          pair_symbol: string | null
+          published_at: string | null
+          sentiment: string | null
+          source: string
+          upvotes: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          content?: string | null
+          fetched_at?: string | null
+          id?: string
+          original_url?: string | null
+          pair_symbol?: string | null
+          published_at?: string | null
+          sentiment?: string | null
+          source: string
+          upvotes?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          content?: string | null
+          fetched_at?: string | null
+          id?: string
+          original_url?: string | null
+          pair_symbol?: string | null
+          published_at?: string | null
+          sentiment?: string | null
+          source?: string
+          upvotes?: number | null
+        }
+        Relationships: []
       }
       user_favourites: {
         Row: {
