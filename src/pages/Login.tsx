@@ -14,6 +14,12 @@ export default function LoginPage() {
   const [forgotMode, setForgotMode] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { session } = useAuth();
+
+  // Redirect if already logged in (e.g. after Google OAuth)
+  useEffect(() => {
+    if (session) navigate("/dashboard", { replace: true });
+  }, [session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
