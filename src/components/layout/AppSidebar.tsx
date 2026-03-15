@@ -82,7 +82,7 @@ export function AppSidebar() {
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                  e.currentTarget.style.background = "hsl(var(--accent))";
                 }
               }}
               onMouseLeave={(e) => {
@@ -95,11 +95,7 @@ export function AppSidebar() {
               <span className="hidden md:inline">{item.label}</span>
               {item.soon && (
                 <span
-                  className="hidden md:inline-flex ml-auto text-[9px] rounded px-[5px] py-[1px]"
-                  style={{
-                    background: "#1a2635",
-                    color: "hsl(200 30% 33%)",
-                  }}
+                  className="hidden md:inline-flex ml-auto text-[9px] rounded px-[5px] py-[1px] bg-secondary text-muted-foreground"
                 >
                   Soon
                 </span>
@@ -115,7 +111,7 @@ export function AppSidebar() {
           onClick={() => navigate("/settings")}
           className="w-full flex items-center gap-3 h-[44px] px-3 text-[13px] rounded-md transition-colors"
           style={{ color: "hsl(var(--muted-foreground))" }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--accent))"; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
         >
           <Settings className="w-[18px] h-[18px]" />
@@ -138,7 +134,7 @@ export function AppSidebar() {
           <button
             className="relative p-1.5 rounded-md transition-colors"
             style={{ color: "hsl(var(--muted-foreground))" }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--accent))"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             onClick={() => navigate("/alerts")}
           >
@@ -154,7 +150,7 @@ export function AppSidebar() {
             onClick={handleLogout}
             className="p-1.5 rounded-md transition-colors"
             style={{ color: "hsl(var(--muted-foreground))" }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--accent))"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             title="Sign out"
           >
