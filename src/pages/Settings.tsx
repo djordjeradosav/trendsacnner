@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAutoScan, scanIntervalOptions } from "@/hooks/useAutoScan";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useToast } from "@/hooks/use-toast";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
