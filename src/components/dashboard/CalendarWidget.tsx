@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Calendar, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useEconomicCalendar, getFlag, CURRENCY_COLORS } from "@/hooks/useEconomicCalendar";
+import { CURRENCY_COLORS } from "@/hooks/useEconomicCalendar";
+import { supabase } from "@/integrations/supabase/client";
 
 function Countdown({ targetDate }: { targetDate: string }) {
   const [now, setNow] = useState(Date.now());
@@ -32,8 +33,47 @@ const IMPACT_DOTS: Record<string, string> = {
 };
 
 export function CalendarWidget() {
-  const { events, loading } = useEconomicCalendar(30);
   const navigate = useNavigate();
+  const [events, setEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTodayEvents = async () => {
+      setLoading(true);
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+
+      const { data } = await supabase
+        .from("economic_events")
+        .select("*")
+        .gte("scheduled_at", startOfDay)
+        .lte("scheduled_at", endOfDay)
+        .order("scheduled_at", { ascending: true });
+
+      setEvents(data || []);
+      setLoading(false);
+
+      // If no events found for today, try fetching from external source
+      if (!data || data.length === 0) {
+        try {
+          await supabase.functions.invoke("fetch-calendar");
+          const { data: refreshed } = await supabase
+            .from("economic_events")
+            .select("*")
+            .gte("scheduled_at", startOfDay)
+            .lte("scheduled_at", endOfDay)
+            .order("scheduled_at", { ascending: true });
+          if (refreshed && refreshed.length > 0) {
+            setEvents(refreshed);
+          }
+        } catch {
+          // silently fail — edge function may not exist
+        }
+      }
+    };
+    fetchTodayEvents();
+  }, []);
 
   const highImpact = events.filter((e) => e.impact === "high" || e.impact === "medium").slice(0, 6);
   const next = highImpact[0] || null;
@@ -64,7 +104,7 @@ export function CalendarWidget() {
             <div key={i} className="h-6 rounded animate-pulse bg-secondary" />
           ))
         ) : highImpact.length === 0 ? (
-          <p className="text-[10px] text-muted-foreground">No upcoming impact events</p>
+          <p className="text-[10px] text-muted-foreground">No high-impact events today</p>
         ) : (
           highImpact.map((ev) => {
             const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
