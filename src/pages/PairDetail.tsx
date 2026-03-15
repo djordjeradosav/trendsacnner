@@ -520,6 +520,13 @@ export default function PairDetail() {
 
       {/* Latest News for this pair */}
       {pair && <PairNewsSection symbol={pair.symbol} />}
+
+      {/* Social Buzz */}
+      {pair && (
+        <div className="mb-6">
+          <SocialBuzzCard pairSymbol={pair.symbol} />
+        </div>
+      )}
     </AppLayout>
   );
 }
