@@ -134,7 +134,7 @@ export function AppSidebar() {
           <button
             className="relative p-1.5 rounded-md transition-colors"
             style={{ color: "hsl(var(--muted-foreground))" }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "hsl(var(--accent))"; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
             onClick={() => navigate("/alerts")}
           >
