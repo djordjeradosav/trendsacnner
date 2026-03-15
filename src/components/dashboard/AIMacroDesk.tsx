@@ -157,6 +157,7 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
                 confidence={confidence}
                 aiAnalysis={analysis?.summary ?? null}
                 loading={isLoading}
+                newsScore={score?.news_score ?? null}
               />
             </div>
           );
