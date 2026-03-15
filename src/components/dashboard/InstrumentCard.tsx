@@ -1,4 +1,5 @@
 import React from "react";
+import { ScoreExplanation, ScoreFreshnessBadge } from "@/components/score/ScoreExplanation";
 
 interface InstrumentCardProps {
   symbol: string;
@@ -8,6 +9,9 @@ interface InstrumentCardProps {
   aiAnalysis: string | null;
   loading?: boolean;
   newsScore?: number | null;
+  dataQuality?: "full" | "no-social" | "no-news" | "technical-only";
+  scannedAt?: string | null;
+  explanationLines?: string[];
 }
 
 export function InstrumentCard({
@@ -18,6 +22,9 @@ export function InstrumentCard({
   aiAnalysis,
   loading,
   newsScore,
+  dataQuality = "technical-only",
+  scannedAt,
+  explanationLines = [],
 }: InstrumentCardProps) {
   const changeColor =
     percentChange === null
@@ -68,56 +75,34 @@ export function InstrumentCard({
       {/* Top row */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span
-            className="font-display font-bold"
-            style={{ fontSize: "15px", color: "hsl(var(--foreground))" }}
-          >
+          <span className="font-display font-bold" style={{ fontSize: "15px", color: "hsl(var(--foreground))" }}>
             {symbol}
           </span>
-          <span
-            className="font-display"
-            style={{ fontSize: "13px", color: changeColor }}
-          >
+          <span className="font-display" style={{ fontSize: "13px", color: changeColor }}>
             {changeStr}
           </span>
+          {explanationLines.length > 0 && (
+            <ScoreExplanation symbol={symbol} score={confidence} explanationLines={explanationLines} scannedAt={scannedAt} />
+          )}
         </div>
-        <span
-          className="font-display"
-          style={{
-            fontSize: "10px",
-            borderRadius: "4px",
-            padding: "2px 7px",
-            background: trendBg,
-            color: trendColor,
-          }}
-        >
-          {trendLabel}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <ScoreFreshnessBadge dataQuality={dataQuality} scannedAt={scannedAt} />
+          <span
+            className="font-display"
+            style={{ fontSize: "10px", borderRadius: "4px", padding: "2px 7px", background: trendBg, color: trendColor }}
+          >
+            {trendLabel}
+          </span>
+        </div>
       </div>
 
       {/* Confidence row */}
       <div className="mt-2.5 flex items-center gap-2">
-        <span style={{ fontSize: "10px", color: "hsl(200 30% 33%)" }}>
-          Confidence
-        </span>
-        <span
-          className="font-display"
-          style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}
-        >
-          {confidence}%
-        </span>
+        <span style={{ fontSize: "10px", color: "hsl(200 30% 33%)" }}>Confidence</span>
+        <span className="font-display" style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}>{confidence}%</span>
       </div>
-      <div
-        className="mt-1 w-full rounded-full overflow-hidden"
-        style={{ height: "3px", background: "hsl(var(--border))" }}
-      >
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: `${Math.min(confidence, 100)}%`,
-            background: barColor,
-          }}
-        />
+      <div className="mt-1 w-full rounded-full overflow-hidden" style={{ height: "3px", background: "hsl(var(--border))" }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(confidence, 100)}%`, background: barColor }} />
       </div>
 
       {/* News sentiment indicator */}
@@ -136,15 +121,7 @@ export function InstrumentCard({
 
       {/* AI Analysis */}
       <div className="mt-2">
-        <span
-          className="font-display"
-          style={{
-            fontSize: "9px",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            color: "hsl(var(--bullish))",
-          }}
-        >
+        <span className="font-display" style={{ fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.08em", color: "hsl(var(--bullish))" }}>
           ⚡ AI Analysis
         </span>
         {loading ? (
@@ -153,18 +130,7 @@ export function InstrumentCard({
             <div className="h-3 w-3/4 rounded bg-border/30 animate-pulse" />
           </div>
         ) : (
-          <p
-            className="mt-1"
-            style={{
-              fontSize: "12px",
-              color: "hsl(var(--muted-foreground))",
-              lineHeight: "1.5",
-              display: "-webkit-box",
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-            }}
-          >
+          <p className="mt-1" style={{ fontSize: "12px", color: "hsl(var(--muted-foreground))", lineHeight: "1.5", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             {aiAnalysis || "Run a scan to generate AI analysis."}
           </p>
         )}

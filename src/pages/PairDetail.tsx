@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ScoreExplanation, ScoreFreshnessBadge, EventRiskFlag } from "@/components/score/ScoreExplanation";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import { PairNewsSection } from "@/components/news/PairNewsSection";
@@ -19,7 +20,7 @@ import {
   calcBollingerBands,
   getLatestValue,
 } from "@/lib/indicators";
-import { calcTrendScore, type ScoreResult } from "@/lib/scoreEngine";
+import { calcTrendScore, type EnhancedScoreResult } from "@/lib/scoreEngine";
 import {
   createChart,
   type IChartApi,
@@ -71,7 +72,7 @@ export default function PairDetail() {
   const [pair, setPair] = useState<PairInfo | null>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [timeframe, setTimeframe] = useState("1h");
-  const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  const [scoreResult, setScoreResult] = useState<EnhancedScoreResult | null>(null);
   const [scoreHistory, setScoreHistory] = useState<{ time: Time; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [overlays, setOverlays] = useState({ ema20: true, ema50: true, ema200: false, bb: false });
@@ -464,23 +465,49 @@ export default function PairDetail() {
           {/* Score Breakdown */}
           <div className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-display font-semibold text-foreground">Trend Score Breakdown</h3>
-              <span className={`text-3xl font-display font-bold ${trendColor}`}>{scoreResult.score}</span>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-display font-semibold text-foreground">Composite Score</h3>
+                <ScoreExplanation symbol={pair.symbol} score={scoreResult.score} explanationLines={scoreResult.explanationLines} />
+              </div>
+              <div className="flex items-center gap-2">
+                <ScoreFreshnessBadge dataQuality={scoreResult.dataQuality} />
+                <span className={`text-3xl font-display font-bold ${trendColor}`}>{scoreResult.score}</span>
+              </div>
             </div>
-            <div className="space-y-3">
-              <GaugeBar label="EMA Alignment" value={scoreResult.emaScore} max={35} raw={`EMA stack → +${scoreResult.emaScore}pts`} color="bg-blue-500" />
-              <GaugeBar label="ADX Strength" value={scoreResult.adxScore} max={18} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.adxScore}pts`} color="bg-amber-500" />
-              <GaugeBar label="RSI Bias" value={scoreResult.rsiScore} max={18} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.rsiScore}pts`} color="bg-purple-500" />
-              <GaugeBar label="MACD Momentum" value={scoreResult.macdScore} max={18} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.macdScore}pts`} color="bg-emerald-500" />
-              <GaugeBar label="News Sentiment" value={scoreResult.newsScore ?? 6} max={11} raw={`News → +${scoreResult.newsScore ?? 6}pts`} color="bg-cyan-500" />
+
+            {/* Technical Layer */}
+            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-3">TECHNICAL ({scoreResult.breakdown.technicalTotal}/55)</p>
+            <div className="space-y-2">
+              <GaugeBar label="EMA Alignment" value={scoreResult.breakdown.emaScore} max={22} raw={`EMA stack → +${scoreResult.breakdown.emaScore}pts`} color="bg-blue-500" />
+              <GaugeBar label="ADX Strength" value={scoreResult.breakdown.adxScore} max={11} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.breakdown.adxScore}pts`} color="bg-amber-500" />
+              <GaugeBar label="RSI Bias" value={scoreResult.breakdown.rsiScore} max={11} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.breakdown.rsiScore}pts`} color="bg-purple-500" />
+              <GaugeBar label="MACD Momentum" value={scoreResult.breakdown.macdScore} max={11} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.breakdown.macdScore}pts`} color="bg-emerald-500" />
             </div>
-            <div className="mt-4 pt-3 border-t border-border">
+
+            {/* Fundamental Layer */}
+            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL ({scoreResult.breakdown.fundamentalTotal}/25)</p>
+            <div className="space-y-2">
+              <GaugeBar label="News Sentiment" value={scoreResult.breakdown.newsScore} max={13} raw={`News → +${scoreResult.breakdown.newsScore}pts`} color="bg-cyan-500" />
+              <GaugeBar label="Event Risk" value={scoreResult.breakdown.eventRiskScore} max={12} raw={scoreResult.upcomingEvent ? `⚠ ${scoreResult.upcomingEvent}` : "No upcoming events → +12pts"} color="bg-orange-500" />
+            </div>
+
+            {/* Social Layer */}
+            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL ({scoreResult.breakdown.socialTotal}/20)</p>
+            <div className="space-y-2">
+              <GaugeBar label="StockTwits" value={scoreResult.breakdown.stocktwitsScore} max={10} raw={`StockTwits → +${scoreResult.breakdown.stocktwitsScore}pts`} color="bg-green-500" />
+              <GaugeBar label="Reddit/Social" value={scoreResult.breakdown.redditScore} max={10} raw={`Reddit → +${scoreResult.breakdown.redditScore}pts`} color="bg-red-500" />
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
               <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
                 {scoreResult.trend === "bullish" && <TrendingUp className="w-3.5 h-3.5" />}
                 {scoreResult.trend === "bearish" && <TrendingDown className="w-3.5 h-3.5" />}
                 {scoreResult.trend === "neutral" && <Minus className="w-3.5 h-3.5" />}
                 {scoreResult.trend.toUpperCase()}
               </span>
+              {scoreResult.eventRiskFlag && (
+                <EventRiskFlag eventName={scoreResult.upcomingEvent} eventTime={scoreResult.upcomingEventTime} />
+              )}
             </div>
           </div>
 
