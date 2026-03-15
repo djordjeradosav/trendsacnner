@@ -1,1 +1,4 @@
 project_id = "delipimaejvfwpitzdun"
+
+[functions.record-event-reaction]
+verify_jwt = false

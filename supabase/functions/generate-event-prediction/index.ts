@@ -219,6 +219,7 @@ Trending: ${trendDir} based on 3-month average
 News sentiment last 24h: ${newsSentiment}, ${relevantNews.length} articles
 Social sentiment: ${socialSentiment}, ${social.length} mentions
 Recent central bank language: ${cbLanguage}
+Historical reaction data: ${reactionContext || "No reaction data available"}
 
 Provide your analysis in this exact JSON (no markdown, no explanation):
 {
