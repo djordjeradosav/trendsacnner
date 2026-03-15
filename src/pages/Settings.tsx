@@ -273,6 +273,19 @@ export default function SettingsPage() {
                 if (v) playChime();
               }}
             />
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-foreground font-display">Push notifications</span>
+                <p className="text-xs text-muted-foreground">Get browser alerts for high-impact events 15 min before release</p>
+              </div>
+              {pushPermission === "granted" ? (
+                <span className="text-xs text-primary font-mono">✓ Enabled</span>
+              ) : (
+                <Button variant="outline" size="sm" onClick={requestPermission}>
+                  Enable
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="mt-5 space-y-3">
