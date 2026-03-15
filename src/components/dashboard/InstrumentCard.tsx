@@ -7,6 +7,7 @@ interface InstrumentCardProps {
   confidence: number;
   aiAnalysis: string | null;
   loading?: boolean;
+  newsScore?: number | null;
 }
 
 export function InstrumentCard({
