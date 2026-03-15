@@ -66,7 +66,7 @@ export function InstrumentCard({
         border: "0.5px solid hsl(var(--border))",
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = "#2a3f55";
+        (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--ring))";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))";

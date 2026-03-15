@@ -26,11 +26,7 @@ export function CapitalFlowWidget({ timeframe }: { timeframe: string }) {
 
   return (
     <div
-      className="rounded-lg p-4 h-full flex flex-col"
-      style={{
-        background: "#0d1117",
-        border: "1px solid #1e2d3d",
-      }}
+      className="rounded-lg p-4 h-full flex flex-col bg-card border border-border"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3 shrink-0">

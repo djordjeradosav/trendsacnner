@@ -67,7 +67,7 @@ export function CalendarWidget() {
           <p className="text-[10px] text-muted-foreground">No upcoming impact events</p>
         ) : (
           highImpact.map((ev) => {
-            const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "#8fa3b8";
+            const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
             const impactColor = IMPACT_DOTS[ev.impact] || IMPACT_DOTS.low;
             const time = new Date(ev.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
             return (
