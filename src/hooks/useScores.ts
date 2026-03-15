@@ -13,6 +13,7 @@ export interface ScoreRow {
   rsi_score: number | null;
   macd_score: number | null;
   news_score: number | null;
+  social_score: number | null;
   scanned_at: string;
 }
 
