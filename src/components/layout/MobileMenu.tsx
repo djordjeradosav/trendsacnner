@@ -86,7 +86,7 @@ export function MobileMenuButton() {
                 return (
                   <button
                     key={item.path}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => { hapticTap(); navigate(item.path); }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
                       isActive
                         ? "bg-accent text-foreground"
