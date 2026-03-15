@@ -76,7 +76,7 @@ export function CalendarWidget() {
                 className="flex items-center gap-1.5 py-1 px-1.5 rounded"
                 style={{ borderLeft: `2px solid ${impactColor}` }}
               >
-                <span className="text-[10px] font-mono shrink-0" style={{ color: "#5a7080", width: "50px" }}>
+                <span className="text-[10px] font-mono shrink-0 text-muted-foreground" style={{ width: "50px" }}>
                   {time}
                 </span>
                 <span className="text-[10px] font-mono font-bold shrink-0" style={{ color: curColor, width: "28px" }}>
