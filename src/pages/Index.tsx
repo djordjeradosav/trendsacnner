@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
+import { AutoScanCountdown } from "@/components/scanner/AutoScanCountdown";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { DashboardGreeting } from "@/components/dashboard/DashboardGreeting";
@@ -15,9 +16,10 @@ import { PriceTicker } from "@/components/dashboard/PriceTicker";
 import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
 import { ScanButton } from "@/components/scanner/ScanButton";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
-import { useAutoScan } from "@/hooks/useAutoScan";
+import { useAutoScan, scanIntervalOptions } from "@/hooks/useAutoScan";
 import { useAllScores } from "@/hooks/useScores";
 import { useFastScan } from "@/hooks/useFastScan";
+import { useScanStore } from "@/store/scanStore";
 import { useTickFeedStatus } from "@/hooks/useTickFeedStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -61,7 +63,8 @@ const Index = () => {
   const { toast } = useToast();
   const [lastScan, setLastScan] = useState<string | null>(null);
 
-  const scan = useFastScan();
+  const { runScan, cancelScan } = useFastScan();
+  const scanState = useScanStore();
   const wsFeed = useTickFeedStatus(selectedTimeframe);
   const { data: allScores } = useAllScores(selectedTimeframe);
 
@@ -78,22 +81,23 @@ const Index = () => {
   }, [allScores]);
 
   const executeScan = async () => {
-    if (scan.isScanning) return;
-    await scan.runScan(selectedTimeframe);
+    if (scanState.isScanning) return;
+    await runScan(selectedTimeframe);
   };
 
   // Show toast on completion
   useEffect(() => {
-    if (scan.result && !scan.isScanning) {
+    if (scanState.result && !scanState.isScanning) {
       setLastScan(new Date().toLocaleString());
       toast({
         title: "Scan complete",
-        description: `${scan.result.scored} pairs scored in ${(scan.result.durationMs / 1000).toFixed(1)}s`,
+        description: `${scanState.result.scored} pairs scored in ${(scanState.result.durationMs / 1000).toFixed(1)}s`,
       });
     }
-  }, [scan.result, scan.isScanning]);
+  }, [scanState.result, scanState.isScanning]);
 
-  const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo, scanInterval, scanIntervalOptions } = useAutoScan(executeScan);
+  const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo, scanInterval } = useAutoScan(executeScan);
+  const activeIntervalMs = scanIntervalOptions.find((o) => o.value === scanInterval)?.ms ?? null;
 
   useEffect(() => {
     const fetchLastScan = async () => {
