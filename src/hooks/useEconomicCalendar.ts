@@ -180,16 +180,13 @@ export function useCalendarWeek() {
             prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
           );
 
-          toast({
-            title: `${updated.currency || ""} ${updated.event_name} Released`,
-            description: `Actual: ${updated.actual} | Forecast: ${updated.forecast || "N/A"}`,
-          });
+          onActualReleasedRef.current?.(updated);
         }
       )
       .subscribe();
 
     return () => { channel.unsubscribe(); };
-  }, [toast]);
+  }, []);
 
   const triggerCalendarRefresh = useCallback(async () => {
     setRefreshing(true);
