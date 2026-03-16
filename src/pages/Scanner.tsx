@@ -12,6 +12,7 @@ import { Radar, Search, TrendingUp, TrendingDown, Minus, Clock } from "lucide-re
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useFastScan } from "@/hooks/useFastScan";
+import { useScanStore } from "@/store/scanStore";
 import { useToast } from "@/hooks/use-toast";
 import { ScanButton } from "@/components/scanner/ScanButton";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
@@ -77,7 +78,8 @@ export default function ScannerPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const scan = useFastScan();
+  const { runScan, cancelScan } = useFastScan();
+  const scan = useScanStore();
 
   // Track recently updated pair_ids for flash animation
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
@@ -128,8 +130,8 @@ export default function ScannerPage() {
 
   const executeScan = useCallback(async () => {
     if (scan.isScanning) return;
-    await scan.runScan(selectedTimeframe);
-  }, [scan.isScanning, selectedTimeframe, scan.runScan]);
+    await runScan(selectedTimeframe);
+  }, [scan.isScanning, selectedTimeframe, runScan]);
 
   // Show toast on completion
   useEffect(() => {
@@ -180,7 +182,7 @@ export default function ScannerPage() {
   const strongest = useMemo(() => [...pairs].filter((p) => p.trend === "bullish").sort((a, b) => b.score - a.score).slice(0, 8), [pairs]);
   const weakest = useMemo(() => [...pairs].filter((p) => p.trend === "bearish").sort((a, b) => a.score - b.score).slice(0, 8), [pairs]);
 
-  const handleCancelScan = () => { scan.cancelScan(); };
+  const handleCancelScan = () => { cancelScan(); };
 
   const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
 
