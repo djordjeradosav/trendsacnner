@@ -75,9 +75,9 @@ const Index = () => {
     return { total: allScores.length, bullish, bearish, neutral, avg: Math.round(totalScore / allScores.length * 10) / 10, strongBull, strongBear };
   }, [allScores]);
 
-  const executeScan = () => {
+  const executeScan = async () => {
     if (scan.isScanning) return;
-    scan.runScan(selectedTimeframe);
+    await scan.runScan(selectedTimeframe);
   };
 
   // Show toast on completion
