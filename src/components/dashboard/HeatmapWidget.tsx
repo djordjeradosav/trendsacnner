@@ -42,7 +42,7 @@ interface CellData {
   trend: string;
 }
 
-function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe: string; navigate: (path: string) => void }) {
+function HeatmapCell({ cell, timeframe, navigate, mtfAlignment }: { cell: CellData; timeframe: string; navigate: (path: string) => void; mtfAlignment?: any }) {
   const showLive = isLiveEligible(timeframe);
   const { price, direction } = useLivePrice(showLive ? cell.symbol : undefined);
   const { flash } = useScoreChange(cell.pairId, timeframe);
