@@ -218,7 +218,7 @@ function PairScoreChart({ points, comparePairs }: { points: ScorePoint[]; compar
         const areaColor = points[points.length - 1].score > 50 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)";
         const areaSeries = chart.addSeries(AreaSeries, {
           topColor: areaColor, bottomColor: "transparent",
-          lineColor: "transparent", lineWidth: 0, priceLineVisible: false, lastValueVisible: false,
+          lineColor: "transparent", lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
         });
         areaSeries.setData(points.map((p) => ({ time: toChartTime(p.scanned_at), value: p.score })));
       }
