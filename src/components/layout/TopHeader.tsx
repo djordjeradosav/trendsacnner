@@ -3,6 +3,8 @@ import { formatCountdown } from "@/hooks/useAutoScan";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { MobileMenuButton } from "./MobileMenu";
+import { WsStatusIndicator } from "./WsStatusIndicator";
+import { type WsStatus } from "@/services/tickFeedService";
 
 interface TopHeaderProps {
   lastScan?: string | null;
@@ -14,6 +16,10 @@ interface TopHeaderProps {
   timeUntilNextScan?: number | null;
   isAutoScanEnabled?: boolean;
   autoScanAgo?: number | null;
+  wsStatus?: WsStatus;
+  wsPairCount?: number;
+  wsEligible?: boolean;
+  onWsReconnect?: () => void;
 }
 
 export function TopHeader({
