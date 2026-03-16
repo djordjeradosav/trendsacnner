@@ -20,8 +20,20 @@ const formatWeekRange = (start: Date, end: Date) => {
 export default function CalendarPage() {
   const {
     events, loading, refreshing, weekStart, weekEnd,
-    goNextWeek, goPrevWeek, goThisWeek, weekOffset, refetch,
+    goNextWeek, goPrevWeek, goThisWeek, weekOffset, refetch, onActualReleasedRef,
   } = useCalendarWeek();
+  const { toast } = useToast();
+
+  // Wire up realtime toast from the hook's ref
+  useEffect(() => {
+    onActualReleasedRef.current = (ev) => {
+      toast({
+        title: `${ev.currency || ""} ${ev.event_name} Released`,
+        description: `Actual: ${ev.actual} | Forecast: ${ev.forecast || "N/A"}`,
+      });
+    };
+    return () => { onActualReleasedRef.current = null; };
+  }, [toast, onActualReleasedRef]);
 
   const [impactFilter, setImpactFilter] = useState<string>("All");
   const [currencyFilters, setCurrencyFilters] = useState<string[]>([]);
