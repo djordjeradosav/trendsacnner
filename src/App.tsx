@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { RequireAuth } from "@/hooks/useAuth";
+import { RealtimeProvider } from "@/providers/RealtimeProvider";
 import LandingPage from "./pages/Landing";
 import LoginPage from "./pages/Login";
 import SignupPage from "./pages/Signup";
@@ -35,23 +36,25 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/dashboard" element={<RequireAuth><Index /></RequireAuth>} />
-            <Route path="/scanner" element={<RequireAuth><ScannerPage /></RequireAuth>} />
-            <Route path="/pair/:symbol" element={<RequireAuth><PairDetail /></RequireAuth>} />
-            <Route path="/watchlist" element={<RequireAuth><WatchlistPage /></RequireAuth>} />
-            <Route path="/alerts" element={<RequireAuth><AlertsPage /></RequireAuth>} />
-            <Route path="/news" element={<RequireAuth><NewsPage /></RequireAuth>} />
-            <Route path="/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
-            <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <RealtimeProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/dashboard" element={<RequireAuth><Index /></RequireAuth>} />
+              <Route path="/scanner" element={<RequireAuth><ScannerPage /></RequireAuth>} />
+              <Route path="/pair/:symbol" element={<RequireAuth><PairDetail /></RequireAuth>} />
+              <Route path="/watchlist" element={<RequireAuth><WatchlistPage /></RequireAuth>} />
+              <Route path="/alerts" element={<RequireAuth><AlertsPage /></RequireAuth>} />
+              <Route path="/news" element={<RequireAuth><NewsPage /></RequireAuth>} />
+              <Route path="/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
+              <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </RealtimeProvider>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
