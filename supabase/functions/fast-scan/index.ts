@@ -113,16 +113,48 @@ function latest(arr: number[]): number {
   return NaN;
 }
 
+// ─── Timeframe Config (mirrored from src/config/timeframes.ts) ──────────────
+
+interface TFConfig {
+  candleLimit: number;
+  emaFast: number; emaMid: number; emaSlow: number;
+  rsiPeriod: number; adxPeriod: number;
+  macdFast: number; macdSlow: number; macdSignal: number;
+}
+
+const TF_CONFIGS: Record<string, TFConfig> = {
+  "1min":  { candleLimit: 100, emaFast: 8, emaMid: 21, emaSlow: 55, rsiPeriod: 7, adxPeriod: 7, macdFast: 5, macdSlow: 13, macdSignal: 4 },
+  "3min":  { candleLimit: 100, emaFast: 8, emaMid: 21, emaSlow: 55, rsiPeriod: 9, adxPeriod: 9, macdFast: 6, macdSlow: 14, macdSignal: 5 },
+  "5min":  { candleLimit: 120, emaFast: 9, emaMid: 21, emaSlow: 50, rsiPeriod: 9, adxPeriod: 10, macdFast: 8, macdSlow: 17, macdSignal: 6 },
+  "15min": { candleLimit: 150, emaFast: 9, emaMid: 21, emaSlow: 50, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "30min": { candleLimit: 150, emaFast: 9, emaMid: 21, emaSlow: 50, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1h":    { candleLimit: 200, emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "4h":    { candleLimit: 200, emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1day":  { candleLimit: 250, emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+};
+
+function getTFConfig(tf: string): TFConfig {
+  return TF_CONFIGS[tf] ?? TF_CONFIGS["1h"];
+}
+
 // ─── Score Engine ───────────────────────────────────────────────────────────
 
 interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
-function scoreEMA(price: number, e20: number, e50: number, e200: number): number {
-  if (price > e20 && e20 > e50 && e50 > e200) return 22;
-  if (price > e20 && e20 > e50) return 15;
-  if (price > e20) return 8;
-  if (price < e20 && e20 < e50 && e50 < e200) return 0;
-  return 11;
+function scoreEMA(price: number, eFast: number, eMid: number, eSlow: number, hasSlowEMA: boolean): number {
+  if (hasSlowEMA) {
+    if (price > eFast && eFast > eMid && eMid > eSlow) return 22;
+    if (price > eFast && eFast > eMid) return 15;
+    if (price > eFast) return 8;
+    if (price < eFast && eFast < eMid && eMid < eSlow) return 0;
+    return 11;
+  } else {
+    if (price > eFast && eFast > eMid && eMid > eSlow) return 20;
+    if (price > eFast && eFast > eMid) return 14;
+    if (price > eFast) return 8;
+    if (price < eFast && eFast < eMid && eMid < eSlow) return 2;
+    return 11;
+  }
 }
 
 function scoreADX(adx: number): number {
@@ -140,33 +172,34 @@ function scoreMACD(hist: number, histPrev: number): number {
   return 0;
 }
 
-function calcTrendScore(candles: CandleData[]) {
+function calcTrendScore(candles: CandleData[], tf: string) {
+  const config = getTFConfig(tf);
   const closes = candles.map(c => c.close);
   const highs = candles.map(c => c.high);
   const lows = candles.map(c => c.low);
 
-  const ema20 = latest(calcEMA(closes, 20));
-  const ema50 = latest(calcEMA(closes, 50));
-  const ema200 = latest(calcEMA(closes, 200));
-  const rsi = latest(calcRSI(closes, 14));
-  const adx = latest(calcADX(highs, lows, closes, 14));
-  const { histogram } = calcMACD(closes, 12, 26, 9);
+  const emaFastVal = latest(calcEMA(closes, config.emaFast));
+  const emaMidVal = latest(calcEMA(closes, config.emaMid));
+  const emaSlowVal = latest(calcEMA(closes, config.emaSlow));
+  const rsi = latest(calcRSI(closes, config.rsiPeriod));
+  const adx = latest(calcADX(highs, lows, closes, config.adxPeriod));
+  const { histogram } = calcMACD(closes, config.macdFast, config.macdSlow, config.macdSignal);
   const macdHist = latest(histogram);
   let macdHistPrev = NaN;
   for (let i = histogram.length - 2; i >= 0; i--) { if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; } }
 
   const price = closes[closes.length - 1];
-  const emaS = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200) : 11;
+  const hasSlowEMA = config.emaSlow >= 100;
+  const emaS = !isNaN(emaFastVal) && !isNaN(emaMidVal) && !isNaN(emaSlowVal) ? scoreEMA(price, emaFastVal, emaMidVal, emaSlowVal, hasSlowEMA) : 11;
   const adxS = !isNaN(adx) ? scoreADX(adx) : 2;
   const rsiS = !isNaN(rsi) ? scoreRSI(rsi) : 6;
   const macdS = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : 6;
 
-  // Technical 0-55, defaults for news/social
   const technical = emaS + adxS + rsiS + macdS;
-  const newsDefault = 7; // 0-13
-  const eventDefault = 12; // 0-12
-  const stocktwitsDefault = 5; // 0-10
-  const redditDefault = 5; // 0-10
+  const newsDefault = 7;
+  const eventDefault = 12;
+  const stocktwitsDefault = 5;
+  const redditDefault = 5;
 
   const rawScore = Math.max(0, Math.min(100, technical + newsDefault + eventDefault + stocktwitsDefault + redditDefault));
   const trend = rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
@@ -174,9 +207,9 @@ function calcTrendScore(candles: CandleData[]) {
   return {
     score: rawScore, trend,
     emaScore: emaS, adxScore: adxS, rsiScore: rsiS, macdScore: macdS,
-    ema20: isNaN(ema20) ? 0 : ema20,
-    ema50: isNaN(ema50) ? 0 : ema50,
-    ema200: isNaN(ema200) ? 0 : ema200,
+    ema20: isNaN(emaFastVal) ? 0 : emaFastVal,
+    ema50: isNaN(emaMidVal) ? 0 : emaMidVal,
+    ema200: isNaN(emaSlowVal) ? 0 : emaSlowVal,
     adx: isNaN(adx) ? 0 : adx,
     rsi: isNaN(rsi) ? 50 : rsi,
     macdHist: isNaN(macdHist) ? 0 : macdHist,
@@ -200,13 +233,6 @@ function getTwelveDataSymbol(symbol: string): string {
   if (symbol.includes("!")) return symbol.replace("!", "").replace(/1$/, "");
   if (symbol.length === 6) return `${symbol.slice(0,3)}/${symbol.slice(3)}`;
   return symbol;
-}
-
-function getCandleLimit(tf: string): number {
-  if (["1min","3min","5min"].includes(tf)) return 100;
-  if (["15min","30min"].includes(tf)) return 150;
-  if (["1h","4h"].includes(tf)) return 200;
-  return 250;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
