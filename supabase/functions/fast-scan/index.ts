@@ -117,7 +117,17 @@ function latest(arr: number[]): number {
 
 interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
-function scoreEMA(price: number, e20: number, e50: number, e200: number): number {
+function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
+  const isShortTF = ["1min","3min","5min","15min","30min"].includes(timeframe || "");
+  if (isShortTF) {
+    // 3-EMA system for short timeframes (fast/mid/slow — no EMA200)
+    if (price > e20 && e20 > e50 && e50 > e200) return 22;
+    if (price < e20 && e20 < e50 && e50 < e200) return 0;
+    if (price > e20 && e20 > e50) return 16;
+    if (price > e20) return 10;
+    if (price < e20 && e20 < e50) return 6;
+    return 11;
+  }
   if (price > e20 && e20 > e50 && e50 > e200) return 22;
   if (price > e20 && e20 > e50) return 15;
   if (price > e20) return 8;
@@ -140,33 +150,55 @@ function scoreMACD(hist: number, histPrev: number): number {
   return 0;
 }
 
-function calcTrendScore(candles: CandleData[]) {
+// Timeframe-specific indicator periods
+const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
+  "1min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "3min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "5min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "15min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "30min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "4h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1day":  { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1week": { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+};
+
+function getConfig(tf: string) {
+  return TF_CONFIGS[tf] || TF_CONFIGS["1h"];
+}
+
+function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   const closes = candles.map(c => c.close);
   const highs = candles.map(c => c.high);
   const lows = candles.map(c => c.low);
 
-  const ema20 = latest(calcEMA(closes, 20));
-  const ema50 = latest(calcEMA(closes, 50));
-  const ema200 = latest(calcEMA(closes, 200));
-  const rsi = latest(calcRSI(closes, 14));
-  const adx = latest(calcADX(highs, lows, closes, 14));
-  const { histogram } = calcMACD(closes, 12, 26, 9);
+  const cfg = getConfig(timeframe);
+
+  const emaFastArr = calcEMA(closes, cfg.emaFast);
+  const emaMidArr = calcEMA(closes, cfg.emaMid);
+  const emaSlowArr = calcEMA(closes, cfg.emaSlow);
+  const rsiVal = latest(calcRSI(closes, cfg.rsiPeriod));
+  const adxVal = latest(calcADX(highs, lows, closes, cfg.adxPeriod));
+  const { histogram } = calcMACD(closes, cfg.macdFast, cfg.macdSlow, cfg.macdSignal);
   const macdHist = latest(histogram);
   let macdHistPrev = NaN;
   for (let i = histogram.length - 2; i >= 0; i--) { if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; } }
 
   const price = closes[closes.length - 1];
-  const emaS = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200) : 11;
-  const adxS = !isNaN(adx) ? scoreADX(adx) : 2;
-  const rsiS = !isNaN(rsi) ? scoreRSI(rsi) : 6;
+  const emaFast = latest(emaFastArr);
+  const emaMid = latest(emaMidArr);
+  const emaSlow = latest(emaSlowArr);
+
+  const emaS = !isNaN(emaFast) && !isNaN(emaMid) && !isNaN(emaSlow) ? scoreEMA(price, emaFast, emaMid, emaSlow, timeframe) : 11;
+  const adxS = !isNaN(adxVal) ? scoreADX(adxVal) : 2;
+  const rsiS = !isNaN(rsiVal) ? scoreRSI(rsiVal) : 6;
   const macdS = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : 6;
 
-  // Technical 0-55, defaults for news/social
   const technical = emaS + adxS + rsiS + macdS;
-  const newsDefault = 7; // 0-13
-  const eventDefault = 12; // 0-12
-  const stocktwitsDefault = 5; // 0-10
-  const redditDefault = 5; // 0-10
+  const newsDefault = 7;
+  const eventDefault = 12;
+  const stocktwitsDefault = 5;
+  const redditDefault = 5;
 
   const rawScore = Math.max(0, Math.min(100, technical + newsDefault + eventDefault + stocktwitsDefault + redditDefault));
   const trend = rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
@@ -174,11 +206,11 @@ function calcTrendScore(candles: CandleData[]) {
   return {
     score: rawScore, trend,
     emaScore: emaS, adxScore: adxS, rsiScore: rsiS, macdScore: macdS,
-    ema20: isNaN(ema20) ? 0 : ema20,
-    ema50: isNaN(ema50) ? 0 : ema50,
-    ema200: isNaN(ema200) ? 0 : ema200,
-    adx: isNaN(adx) ? 0 : adx,
-    rsi: isNaN(rsi) ? 50 : rsi,
+    ema20: isNaN(emaFast) ? 0 : emaFast,
+    ema50: isNaN(emaMid) ? 0 : emaMid,
+    ema200: isNaN(emaSlow) ? 0 : emaSlow,
+    adx: isNaN(adxVal) ? 0 : adxVal,
+    rsi: isNaN(rsiVal) ? 50 : rsiVal,
     macdHist: isNaN(macdHist) ? 0 : macdHist,
   };
 }
@@ -202,11 +234,24 @@ function getTwelveDataSymbol(symbol: string): string {
   return symbol;
 }
 
+const CANDLE_LIMITS: Record<string, number> = {
+  "1min": 120, "3min": 120, "5min": 150,
+  "15min": 250, "30min": 250,
+  "1h": 300, "4h": 300, "1day": 365, "1week": 200,
+};
+
+const MINIMUM_CANDLES: Record<string, number> = {
+  "1min": 60, "3min": 60, "5min": 80,
+  "15min": 100, "30min": 100,
+  "1h": 100, "4h": 100, "1day": 100, "1week": 50,
+};
+
 function getCandleLimit(tf: string): number {
-  if (["1min","3min","5min"].includes(tf)) return 100;
-  if (["15min","30min"].includes(tf)) return 150;
-  if (["1h","4h"].includes(tf)) return 200;
-  return 250;
+  return CANDLE_LIMITS[tf] || 200;
+}
+
+function getMinimumCandles(tf: string): number {
+  return MINIMUM_CANDLES[tf] || 50;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -323,9 +368,9 @@ Deno.serve(async (req) => {
         // Process results
         for (const r of results) {
           done++;
-          if (r.status === "fulfilled" && r.value && r.value.candles.length >= 20) {
+          if (r.status === "fulfilled" && r.value && r.value.candles.length >= getMinimumCandles(timeframe)) {
             const { pairId, symbol, candles } = r.value;
-            const result = calcTrendScore(candles);
+            const result = calcTrendScore(candles, timeframe);
 
             if (result.trend === "bullish") bullish++;
             else if (result.trend === "bearish") bearish++;

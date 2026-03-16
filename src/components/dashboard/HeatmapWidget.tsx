@@ -87,16 +87,16 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
               onClick={() => navigate(`/pair/${cell.symbol}`)}
               className="rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer"
               style={{
-                background: scoreToColor(cell.score),
-                border: `1px solid ${scoreToBorder(cell.score)}`,
+                background: cell.score === null ? "hsl(200 10% 15%)" : scoreToColor(cell.score),
+                border: `1px solid ${cell.score === null ? "hsl(200 10% 22%)" : scoreToBorder(cell.score)}`,
               }}
-              title={`${cell.symbol}: Score ${cell.score} (${cell.trend})`}
+              title={cell.score === null ? `${cell.symbol}: Insufficient data — rescan to fetch more candles` : `${cell.symbol}: Score ${cell.score} (${cell.trend})`}
             >
               <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
                 {cell.symbol.replace("/", "")}
               </div>
               <div className="text-[8px] font-mono text-white/60 leading-tight">
-                {cell.score}
+                {cell.score === null ? "—" : cell.score}
               </div>
             </button>
           ))}

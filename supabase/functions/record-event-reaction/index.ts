@@ -106,7 +106,7 @@ serve(async (req) => {
             .from("candles")
             .select("close, high, low, ts")
             .eq("pair_id", pairId)
-            .eq("timeframe", "15m")
+            .eq("timeframe", "15min")
             .gte("ts", candleStart)
             .lte("ts", candleEnd)
             .order("ts", { ascending: true });
