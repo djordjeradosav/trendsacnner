@@ -62,32 +62,48 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
     return (
       <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex items-center justify-center">
         <span className="text-xs text-muted-foreground font-mono">Run a scan to see the heatmap</span>
-      </div>
-    );
-  }
+    </div>
+  );
+}
+
+interface CellData {
+  pairId: string;
+  symbol: string;
+  category: string;
+  score: number;
+  trend: string;
+}
+
+function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe: string; navigate: (path: string) => void }) {
+  const showLive = isLiveEligible(timeframe);
+  const { price, direction } = useLivePrice(showLive ? cell.symbol : undefined);
 
   return (
-    <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-display font-semibold text-foreground uppercase tracking-wider">
-          Market Heatmap
-        </h3>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(0 70% 33%)" }} />
-          <span className="text-[9px] text-muted-foreground font-mono">Bearish</span>
-          <div className="w-8 h-1.5 rounded-full mx-1" style={{ background: "linear-gradient(90deg, hsl(0 70% 33%), hsl(200 15% 18%), hsl(142 70% 35%))" }} />
-          <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(142 70% 35%)" }} />
-          <span className="text-[9px] text-muted-foreground font-mono">Bullish</span>
-        </div>
+    <button
+      onClick={() => navigate(`/pair/${cell.symbol}`)}
+      className="rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer"
+      style={{
+        background: scoreToColor(cell.score),
+        border: `1px solid ${scoreToBorder(cell.score)}`,
+      }}
+      title={`${cell.symbol}: Score ${cell.score} (${cell.trend})${price ? ` · ${price.toFixed(5)}` : ""}`}
+    >
+      <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
+        {cell.symbol.replace("/", "")}
       </div>
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
-          {cells.map((cell) => (
-            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} />
-          ))}
-        </div>
+      <div className="text-[8px] font-mono text-white/60 leading-tight">
+        {cell.score}
       </div>
-    </div>
+      {showLive && price !== null && (
+        <div
+          className="text-[7px] font-mono leading-tight transition-colors duration-300"
+          style={{
+            color: direction === "up" ? "hsl(142 70% 60%)" : direction === "down" ? "hsl(0 70% 60%)" : "rgba(255,255,255,0.5)",
+          }}
+        >
+          {price.toFixed(price >= 100 ? 2 : price >= 10 ? 3 : 5)}
+        </div>
+      )}
+    </button>
   );
 }
