@@ -150,33 +150,55 @@ function scoreMACD(hist: number, histPrev: number): number {
   return 0;
 }
 
-function calcTrendScore(candles: CandleData[]) {
+// Timeframe-specific indicator periods
+const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
+  "1min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "3min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "5min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "15min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "30min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "4h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1day":  { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1week": { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+};
+
+function getConfig(tf: string) {
+  return TF_CONFIGS[tf] || TF_CONFIGS["1h"];
+}
+
+function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   const closes = candles.map(c => c.close);
   const highs = candles.map(c => c.high);
   const lows = candles.map(c => c.low);
 
-  const ema20 = latest(calcEMA(closes, 20));
-  const ema50 = latest(calcEMA(closes, 50));
-  const ema200 = latest(calcEMA(closes, 200));
-  const rsi = latest(calcRSI(closes, 14));
-  const adx = latest(calcADX(highs, lows, closes, 14));
-  const { histogram } = calcMACD(closes, 12, 26, 9);
+  const cfg = getConfig(timeframe);
+
+  const emaFastArr = calcEMA(closes, cfg.emaFast);
+  const emaMidArr = calcEMA(closes, cfg.emaMid);
+  const emaSlowArr = calcEMA(closes, cfg.emaSlow);
+  const rsiVal = latest(calcRSI(closes, cfg.rsiPeriod));
+  const adxVal = latest(calcADX(highs, lows, closes, cfg.adxPeriod));
+  const { histogram } = calcMACD(closes, cfg.macdFast, cfg.macdSlow, cfg.macdSignal);
   const macdHist = latest(histogram);
   let macdHistPrev = NaN;
   for (let i = histogram.length - 2; i >= 0; i--) { if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; } }
 
   const price = closes[closes.length - 1];
-  const emaS = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200) : 11;
-  const adxS = !isNaN(adx) ? scoreADX(adx) : 2;
-  const rsiS = !isNaN(rsi) ? scoreRSI(rsi) : 6;
+  const emaFast = latest(emaFastArr);
+  const emaMid = latest(emaMidArr);
+  const emaSlow = latest(emaSlowArr);
+
+  const emaS = !isNaN(emaFast) && !isNaN(emaMid) && !isNaN(emaSlow) ? scoreEMA(price, emaFast, emaMid, emaSlow, timeframe) : 11;
+  const adxS = !isNaN(adxVal) ? scoreADX(adxVal) : 2;
+  const rsiS = !isNaN(rsiVal) ? scoreRSI(rsiVal) : 6;
   const macdS = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : 6;
 
-  // Technical 0-55, defaults for news/social
   const technical = emaS + adxS + rsiS + macdS;
-  const newsDefault = 7; // 0-13
-  const eventDefault = 12; // 0-12
-  const stocktwitsDefault = 5; // 0-10
-  const redditDefault = 5; // 0-10
+  const newsDefault = 7;
+  const eventDefault = 12;
+  const stocktwitsDefault = 5;
+  const redditDefault = 5;
 
   const rawScore = Math.max(0, Math.min(100, technical + newsDefault + eventDefault + stocktwitsDefault + redditDefault));
   const trend = rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
@@ -184,11 +206,11 @@ function calcTrendScore(candles: CandleData[]) {
   return {
     score: rawScore, trend,
     emaScore: emaS, adxScore: adxS, rsiScore: rsiS, macdScore: macdS,
-    ema20: isNaN(ema20) ? 0 : ema20,
-    ema50: isNaN(ema50) ? 0 : ema50,
-    ema200: isNaN(ema200) ? 0 : ema200,
-    adx: isNaN(adx) ? 0 : adx,
-    rsi: isNaN(rsi) ? 50 : rsi,
+    ema20: isNaN(emaFast) ? 0 : emaFast,
+    ema50: isNaN(emaMid) ? 0 : emaMid,
+    ema200: isNaN(emaSlow) ? 0 : emaSlow,
+    adx: isNaN(adxVal) ? 0 : adxVal,
+    rsi: isNaN(rsiVal) ? 50 : rsiVal,
     macdHist: isNaN(macdHist) ? 0 : macdHist,
   };
 }
