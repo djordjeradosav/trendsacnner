@@ -100,6 +100,10 @@ export function NewAlertDialog({ open, onOpenChange, onCreated }: NewAlertDialog
       const catLabel = categoryFilter === "all" ? "any" : categoryFilter;
       return `Notify when any ${catLabel} pair scores above ${threshold}`;
     }
+    if (ruleType === "mtf_alignment") {
+      const pairLabel = selectedPair ? selectedPair.symbol : "any pair";
+      return `Notify when ${pairLabel} reaches perfect MTF alignment (4/4 timeframes)`;
+    }
     return "";
   };
 
