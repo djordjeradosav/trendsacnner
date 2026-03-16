@@ -12,6 +12,7 @@ import ResetPasswordPage from "./pages/ResetPassword";
 import Index from "./pages/Index";
 import SettingsPage from "./pages/Settings";
 import ScannerPage from "./pages/Scanner";
+import ScanHistoryPage from "./pages/ScanHistory";
 import PairDetail from "./pages/PairDetail";
 import WatchlistPage from "./pages/Watchlist";
 import AlertsPage from "./pages/Alerts";
