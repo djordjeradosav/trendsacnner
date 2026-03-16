@@ -15,6 +15,7 @@ import { useFastScan } from "@/hooks/useFastScan";
 import { useScanStore } from "@/store/scanStore";
 import { useToast } from "@/hooks/use-toast";
 import { ScanButton } from "@/components/scanner/ScanButton";
+import { MTFScanButton } from "@/components/scanner/MTFScanButton";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
 import { useSectorStats } from "@/hooks/useSectorStats";
