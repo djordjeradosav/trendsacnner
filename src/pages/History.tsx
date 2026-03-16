@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
-import { createChart, ColorType, LineStyle, type IChartApi, type ISeriesApi, type Time } from "lightweight-charts";
+import { createChart, ColorType, LineStyle, LineSeries, AreaSeries, type IChartApi, type Time } from "lightweight-charts";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
