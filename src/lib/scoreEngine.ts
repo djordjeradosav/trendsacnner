@@ -78,7 +78,21 @@ export interface EnhancedScoreResult {
 export type ScoreResult = EnhancedScoreResult;
 
 // ─── EMA Alignment (0–22) ───────────────────────────────────────────────────
-function scoreEMA(price: number, ema20: number, ema50: number, ema200: number): { score: number; line: string } {
+function scoreEMA(price: number, ema20: number, ema50: number, ema200: number, timeframe?: string): { score: number; line: string } {
+  const isShortTF = ["1min","3min","5min","15min","30min"].includes(timeframe || "");
+  if (isShortTF) {
+    if (price > ema20 && ema20 > ema50 && ema50 > ema200)
+      return { score: 22, line: "✓ EMA Stack: Full bullish alignment (+22)" };
+    if (price < ema20 && ema20 < ema50 && ema50 < ema200)
+      return { score: 0, line: "✗ EMA Stack: Full bearish alignment (+0)" };
+    if (price > ema20 && ema20 > ema50)
+      return { score: 16, line: "~ EMA: Price > Fast > Mid (+16)" };
+    if (price > ema20)
+      return { score: 10, line: "~ EMA: Price above fast EMA only (+10)" };
+    if (price < ema20 && ema20 < ema50)
+      return { score: 6, line: "~ EMA: Partial bearish (+6)" };
+    return { score: 11, line: "~ EMA: Mixed/choppy (+11)" };
+  }
   if (price > ema20 && ema20 > ema50 && ema50 > ema200)
     return { score: 22, line: "✓ EMA Stack: Price > EMA20 > EMA50 > EMA200 (+22)" };
   if (price > ema20 && ema20 > ema50)
