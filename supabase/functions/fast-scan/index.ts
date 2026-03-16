@@ -484,8 +484,12 @@ Deno.serve(async (req) => {
 
       // Bulk upsert scores
       if (scoreRows.length > 0) {
+        console.log(`[SCAN] Upserting ${scoreRows.length} scores with timeframe="${normalisedTimeframe}". Sample:`, JSON.stringify(scoreRows[0]));
         const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
         if (scoreError) console.error("Score upsert error:", scoreError);
+        else console.log(`[SCAN] Successfully upserted ${scoreRows.length} scores`);
+      } else {
+        console.warn(`[SCAN] No scores to upsert for timeframe="${normalisedTimeframe}"`);
       }
 
       // Store scan history

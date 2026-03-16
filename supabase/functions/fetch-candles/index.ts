@@ -102,7 +102,9 @@ Deno.serve(async (req) => {
     // Calculate from/to timestamps
     const to = Math.floor(Date.now() / 1000);
     const intervalSec = getIntervalSeconds(timeframe);
-    const from = to - Math.floor(outputsize * intervalSec * 1.3);
+    // Use larger buffer for short timeframes to cover weekend/holiday gaps
+    const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(timeframe) ? 2.5 : 1.3;
+    const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
 
     const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
 
