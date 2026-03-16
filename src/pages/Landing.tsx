@@ -13,7 +13,7 @@ export default function LandingPage() {
       <header className="border-b border-border px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Radar className="w-6 h-6 text-primary" />
-          <span className="font-display font-bold text-lg text-foreground">TrendScan</span>
+          <span className="font-display font-bold text-lg text-foreground">TrendScanner</span>
           <span className="text-[10px] font-display font-semibold px-1.5 py-0.5 rounded bg-primary/20 text-primary">AI</span>
         </div>
         <div className="flex items-center gap-3">
