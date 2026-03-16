@@ -122,6 +122,10 @@ const Index = () => {
       autoScanAgo={autoScanAgo}
       timeframe={selectedTimeframe}
       currentSymbol={scan.currentSymbol}
+      wsStatus={wsFeed.status}
+      wsPairCount={wsFeed.pairCount}
+      wsEligible={wsFeed.isEligible}
+      onWsReconnect={wsFeed.reconnect}
     >
       <BreakingNewsBanner />
 
