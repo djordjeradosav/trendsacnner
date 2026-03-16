@@ -50,9 +50,15 @@ export function useAllScores(timeframe: string) {
       });
       const rows = Array.from(map.values());
 
-      // Populate Zustand store (enrich with symbol later via RealtimeProvider's pair map)
+      // Populate Zustand store
       bulkLoad(
-        rows.map((r) => ({ ...r, symbol: "", ema20: null, ema50: null, ema200: null, adx: null, rsi: null, macd_hist: null })),
+        rows.map((r) => ({
+          ...r,
+          trend: r.trend as "bullish" | "neutral" | "bearish",
+          symbol: "",
+          ema20: null, ema50: null, ema200: null,
+          adx: null, rsi: null, macd_hist: null,
+        })),
         timeframe
       );
 
