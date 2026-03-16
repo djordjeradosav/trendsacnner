@@ -25,6 +25,13 @@ export interface ScoreRow {
 export function useAllScores(timeframe: string) {
   const queryClient = useQueryClient();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const bulkLoad = useScoresStore((s) => s.bulkLoadScores);
+  const setActiveTf = useScoresStore((s) => s.setActiveTimeframe);
+
+  // Sync active timeframe to store
+  useEffect(() => {
+    setActiveTf(timeframe);
+  }, [timeframe, setActiveTf]);
 
   const query = useQuery<ScoreRow[]>({
     queryKey: ["scores", "all", timeframe],
@@ -41,7 +48,15 @@ export function useAllScores(timeframe: string) {
       (data ?? []).forEach((row) => {
         if (!map.has(row.pair_id)) map.set(row.pair_id, row);
       });
-      return Array.from(map.values());
+      const rows = Array.from(map.values());
+
+      // Populate Zustand store (enrich with symbol later via RealtimeProvider's pair map)
+      bulkLoad(
+        rows.map((r) => ({ ...r, symbol: "", ema20: null, ema50: null, ema200: null, adx: null, rsi: null, macd_hist: null })),
+        timeframe
+      );
+
+      return rows;
     },
     staleTime: 60_000,
   });
