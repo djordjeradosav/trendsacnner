@@ -218,8 +218,7 @@ export function CalendarTable({ events }: Props) {
               const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
 
               const timeStr = ev.is_tentative ? "Tentative" : formatLocalTime(ev.scheduled_at);
-              const showTime = timeStr !== prevTimeStr;
-              prevTimeStr = timeStr;
+              const showTime = true;
 
               return (
                 <div key={ev.id}>
