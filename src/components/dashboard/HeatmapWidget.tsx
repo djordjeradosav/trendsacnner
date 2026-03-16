@@ -87,6 +87,7 @@ function HeatmapCell({ cell, timeframe, navigate, mtfAlignment }: { cell: CellDa
           {price.toFixed(price >= 100 ? 2 : price >= 10 ? 3 : 5)}
         </div>
       )}
+      {mtfAlignment && <MTFIndicator alignment={mtfAlignment} />}
     </button>
   );
 }
