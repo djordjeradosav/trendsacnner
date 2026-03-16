@@ -182,7 +182,7 @@ export default function ScannerPage() {
   const strongest = useMemo(() => [...pairs].filter((p) => p.trend === "bullish").sort((a, b) => b.score - a.score).slice(0, 8), [pairs]);
   const weakest = useMemo(() => [...pairs].filter((p) => p.trend === "bearish").sort((a, b) => a.score - b.score).slice(0, 8), [pairs]);
 
-  const handleCancelScan = () => { scan.cancelScan(); };
+  const handleCancelScan = () => { cancelScan(); };
 
   const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
 
