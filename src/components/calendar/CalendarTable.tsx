@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import {
   type EconomicEvent,
   getAffectedPairs,
-  getFlag,
   CURRENCY_COLORS,
 } from "@/hooks/useEconomicCalendar";
-import { Bell, FolderOpen, Play, ChevronDown, ChevronRight } from "lucide-react";
+import { FolderOpen, Play, ChevronDown, ChevronRight } from "lucide-react";
 import { useEventDrawer } from "@/hooks/useEventDrawer";
 
 interface Props {
@@ -20,32 +19,52 @@ const IMPACT_COLORS: Record<string, string> = {
   holiday: "#6b7280",
 };
 
-const IMPACT_LABELS: Record<string, string> = {
-  high: "High",
-  medium: "Med",
-  low: "Low",
-  holiday: "Holiday",
-};
+const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+function getLocalDateKey(utcTimestamp: string): string {
+  return new Date(utcTimestamp).toLocaleDateString("en-US", {
+    timeZone: userTimezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function formatLocalTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString("en-US", {
+    timeZone: userTimezone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 function getDayLabel(dateStr: string): { weekday: string; monthDay: string } {
   const d = new Date(dateStr);
   return {
-    weekday: d.toLocaleDateString("en-US", { weekday: "short" }),
-    monthDay: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    weekday: d.toLocaleDateString("en-US", { timeZone: userTimezone, weekday: "short" }),
+    monthDay: d.toLocaleDateString("en-US", { timeZone: userTimezone, month: "short", day: "numeric" }),
   };
 }
 
-function isToday(dateStr: string): boolean {
-  return new Date(dateStr).toDateString() === new Date().toDateString();
+function isTodayLocal(utcTimestamp: string): boolean {
+  const eventLocal = getLocalDateKey(utcTimestamp);
+  const todayLocal = new Date().toLocaleDateString("en-US", {
+    timeZone: userTimezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return eventLocal === todayLocal;
 }
 
 function isLive(dateStr: string): boolean {
   return Math.abs(Date.now() - new Date(dateStr).getTime()) < 5 * 60 * 1000;
+}
+
+function isImminent(dateStr: string): boolean {
+  const diff = new Date(dateStr).getTime() - Date.now();
+  return diff > 0 && diff < 15 * 60 * 1000;
 }
 
 function compareResult(actual: string | null, forecast: string | null): "better" | "worse" | "match" | null {
@@ -64,14 +83,17 @@ interface DayGroup {
   label: { weekday: string; monthDay: string };
   isToday: boolean;
   events: EconomicEvent[];
+  highCount: number;
 }
 
 export function CalendarTable({ events }: Props) {
   const navigate = useNavigate();
   const tableRef = useRef<HTMLDivElement>(null);
+  const todayRef = useRef<HTMLDivElement>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const openDrawer = useEventDrawer((s) => s.open);
 
+  // Deduplicate
   const deduped = useMemo(() => {
     const seen = new Set<string>();
     const real = events.filter((e) => e.currency && !e.is_tentative);
@@ -84,49 +106,58 @@ export function CalendarTable({ events }: Props) {
     );
   }, [events]);
 
+  // Group by LOCAL date
   const days: DayGroup[] = useMemo(() => {
     const map: Record<string, EconomicEvent[]> = {};
-    const keys: string[] = [];
+    const orderedKeys: string[] = [];
+
     deduped.forEach((ev) => {
-      const key = new Date(ev.scheduled_at).toDateString();
-      if (!map[key]) { map[key] = []; keys.push(key); }
+      const key = ev.is_tentative ? getLocalDateKey(ev.scheduled_at) : getLocalDateKey(ev.scheduled_at);
+      if (!map[key]) {
+        map[key] = [];
+        orderedKeys.push(key);
+      }
       map[key].push(ev);
     });
-    return keys.map((k) => ({
+
+    // Sort keys chronologically
+    orderedKeys.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+    return orderedKeys.map((k) => ({
       dateKey: k,
       label: getDayLabel(map[k][0].scheduled_at),
-      isToday: isToday(map[k][0].scheduled_at),
+      isToday: isTodayLocal(map[k][0].scheduled_at),
       events: map[k],
+      highCount: map[k].filter((e) => e.impact === "high").length,
     }));
   }, [deduped]);
 
+  // Auto-scroll to today
   useEffect(() => {
-    const now = Date.now();
-    const nextIdx = deduped.findIndex((e) => new Date(e.scheduled_at).getTime() > now && !e.actual);
-    if (nextIdx >= 0) {
-      setTimeout(() => {
-        tableRef.current?.querySelector(`[data-idx="${nextIdx}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 300);
-    }
-  }, [deduped]);
+    setTimeout(() => {
+      todayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 400);
+  }, [days]);
 
-  const COLS = "72px 80px 64px 52px 1fr 36px 90px 90px 90px";
-
-  let globalIdx = 0;
+  const COLS = "80px 80px 64px 52px 1fr 36px 90px 90px 90px";
 
   return (
-    <div ref={tableRef} className="w-full text-[13px]">
+    <div
+      ref={tableRef}
+      className="w-full text-[13px]"
+      style={{ maxHeight: "calc(100vh - 220px)", overflowY: "auto" }}
+    >
       {/* Column Headers */}
       <div
-        className="grid sticky top-0 z-10 bg-secondary"
+        className="grid sticky top-0 z-20 bg-secondary"
         style={{
           gridTemplateColumns: COLS,
           borderBottom: "2px solid hsl(var(--border))",
         }}
       >
         {[
-          { label: "Date", align: "center" },
           { label: "Time", align: "left" },
+          { label: "", align: "center" },
           { label: "Currency", align: "center" },
           { label: "Impact", align: "center" },
           { label: "Event", align: "left" },
@@ -149,203 +180,235 @@ export function CalendarTable({ events }: Props) {
       </div>
 
       {/* Day groups */}
-      {days.map((day) => (
-        <div key={day.dateKey}>
-          {/* Day separator header */}
-          <div
-            className="flex items-center gap-3 px-3 py-1.5"
-            style={{
-              background: day.isToday ? "hsl(var(--primary) / 0.08)" : "hsl(var(--secondary))",
-              borderBottom: "1px solid hsl(var(--border))",
-              borderLeft: day.isToday ? "3px solid hsl(var(--primary))" : "3px solid transparent",
-            }}
-          >
-            {day.isToday && (
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-                Today
-              </span>
-            )}
-            <span className="text-[12px] font-semibold text-foreground/80">
-              {day.label.weekday}
-            </span>
-            <span className="text-[12px] font-mono text-muted-foreground">
-              {day.label.monthDay}
-            </span>
-          </div>
+      {days.map((day) => {
+        let prevTimeStr = "";
 
-          {/* Events */}
-          {day.events.map((ev) => {
-            const idx = globalIdx++;
-            const impact = ev.impact || "low";
-            const impactColor = IMPACT_COLORS[impact] || IMPACT_COLORS.low;
-            const live = isLive(ev.scheduled_at);
-            const comparison = compareResult(ev.actual, ev.forecast);
-            const isPast = !!ev.actual;
-            const isExpanded = expandedId === ev.id;
-            const pairs = getAffectedPairs(ev);
-            const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
-
-            return (
-              <div key={ev.id}>
-                <div
-                  data-idx={idx}
-                  className="grid items-center cursor-pointer transition-colors hover:bg-secondary"
-                  onClick={() => setExpandedId(isExpanded ? null : ev.id)}
-                  style={{
-                    gridTemplateColumns: COLS,
-                    height: "40px",
-                    borderBottom: "1px solid hsl(var(--border))",
-                    background: live
-                      ? "hsl(var(--primary) / 0.05)"
-                      : idx % 2 === 0
-                      ? "hsl(var(--card))"
-                      : "hsl(var(--background))",
-                    borderLeft: live
-                      ? "3px solid hsl(var(--primary))"
-                      : "3px solid transparent",
-                    opacity: isPast ? 0.75 : 1,
-                  }}
+        return (
+          <div key={day.dateKey} ref={day.isToday ? todayRef : undefined} id={day.isToday ? "today-section" : undefined}>
+            {/* Day separator header — sticky within scroll */}
+            <div
+              className="flex items-center gap-3 px-3 py-1.5 sticky top-[38px] z-10"
+              style={{
+                background: day.isToday ? "hsl(var(--primary) / 0.08)" : "#0d1117",
+                borderBottom: "1px solid hsl(var(--border))",
+                borderLeft: day.isToday ? "3px solid hsl(var(--primary))" : "3px solid transparent",
+              }}
+            >
+              {day.isToday && (
+                <span
+                  className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                  style={{ background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}
                 >
-                  {/* Date — empty, handled by day header */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    {live && (
-                      <span className="inline-flex items-center gap-1">
-                        <Play className="w-3 h-3 fill-current text-primary" />
-                      </span>
-                    )}
-                  </div>
+                  Today
+                </span>
+              )}
+              <span className="text-[12px] font-semibold text-foreground/80">
+                {day.label.weekday}
+              </span>
+              <span className="text-[12px] font-mono text-muted-foreground">
+                {day.label.monthDay}
+              </span>
+              <span className="text-[10px] text-muted-foreground ml-auto">
+                {day.events.length} events
+                {day.highCount > 0 && (
+                  <span className="ml-1.5" style={{ color: "#ef4444" }}>
+                    · {day.highCount} 🔴 high
+                  </span>
+                )}
+              </span>
+            </div>
 
-                  {/* Time */}
-                  <div className="px-2" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    <span
-                      className="text-[12px] font-mono"
-                      style={{
-                        color: live ? "hsl(var(--primary))" : ev.is_tentative ? "hsl(var(--muted-foreground))" : "hsl(var(--secondary-foreground))",
-                        fontStyle: ev.is_tentative ? "italic" : "normal",
-                      }}
-                    >
-                      {ev.is_tentative ? "Tentative" : formatTime(ev.scheduled_at)}
-                    </span>
-                  </div>
+            {/* Events */}
+            {day.events.map((ev, evIdx) => {
+              const impact = ev.impact || "low";
+              const impactColor = IMPACT_COLORS[impact] || IMPACT_COLORS.low;
+              const live = isLive(ev.scheduled_at);
+              const imminent = !live && isImminent(ev.scheduled_at);
+              const comparison = compareResult(ev.actual, ev.forecast);
+              const isPast = !!ev.actual;
+              const isExpanded = expandedId === ev.id;
+              const pairs = getAffectedPairs(ev);
+              const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
 
-                  {/* Currency */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    <span className="text-[12px] font-mono font-bold" style={{ color: curColor }}>
-                      {ev.currency || "—"}
-                    </span>
-                  </div>
+              // Deduplicate time display: only show if different from previous
+              const timeStr = ev.is_tentative ? "Tentative" : formatLocalTime(ev.scheduled_at);
+              const showTime = timeStr !== prevTimeStr;
+              prevTimeStr = timeStr;
 
-                  {/* Impact */}
-                  <div className="px-2 flex items-center justify-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    <div className="flex gap-[2px]">
-                      {impact === "high" ? (
-                        <>
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                        </>
-                      ) : impact === "medium" ? (
-                        <>
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                          <span className="w-[5px] h-4 rounded-[1px] bg-border" />
-                        </>
-                      ) : impact === "holiday" ? (
-                        <span className="text-[10px]" style={{ color: impactColor }}>—</span>
-                      ) : (
-                        <>
-                          <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
-                          <span className="w-[5px] h-4 rounded-[1px] bg-border" />
-                          <span className="w-[5px] h-4 rounded-[1px] bg-border" />
-                        </>
+              return (
+                <div key={ev.id}>
+                  <div
+                    className="grid items-center cursor-pointer transition-colors hover:bg-secondary"
+                    onClick={() => setExpandedId(isExpanded ? null : ev.id)}
+                    style={{
+                      gridTemplateColumns: COLS,
+                      minHeight: "40px",
+                      borderBottom: "1px solid hsl(var(--border))",
+                      background: live
+                        ? "hsl(var(--primary) / 0.05)"
+                        : evIdx % 2 === 0
+                          ? "hsl(var(--card))"
+                          : "hsl(var(--background))",
+                      borderLeft: live
+                        ? "3px solid hsl(var(--primary))"
+                        : imminent
+                          ? "3px solid hsl(var(--caution, 45 100% 50%))"
+                          : "3px solid transparent",
+                      opacity: isPast ? 0.75 : 1,
+                    }}
+                  >
+                    {/* Time */}
+                    <div className="px-2" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      {showTime && (
+                        <span
+                          className="text-[12px] font-mono"
+                          style={{
+                            color: live
+                              ? "hsl(var(--primary))"
+                              : ev.is_tentative
+                                ? "hsl(var(--muted-foreground))"
+                                : "hsl(var(--secondary-foreground))",
+                            fontStyle: ev.is_tentative ? "italic" : "normal",
+                          }}
+                        >
+                          {timeStr}
+                        </span>
                       )}
+                    </div>
+
+                    {/* Status indicator */}
+                    <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      {live ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary">
+                          <Play className="w-3 h-3 fill-current" /> LIVE
+                        </span>
+                      ) : imminent ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold" style={{ color: "hsl(var(--caution, 45 100% 50%))" }}>
+                          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "hsl(var(--primary))" }} />
+                          SOON
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {/* Currency */}
+                    <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      <span className="text-[12px] font-mono font-bold" style={{ color: curColor }}>
+                        {ev.currency || "—"}
+                      </span>
+                    </div>
+
+                    {/* Impact */}
+                    <div className="px-2 flex items-center justify-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      <div className="flex gap-[2px]">
+                        {impact === "high" ? (
+                          <>
+                            <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
+                            <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
+                            <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
+                          </>
+                        ) : impact === "medium" ? (
+                          <>
+                            <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
+                            <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
+                            <span className="w-[5px] h-4 rounded-[1px] bg-border" />
+                          </>
+                        ) : impact === "holiday" ? (
+                          <span className="text-[10px]" style={{ color: impactColor }}>—</span>
+                        ) : (
+                          <>
+                            <span className="w-[5px] h-4 rounded-[1px]" style={{ background: impactColor }} />
+                            <span className="w-[5px] h-4 rounded-[1px] bg-border" />
+                            <span className="w-[5px] h-4 rounded-[1px] bg-border" />
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Event name */}
+                    <div className="px-3 flex items-center gap-2 truncate" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      <span className="text-[13px] truncate text-foreground">
+                        {ev.event_name}
+                      </span>
+                      {pairs.length > 0 && (
+                        isExpanded
+                          ? <ChevronDown className="w-3 h-3 shrink-0 text-muted-foreground" />
+                          : <ChevronRight className="w-3 h-3 shrink-0 text-muted-foreground" />
+                      )}
+                    </div>
+
+                    {/* Detail button */}
+                    <div className="flex items-center justify-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDrawer(ev, "overview"); }}
+                        className="p-1 rounded hover:bg-secondary transition-colors"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    </div>
+
+                    {/* Actual */}
+                    <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      {ev.actual ? (
+                        <span
+                          className="text-[13px] font-mono font-bold"
+                          style={{
+                            color:
+                              comparison === "better"
+                                ? "hsl(var(--bullish))"
+                                : comparison === "worse"
+                                  ? "hsl(var(--bearish))"
+                                  : "hsl(var(--foreground))",
+                          }}
+                        >
+                          {ev.actual}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">—</span>
+                      )}
+                    </div>
+
+                    {/* Forecast */}
+                    <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
+                      <span className="text-[13px] font-mono text-muted-foreground">
+                        {ev.forecast || "—"}
+                      </span>
+                    </div>
+
+                    {/* Previous */}
+                    <div className="px-2 text-center">
+                      <span className="text-[13px] font-mono text-muted-foreground">
+                        {ev.previous || "—"}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Event name */}
-                  <div className="px-3 flex items-center gap-2 truncate" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    <span className="text-[13px] truncate text-foreground">
-                      {ev.event_name}
-                    </span>
-                    {pairs.length > 0 && (
-                      isExpanded
-                        ? <ChevronDown className="w-3 h-3 shrink-0 text-muted-foreground" />
-                        : <ChevronRight className="w-3 h-3 shrink-0 text-muted-foreground" />
-                    )}
-                  </div>
-
-                  {/* Detail button */}
-                  <div className="flex items-center justify-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openDrawer(ev, "overview"); }}
-                      className="p-1 rounded hover:bg-secondary transition-colors"
+                  {/* Expanded: affected pairs */}
+                  {isExpanded && pairs.length > 0 && (
+                    <div
+                      className="flex flex-wrap items-center gap-1.5 px-4 py-2 bg-secondary"
+                      style={{
+                        borderBottom: "1px solid hsl(var(--border))",
+                        paddingLeft: "280px",
+                      }}
                     >
-                      <FolderOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                    </button>
-                  </div>
-
-                  {/* Actual */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    {ev.actual ? (
-                      <span
-                        className="text-[13px] font-mono font-bold"
-                        style={{
-                          color:
-                            comparison === "better"
-                              ? "hsl(var(--bullish))"
-                              : comparison === "worse"
-                              ? "hsl(var(--bearish))"
-                              : "hsl(var(--foreground))",
-                        }}
-                      >
-                        {ev.actual}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">—</span>
-                    )}
-                  </div>
-
-                  {/* Forecast */}
-                  <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
-                    <span className="text-[13px] font-mono text-muted-foreground">
-                      {ev.forecast || "—"}
-                    </span>
-                  </div>
-
-                  {/* Previous */}
-                  <div className="px-2 text-center">
-                    <span className="text-[13px] font-mono text-muted-foreground">
-                      {ev.previous || "—"}
-                    </span>
-                  </div>
+                      <span className="text-[10px] mr-1 text-muted-foreground">Affected:</span>
+                      {pairs.map((p) => (
+                        <button
+                          key={p}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/pair/${p}`); }}
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors bg-accent border border-border text-primary"
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                {/* Expanded: affected pairs */}
-                {isExpanded && pairs.length > 0 && (
-                  <div
-                    className="flex flex-wrap items-center gap-1.5 px-4 py-2 bg-secondary"
-                    style={{
-                      borderBottom: "1px solid hsl(var(--border))",
-                      paddingLeft: "268px",
-                    }}
-                  >
-                    <span className="text-[10px] mr-1 text-muted-foreground">Affected:</span>
-                    {pairs.map((p) => (
-                      <button
-                        key={p}
-                        onClick={(e) => { e.stopPropagation(); navigate(`/pair/${p}`); }}
-                        className="text-[10px] font-mono px-1.5 py-0.5 rounded transition-colors bg-accent border border-border text-primary"
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
