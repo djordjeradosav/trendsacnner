@@ -23,15 +23,22 @@ const SYMBOL_MAP: Record<string, string> = {
   // Metals
   "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
   "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
-  // Commodities & Futures
-  "CL1!": "OANDA:WTICO_USD", "BZ1!": "OANDA:BCO_USD", "NG1!": "OANDA:NATGAS_USD",
-  "ES1!": "OANDA:SPX500_USD", "NQ1!": "OANDA:NAS100_USD", "YM1!": "OANDA:US30_USD",
+  // Commodities & Futures — mapped from DB symbol names
+  "USOIL":  "OANDA:WTICO_USD",  "CL1!":  "OANDA:WTICO_USD",
+  "UKOIL":  "OANDA:BCO_USD",    "BZ1!":  "OANDA:BCO_USD",
+  "NATGAS": "OANDA:NATGAS_USD", "NG1!":  "OANDA:NATGAS_USD",
+  "US500":  "OANDA:SPX500_USD", "ES1!":  "OANDA:SPX500_USD",
+  "US100":  "OANDA:NAS100_USD", "NQ1!":  "OANDA:NAS100_USD",
+  "US30":   "OANDA:US30_USD",   "YM1!":  "OANDA:US30_USD",
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
   "1min": "1", "3min": "3", "5min": "5", "15min": "15", "30min": "30",
   "1h": "60", "4h": "240", "1day": "D", "1week": "W",
 };
+
+// Finnhub free tier only supports resolution "60" and above for forex
+const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
@@ -42,9 +49,7 @@ function getIntervalSeconds(tf: string): number {
 }
 
 function getFinnhubSymbol(pairSymbol: string): string | null {
-  // Direct map lookup
   if (SYMBOL_MAP[pairSymbol]) return SYMBOL_MAP[pairSymbol];
-  // Try auto-converting 6-char forex pairs
   if (pairSymbol.length === 6 && !pairSymbol.includes("!")) {
     const base = pairSymbol.slice(0, 3);
     const quote = pairSymbol.slice(3);
@@ -91,24 +96,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    const resolution = RESOLUTION_MAP[timeframe];
-    if (!resolution) {
+    const rawResolution = RESOLUTION_MAP[timeframe];
+    if (!rawResolution) {
       return new Response(
         JSON.stringify({ success: false, error: `Unsupported timeframe: ${timeframe}` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    // Finnhub free tier: fall back to 1H for sub-hourly resolutions
+    const resolution = SUPPORTED_RESOLUTIONS.has(rawResolution) ? rawResolution : "60";
+    const effectiveTF = resolution !== rawResolution ? "1h" : timeframe;
+
     // Calculate from/to timestamps
     const to = Math.floor(Date.now() / 1000);
-    const intervalSec = getIntervalSeconds(timeframe);
-    // Use larger buffer for short timeframes to cover weekend/holiday gaps
-    const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(timeframe) ? 2.5 : 1.3;
+    const intervalSec = getIntervalSeconds(effectiveTF);
+    const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
     const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
 
     const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
 
-    console.log(`Fetching ${pair_symbol} → ${finnhubSymbol} (${timeframe})`);
+    console.log(`Fetching ${pair_symbol} → ${finnhubSymbol} (${timeframe}, resolution=${resolution})`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -128,7 +136,7 @@ Deno.serve(async (req) => {
 
     if (res.status === 403) {
       return new Response(
-        JSON.stringify({ success: false, error: "Invalid Finnhub API key" }),
+        JSON.stringify({ success: false, error: "Finnhub free tier does not support this resolution. Upgrade to premium or use 1H+ timeframes." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -160,10 +168,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map Finnhub candles to our schema
+    // Map Finnhub candles to our schema — store as the effective timeframe
     const candles = data.c!.map((close, i) => ({
       pair_id: pairRow.id,
-      timeframe,
+      timeframe: effectiveTF,
       open: data.o![i],
       high: data.h![i],
       low: data.l![i],
@@ -188,7 +196,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe }),
+      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe: effectiveTF }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
