@@ -130,8 +130,8 @@ export default function ScannerPage() {
 
   const executeScan = useCallback(async () => {
     if (scan.isScanning) return;
-    await scan.runScan(selectedTimeframe);
-  }, [scan.isScanning, selectedTimeframe, scan.runScan]);
+    await runScan(selectedTimeframe);
+  }, [scan.isScanning, selectedTimeframe, runScan]);
 
   // Show toast on completion
   useEffect(() => {
