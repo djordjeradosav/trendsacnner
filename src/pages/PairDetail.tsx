@@ -9,6 +9,7 @@ import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { ScoreExplanation, ScoreFreshnessBadge, EventRiskFlag } from "@/components/score/ScoreExplanation";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
+import { useMTFAlignments, type MTFAlignmentRow } from "@/hooks/useMTFAlignments";
 import { PairNewsSection } from "@/components/news/PairNewsSection";
 import { SocialBuzzCard } from "@/components/social/SocialBuzzCard";
 import {
