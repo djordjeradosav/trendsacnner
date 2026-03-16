@@ -127,30 +127,20 @@ export default function ScannerPage() {
   }, [pairsInfo, allScores]);
 
   const executeScan = useCallback(async () => {
-    if (scanning) return;
-    setScanning(true);
-    setScanDone(0);
-    setScanTotal(0);
-    setScanSymbol("");
-    const controller = createScanController();
-    controllerRef.current = controller;
-    try {
-      const result = await runFullScan(
-        selectedTimeframe,
-        (done, total, symbol) => { setScanDone(done); setScanTotal(total); setScanSymbol(symbol); },
-        controller
-      );
-      if (!controller.isCancelled()) {
-        setLastScan(new Date(result.scannedAt).toLocaleString());
-        toast({ title: "Scan complete", description: `${result.totalPairs} pairs | ${result.bullish} bullish | ${result.neutral} neutral | ${result.bearish} bearish | Avg score: ${result.avgScore}` });
-      }
-    } catch (err) {
-      toast({ title: "Scan failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
-    } finally {
-      setScanning(false);
-      controllerRef.current = null;
+    if (scan.isScanning) return;
+    await scan.runScan(selectedTimeframe);
+  }, [scan.isScanning, selectedTimeframe, scan.runScan]);
+
+  // Show toast on completion
+  useEffect(() => {
+    if (scan.result && !scan.isScanning) {
+      setLastScan(new Date().toLocaleString());
+      toast({
+        title: "Scan complete",
+        description: `${scan.result.scored} pairs scored in ${(scan.result.durationMs / 1000).toFixed(1)}s`,
+      });
     }
-  }, [scanning, selectedTimeframe, toast]);
+  }, [scan.result, scan.isScanning]);
 
   const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo } = useAutoScan(executeScan);
 
