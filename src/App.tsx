@@ -55,6 +55,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          <ScanProgressOverlay />
         </RealtimeProvider>
       </TooltipProvider>
     </ThemeProvider>
