@@ -71,76 +71,62 @@ class TickFeedService {
     if (!pairs || pairs.length === 0) return;
 
     this._symbols = pairs.map((p) => p.symbol);
-    this.connect();
-  }
-
-  private connect() {
-    if (this.ws) {
-      this.ws.onclose = null;
-      this.ws.close();
-    }
-
     this.setStatus("connecting");
+    this.startPolling();
+  }
 
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
-    // We proxy through an edge function to keep the API key server-side
-    const wsUrl = `wss://${projectId}.supabase.co/functions/v1/tick-feed`;
+  private startPolling() {
+    this.stopPolling();
 
-    this.ws = new WebSocket(wsUrl);
+    // Initial fetch
+    this.fetchPrices();
 
-    this.ws.onopen = () => {
-      // Send subscription request with auth
-      this.ws?.send(
-        JSON.stringify({
-          action: "subscribe",
-          symbols: this._symbols,
-          apikey: anonKey,
-        })
-      );
-      this.setStatus("live");
-      this.startHeartbeat();
-    };
+    // Poll every 2 seconds for short TFs
+    this.pollTimer = setInterval(() => this.fetchPrices(), 2000);
+    this.setStatus("live");
+  }
 
-    this.ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.event === "price" && msg.symbol && msg.price != null) {
-          this.handleTick(msg.symbol, parseFloat(msg.price), msg.timestamp ?? Date.now() / 1000);
+  private stopPolling() {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+  }
+
+  private async fetchPrices() {
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      // Batch symbols (Twelve Data supports up to ~120 in one call)
+      const symbolStr = this._symbols.join(",");
+      const url = `https://${projectId}.supabase.co/functions/v1/tick-feed?symbols=${encodeURIComponent(symbolStr)}`;
+
+      const res = await fetch(url, {
+        headers: { apikey: anonKey },
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      // data can be { price: "1.08" } for single symbol or { "EUR/USD": { price: "1.08" }, ... } for multiple
+      if (this._symbols.length === 1) {
+        if (data.price) {
+          this.handleTick(this._symbols[0], parseFloat(data.price), Date.now() / 1000);
         }
-      } catch {
-        // ignore malformed messages
+      } else {
+        for (const symbol of this._symbols) {
+          const entry = data[symbol];
+          if (entry?.price) {
+            this.handleTick(symbol, parseFloat(entry.price), Date.now() / 1000);
+          }
+        }
       }
-    };
-
-    this.ws.onclose = () => {
-      this.stopHeartbeat();
-      if (this._status !== "paused" && this._status !== "disconnected") {
-        this.setStatus("disconnected");
-        // Auto-reconnect after 3s
-        this.reconnectTimer = setTimeout(() => this.connect(), 3000);
-      }
-    };
-
-    this.ws.onerror = () => {
-      // onclose will fire after this
-    };
-  }
-
-  private startHeartbeat() {
-    this.stopHeartbeat();
-    this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ action: "ping" }));
-      }
-    }, 30_000);
-  }
-
-  private stopHeartbeat() {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
+    } catch (err) {
+      console.warn("[TickFeed] Price fetch error:", err);
     }
   }
 
