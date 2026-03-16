@@ -296,6 +296,35 @@ export function NewAlertDialog({ open, onOpenChange, onCreated }: NewAlertDialog
           </div>
         )}
 
+        {step === 2 && ruleType === "mtf_alignment" && (
+          <div className="space-y-5 mt-2">
+            <div>
+              <label className="text-xs font-display text-muted-foreground mb-2 block">Pair (optional)</label>
+              <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Search pair..." value={pairSearch} onChange={(e) => setPairSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+              </div>
+              <div className="max-h-32 overflow-y-auto border border-border rounded-lg divide-y divide-border">
+                <button onClick={() => setSelectedPairId(null)} className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent/50", !selectedPairId && "bg-accent text-foreground")}>Any pair</button>
+                {filteredPairs.slice(0, 20).map((p) => (
+                  <button key={p.id} onClick={() => setSelectedPairId(p.id)} className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent/50", selectedPairId === p.id && "bg-accent text-foreground")}>
+                    <span className="font-display font-medium">{p.symbol}</span>
+                    <span className="text-muted-foreground ml-2">{p.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+              <p className="text-xs text-foreground font-display font-medium">⭐ High Priority Alert</p>
+              <p className="text-[11px] text-muted-foreground mt-1">Triggers when 5M, 30M, 1H, and 4H all agree on direction — the highest confidence signal.</p>
+            </div>
+
+            <PreviewBanner description={getDescription()} />
+            <Button className="w-full" onClick={() => setStep(3)}>Next</Button>
+          </div>
+        )}
+
         {/* Step 3: Channels */}
         {step === 3 && (
           <div className="space-y-5 mt-2">
