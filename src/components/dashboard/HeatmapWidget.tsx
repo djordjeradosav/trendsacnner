@@ -42,21 +42,32 @@ interface CellData {
 function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe: string; navigate: (path: string) => void }) {
   const showLive = isLiveEligible(timeframe);
   const { price, direction } = useLivePrice(showLive ? cell.symbol : undefined);
+  const { flash } = useScoreChange(cell.pairId, timeframe);
+
+  const flashBorder = flash === "up" ? "hsl(142 70% 50%)" : flash === "down" ? "hsl(0 70% 50%)" : scoreToBorder(cell.score);
+  const scoreColor = flash === "up" ? "hsl(142 70% 60%)" : flash === "down" ? "hsl(0 70% 60%)" : undefined;
 
   return (
     <button
       onClick={() => navigate(`/pair/${cell.symbol}`)}
-      className="rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer"
+      className="rounded-md p-1.5 text-center hover:scale-105 hover:z-10 cursor-pointer"
       style={{
         background: scoreToColor(cell.score),
-        border: `1px solid ${scoreToBorder(cell.score)}`,
+        border: `1px solid ${flashBorder}`,
+        transition: "border-color 150ms ease-in, transform 150ms ease",
       }}
       title={`${cell.symbol}: Score ${cell.score} (${cell.trend})${price ? ` · ${price.toFixed(5)}` : ""}`}
     >
       <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
         {cell.symbol.replace("/", "")}
       </div>
-      <div className="text-[8px] font-mono text-white/60 leading-tight">
+      <div
+        className="text-[8px] font-mono leading-tight"
+        style={{
+          color: scoreColor ?? "rgba(255,255,255,0.6)",
+          transition: "color 150ms ease-in 0ms",
+        }}
+      >
         {cell.score}
       </div>
       {showLive && price !== null && (
