@@ -210,13 +210,13 @@ function PairScoreChart({ points, comparePairs }: { points: ScorePoint[]; compar
       const lastTrend = points[points.length - 1].trend;
       const lineColor = lastTrend === "bullish" ? "#22c55e" : lastTrend === "bearish" ? "#ef4444" : "#6b7280";
 
-      const mainSeries = chart.addLineSeries({ color: lineColor, lineWidth: 2, crosshairMarkerVisible: true, crosshairMarkerRadius: 4, priceLineVisible: false });
+      const mainSeries = chart.addSeries(LineSeries, { color: lineColor, lineWidth: 2, crosshairMarkerVisible: true, crosshairMarkerRadius: 4, priceLineVisible: false });
       mainSeries.setData(points.map((p) => ({ time: toChartTime(p.scanned_at), value: p.score })));
 
       // Area fill only if not comparing
       if (comparePairs.length === 0) {
         const areaColor = points[points.length - 1].score > 50 ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)";
-        const areaSeries = chart.addAreaSeries({
+        const areaSeries = chart.addSeries(AreaSeries, {
           topColor: areaColor, bottomColor: "transparent",
           lineColor: "transparent", lineWidth: 0, priceLineVisible: false, lastValueVisible: false,
         });
@@ -227,7 +227,7 @@ function PairScoreChart({ points, comparePairs }: { points: ScorePoint[]; compar
     // Compare pair lines
     comparePairs.forEach((cp, i) => {
       if (cp.points.length === 0) return;
-      const s = chart.addLineSeries({ color: COMPARE_COLORS[i % COMPARE_COLORS.length], lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: cp.symbol });
+      const s = chart.addSeries(LineSeries, { color: COMPARE_COLORS[i % COMPARE_COLORS.length], lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: cp.symbol });
       s.setData(cp.points.map((p) => ({ time: toChartTime(p.scanned_at), value: p.score })));
     });
 
@@ -237,8 +237,8 @@ function PairScoreChart({ points, comparePairs }: { points: ScorePoint[]; compar
       const times = allPoints.map((p) => toChartTime(p.scanned_at)).sort();
       const t1 = times[0];
       const t2 = times[times.length - 1];
-      chart.addLineSeries({ color: "#22c55e", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false }).setData([{ time: t1, value: 65 }, { time: t2, value: 65 }]);
-      chart.addLineSeries({ color: "#ef4444", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false }).setData([{ time: t1, value: 35 }, { time: t2, value: 35 }]);
+      chart.addSeries(LineSeries, { color: "#22c55e", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false }).setData([{ time: t1, value: 65 }, { time: t2, value: 65 }]);
+      chart.addSeries(LineSeries, { color: "#ef4444", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false }).setData([{ time: t1, value: 35 }, { time: t2, value: 35 }]);
     }
 
     chart.timeScale().fitContent();
