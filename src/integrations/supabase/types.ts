@@ -431,6 +431,65 @@ export type Database = {
         }
         Relationships: []
       }
+      mtf_alignments: {
+        Row: {
+          alignment: number
+          alignment_score: number
+          bear_count: number
+          bull_count: number
+          direction: string
+          id: string
+          label: string
+          pair_id: string
+          scanned_at: string
+          scores_1h: Json | null
+          scores_30m: Json | null
+          scores_4h: Json | null
+          scores_5m: Json | null
+          symbol: string
+        }
+        Insert: {
+          alignment?: number
+          alignment_score?: number
+          bear_count?: number
+          bull_count?: number
+          direction?: string
+          id?: string
+          label?: string
+          pair_id: string
+          scanned_at?: string
+          scores_1h?: Json | null
+          scores_30m?: Json | null
+          scores_4h?: Json | null
+          scores_5m?: Json | null
+          symbol: string
+        }
+        Update: {
+          alignment?: number
+          alignment_score?: number
+          bear_count?: number
+          bull_count?: number
+          direction?: string
+          id?: string
+          label?: string
+          pair_id?: string
+          scanned_at?: string
+          scores_1h?: Json | null
+          scores_30m?: Json | null
+          scores_4h?: Json | null
+          scores_5m?: Json | null
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mtf_alignments_pair_id_fkey"
+            columns: ["pair_id"]
+            isOneToOne: true
+            referencedRelation: "pairs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       news_articles: {
         Row: {
           fetched_at: string | null
