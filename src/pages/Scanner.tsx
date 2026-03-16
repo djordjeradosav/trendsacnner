@@ -450,6 +450,9 @@ export default function ScannerPage() {
           <LeaderboardColumn title="Weakest Pairs" icon={<TrendingDown className="w-4 h-4 text-bearish" />} items={weakest} type="bearish" />
         </div>
       )}
+
+      {/* MTF Alignment Leaderboard */}
+      <MTFLeaderboard />
     </AppLayout>
   );
 }
