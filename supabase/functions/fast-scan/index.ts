@@ -213,124 +213,61 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   };
 }
 
-// ─── Alpha Vantage Candle Fetch ─────────────────────────────────────────────
+// ─── Finnhub Symbol & Resolution Mapping ────────────────────────────────────
 
-const AV_INTERVAL_MAP: Record<string, { fn: string; interval?: string }> = {
-  "1min":  { fn: "FX_INTRADAY", interval: "1min" },
-  "5min":  { fn: "FX_INTRADAY", interval: "5min" },
-  "15min": { fn: "FX_INTRADAY", interval: "15min" },
-  "30min": { fn: "FX_INTRADAY", interval: "30min" },
-  "1h":    { fn: "FX_INTRADAY", interval: "60min" },
-  "4h":    { fn: "FX_INTRADAY", interval: "60min" }, // aggregate 4x
-  "1day":  { fn: "FX_DAILY" },
-  "1week": { fn: "FX_WEEKLY" },
+const SYMBOL_MAP: Record<string, string> = {
+  "EURUSD": "OANDA:EUR_USD", "GBPUSD": "OANDA:GBP_USD", "USDJPY": "OANDA:USD_JPY",
+  "USDCHF": "OANDA:USD_CHF", "AUDUSD": "OANDA:AUD_USD", "USDCAD": "OANDA:USD_CAD",
+  "NZDUSD": "OANDA:NZD_USD", "EURGBP": "OANDA:EUR_GBP", "EURJPY": "OANDA:EUR_JPY",
+  "GBPJPY": "OANDA:GBP_JPY", "AUDJPY": "OANDA:AUD_JPY", "CADJPY": "OANDA:CAD_JPY",
+  "CHFJPY": "OANDA:CHF_JPY", "NZDJPY": "OANDA:NZD_JPY", "EURCAD": "OANDA:EUR_CAD",
+  "EURAUD": "OANDA:EUR_AUD", "EURNZD": "OANDA:EUR_NZD", "EURCHF": "OANDA:EUR_CHF",
+  "GBPCAD": "OANDA:GBP_CAD", "GBPAUD": "OANDA:GBP_AUD", "GBPNZD": "OANDA:GBP_NZD",
+  "GBPCHF": "OANDA:GBP_CHF", "AUDCAD": "OANDA:AUD_CAD", "AUDNZD": "OANDA:AUD_NZD",
+  "AUDCHF": "OANDA:AUD_CHF", "NZDCAD": "OANDA:NZD_CAD", "NZDCHF": "OANDA:NZD_CHF",
+  "CADCHF": "OANDA:CAD_CHF",
+  "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
+  "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
+  "CL1!": "OANDA:WTICO_USD", "BZ1!": "OANDA:BCO_USD", "NG1!": "OANDA:NATGAS_USD",
+  "ES1!": "OANDA:SPX500_USD", "NQ1!": "OANDA:NAS100_USD", "YM1!": "OANDA:US30_USD",
 };
 
-function getAVForexPair(symbol: string): { from: string; to: string } | null {
-  const forexLike = [
-    "EURUSD","GBPUSD","USDJPY","USDCHF","AUDUSD","USDCAD","NZDUSD",
-    "EURGBP","EURJPY","GBPJPY","AUDJPY","CADJPY","CHFJPY","NZDJPY",
-    "EURCAD","EURAUD","EURNZD","EURCHF","GBPCAD","GBPAUD","GBPNZD",
-    "GBPCHF","AUDCAD","AUDNZD","AUDCHF","NZDCAD","NZDCHF","CADCHF",
-    "XAUUSD","XAGUSD","XPTUSD","XPDUSD",
-  ];
-  if (forexLike.includes(symbol) || (symbol.length === 6 && !symbol.includes("!"))) {
-    return { from: symbol.slice(0, 3), to: symbol.slice(3) };
+const RESOLUTION_MAP: Record<string, string> = {
+  "1min": "1", "3min": "3", "5min": "5", "15min": "15", "30min": "30",
+  "1h": "60", "4h": "240", "1day": "D", "1week": "W",
+};
+
+function getIntervalSeconds(tf: string): number {
+  const map: Record<string, number> = {
+    "1min": 60, "3min": 180, "5min": 300, "15min": 900, "30min": 1800,
+    "1h": 3600, "4h": 14400, "1day": 86400, "1week": 604800,
+  };
+  return map[tf] ?? 3600;
+}
+
+function getFinnhubSymbol(symbol: string): string | null {
+  if (SYMBOL_MAP[symbol]) return SYMBOL_MAP[symbol];
+  if (symbol.length === 6 && !symbol.includes("!")) {
+    return `OANDA:${symbol.slice(0, 3)}_${symbol.slice(3)}`;
   }
   return null;
 }
 
-async function fetchAVCandles(
-  from: string, to: string, timeframe: string, apiKey: string, outputsize = 300
-): Promise<CandleData[] | null> {
-  const avConfig = AV_INTERVAL_MAP[timeframe];
-  if (!avConfig) return null;
-
-  const params = new URLSearchParams({
-    function: avConfig.fn,
-    from_symbol: from,
-    to_symbol: to,
-    apikey: apiKey,
-    outputsize: outputsize > 100 ? "full" : "compact",
-  });
-  if (avConfig.interval) params.set("interval", avConfig.interval);
-
-  const url = `https://www.alphavantage.co/query?${params}`;
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 15000);
-
-  try {
-    const res = await fetch(url, { signal: ctl.signal });
-    if (!res.ok) return null;
-    const data = await res.json();
-
-    if (data["Note"] || data["Information"] || data["Error Message"]) {
-      console.warn(`AV limit/error: ${data["Note"] || data["Information"] || data["Error Message"]}`);
-      return null;
-    }
-
-    const tsKey = Object.keys(data).find(k => k.startsWith("Time Series"));
-    if (!tsKey) return null;
-
-    const series = data[tsKey];
-    const entries = Object.entries(series) as [string, Record<string, string>][];
-    entries.sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
-    const sliced = entries.slice(-outputsize);
-
-    let candles: CandleData[] = sliced.map(([, vals]) => ({
-      open: parseFloat(vals["1. open"]),
-      high: parseFloat(vals["2. high"]),
-      low: parseFloat(vals["3. low"]),
-      close: parseFloat(vals["4. close"]),
-    }));
-
-    // Aggregate for 4h
-    if (timeframe === "4h" && candles.length >= 4) {
-      const agg: CandleData[] = [];
-      for (let i = 0; i <= candles.length - 4; i += 4) {
-        const chunk = candles.slice(i, i + 4);
-        agg.push({
-          open: chunk[0].open,
-          high: Math.max(...chunk.map(c => c.high)),
-          low: Math.min(...chunk.map(c => c.low)),
-          close: chunk[3].close,
-        });
-      }
-      candles = agg;
-    }
-
-    return candles;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-// ─── Finnhub Fallback ───────────────────────────────────────────────────────
-
-const FINNHUB_MAP: Record<string, string> = {
-  "CL1!": "OANDA:WTICO_USD", "BZ1!": "OANDA:BCO_USD", "NG1!": "OANDA:NATGAS_USD",
-  "ES1!": "OANDA:SPX500_USD", "NQ1!": "OANDA:NAS100_USD", "YM1!": "OANDA:US30_USD",
-  "USOIL": "OANDA:WTICO_USD", "UKOIL": "OANDA:BCO_USD", "NATGAS": "OANDA:NATGAS_USD",
-  "US500": "OANDA:SPX500_USD", "US100": "OANDA:NAS100_USD", "US30": "OANDA:US30_USD",
+type FinnhubCandleResponse = {
+  c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[]; t?: number[];
+  s: string;
 };
-
-const FINNHUB_RES: Record<string, string> = {
-  "1min": "1", "5min": "5", "15min": "15", "30min": "30",
-  "1h": "60", "4h": "240", "1day": "D", "1week": "W",
-};
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
 
 const CANDLE_LIMITS: Record<string, number> = {
-  "1min": 120, "5min": 150, "15min": 250, "30min": 250,
+  "1min": 120, "3min": 120, "5min": 150,
+  "15min": 250, "30min": 250,
   "1h": 300, "4h": 300, "1day": 365, "1week": 200,
 };
 
 const MINIMUM_CANDLES: Record<string, number> = {
-  "1min": 60, "5min": 80, "15min": 50, "30min": 50,
-  "1h": 50, "4h": 30, "1day": 50, "1week": 20,
+  "1min": 60, "3min": 60, "5min": 80,
+  "15min": 100, "30min": 100,
+  "1h": 100, "4h": 100, "1day": 100, "1week": 50,
 };
 
 function getCandleLimit(tf: string): number { return CANDLE_LIMITS[tf] || 200; }
@@ -351,11 +288,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const avKey = Deno.env.get("ALPHA_VANTAGE_KEY");
-  const finnhubKey = Deno.env.get("FINNHUB_API_KEY");
-
-  if (!avKey && !finnhubKey) {
-    return new Response(JSON.stringify({ error: "No API keys configured" }), {
+  const apiKey = Deno.env.get("FINNHUB_API_KEY");
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: "FINNHUB_API_KEY not set" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -393,17 +328,15 @@ Deno.serve(async (req) => {
   }
 
   const candleLimit = getCandleLimit(timeframe);
+  const resolution = RESOLUTION_MAP[timeframe] || "60";
+  const to = Math.floor(Date.now() / 1000);
+  const intervalSec = getIntervalSeconds(timeframe);
+  const from = to - Math.floor(candleLimit * intervalSec * 1.3);
+
+  // Finnhub allows 60 calls/min — use chunks of 55 with 1.1s delay
+  const CHUNK_SIZE = 55;
+  const chunks = chunkArray(pairs, CHUNK_SIZE);
   const total = pairs.length;
-
-  // Alpha Vantage: 5 requests/min → batch of 5 with 62s delay
-  // Separate forex pairs (AV) from futures (Finnhub)
-  const forexPairs = pairs.filter(p => !!getAVForexPair(p.symbol));
-  const futuresPairs = pairs.filter(p => !getAVForexPair(p.symbol));
-
-  const AV_BATCH = 4; // slightly under 5/min to be safe
-  const AV_DELAY = 62_000; // 62 seconds between batches
-  const forexChunks = chunkArray(forexPairs, AV_BATCH);
-  const futuresChunks = chunkArray(futuresPairs, 10);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -417,36 +350,71 @@ Deno.serve(async (req) => {
       let bullish = 0, bearish = 0, neutral = 0;
       const scoreRows: Array<Record<string, unknown>> = [];
       const candleRows: Array<Record<string, unknown>> = [];
-      let avRateLimited = false;
 
-      // ── Phase 1: Forex/metals via Alpha Vantage ──
-      for (let ci = 0; ci < forexChunks.length; ci++) {
-        const chunk = forexChunks[ci];
+      let rateLimited = false;
+
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk = chunks[ci];
 
         const results = await Promise.allSettled(
           chunk.map(async (pair) => {
-            if (avRateLimited) return null;
+            if (rateLimited) return null;
 
-            const avPair = getAVForexPair(pair.symbol);
-            if (!avPair || !avKey) return null;
+            const finnhubSymbol = getFinnhubSymbol(pair.symbol);
+            if (!finnhubSymbol) return null;
 
-            const candles = await fetchAVCandles(avPair.from, avPair.to, timeframe, avKey, candleLimit);
-            if (!candles) {
-              // Check if rate limited
+            const abortCtl = new AbortController();
+            const timeout = setTimeout(() => abortCtl.abort(), 8000);
+            try {
+              const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+              const res = await fetch(url, { signal: abortCtl.signal });
+
+              if (res.status === 429) { rateLimited = true; return null; }
+              if (res.status === 403) return null;
+
+              const data = (await res.json()) as FinnhubCandleResponse;
+              if (data.s !== "ok" || !data.c?.length) return null;
+
+              return {
+                pairId: pair.id,
+                symbol: pair.symbol,
+                candles: data.c.map((close, i) => ({
+                  open: data.o![i],
+                  high: data.h![i],
+                  low: data.l![i],
+                  close,
+                  volume: data.v?.[i] ?? 0,
+                  ts: new Date(data.t![i] * 1000).toISOString(),
+                })),
+              };
+            } catch {
               return null;
+            } finally {
+              clearTimeout(timeout);
             }
-            return { pairId: pair.id, symbol: pair.symbol, candles };
           })
         );
 
+        // Process results — fall back to cached DB candles when API fails
         for (let ri = 0; ri < results.length; ri++) {
           done++;
           const r = results[ri];
           const pair = chunk[ri];
           let pairCandles: CandleData[] | null = null;
+          const pairId = pair.id;
+          const symbol = pair.symbol;
 
           if (r.status === "fulfilled" && r.value && r.value.candles.length >= getMinimumCandles(timeframe)) {
             pairCandles = r.value.candles;
+            for (const c of pairCandles) {
+              candleRows.push({
+                pair_id: pairId,
+                timeframe,
+                open: c.open, high: c.high, low: c.low, close: c.close,
+                volume: c.volume ?? 0,
+                ts: (c as any).ts || new Date().toISOString(),
+              });
+            }
           }
 
           // Fallback: load cached candles from DB
@@ -454,7 +422,7 @@ Deno.serve(async (req) => {
             const { data: dbCandles } = await supabase
               .from("candles")
               .select("open, high, low, close, volume")
-              .eq("pair_id", pair.id)
+              .eq("pair_id", pairId)
               .eq("timeframe", timeframe)
               .order("ts", { ascending: true })
               .limit(candleLimit);
@@ -475,7 +443,7 @@ Deno.serve(async (req) => {
             else neutral++;
 
             scoreRows.push({
-              pair_id: pair.id, timeframe,
+              pair_id: pairId, timeframe,
               score: result.score, trend: result.trend,
               ema_score: result.emaScore, adx_score: result.adxScore,
               rsi_score: result.rsiScore, macd_score: result.macdScore,
@@ -483,94 +451,23 @@ Deno.serve(async (req) => {
               adx: result.adx, rsi: result.rsi, macd_hist: result.macdHist,
               scanned_at: new Date().toISOString(),
             });
-          }
 
-          send({ type: "progress", done, total, pct: Math.round((done / total) * 100), symbol: pair.symbol });
+            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
+          } else {
+            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
+          }
         }
 
-        // Rate limit delay between AV batches (skip after last)
-        if (ci < forexChunks.length - 1 && !avRateLimited) {
-          send({ type: "progress", done, total, pct: Math.round((done / total) * 100), symbol: "⏳ Rate limit cooldown..." });
-          await sleep(AV_DELAY);
+        // Delay between chunks — only 1.1s needed for Finnhub's 60/min limit
+        if (ci < chunks.length - 1) {
+          await sleep(1100);
         }
       }
 
-      // ── Phase 2: Futures/commodities via Finnhub or DB cache ──
-      for (let ci = 0; ci < futuresChunks.length; ci++) {
-        const chunk = futuresChunks[ci];
-
-        for (const pair of chunk) {
-          done++;
-          let pairCandles: CandleData[] | null = null;
-
-          // Try Finnhub
-          if (finnhubKey && FINNHUB_MAP[pair.symbol]) {
-            const finnhubSym = FINNHUB_MAP[pair.symbol];
-            const resolution = FINNHUB_RES[timeframe];
-            if (finnhubSym && resolution) {
-              const to = Math.floor(Date.now() / 1000);
-              const intervalSec: Record<string, number> = {
-                "1min": 60, "5min": 300, "15min": 900, "30min": 1800,
-                "1h": 3600, "4h": 14400, "1day": 86400, "1week": 604800,
-              };
-              const from = to - Math.floor(candleLimit * (intervalSec[timeframe] ?? 3600) * 1.3);
-              try {
-                const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSym)}&resolution=${resolution}&from=${from}&to=${to}&token=${finnhubKey}`;
-                const ctl = new AbortController();
-                const timer = setTimeout(() => ctl.abort(), 8000);
-                const res = await fetch(url, { signal: ctl.signal });
-                clearTimeout(timer);
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.s === "ok" && data.c?.length >= getMinimumCandles(timeframe)) {
-                    pairCandles = data.c.map((close: number, i: number) => ({
-                      open: data.o[i], high: data.h[i], low: data.l[i], close,
-                      volume: data.v?.[i] ?? 0,
-                    }));
-                  }
-                }
-              } catch { /* fallback to DB */ }
-            }
-          }
-
-          // Fallback: DB cache
-          if (!pairCandles) {
-            const { data: dbCandles } = await supabase
-              .from("candles")
-              .select("open, high, low, close, volume")
-              .eq("pair_id", pair.id)
-              .eq("timeframe", timeframe)
-              .order("ts", { ascending: true })
-              .limit(candleLimit);
-
-            if (dbCandles && dbCandles.length >= getMinimumCandles(timeframe)) {
-              pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
-                open: Number(c.open), high: Number(c.high), low: Number(c.low),
-                close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
-              }));
-            }
-          }
-
-          if (pairCandles && pairCandles.length >= getMinimumCandles(timeframe)) {
-            const result = calcTrendScore(pairCandles, timeframe);
-
-            if (result.trend === "bullish") bullish++;
-            else if (result.trend === "bearish") bearish++;
-            else neutral++;
-
-            scoreRows.push({
-              pair_id: pair.id, timeframe,
-              score: result.score, trend: result.trend,
-              ema_score: result.emaScore, adx_score: result.adxScore,
-              rsi_score: result.rsiScore, macd_score: result.macdScore,
-              ema20: result.ema20, ema50: result.ema50, ema200: result.ema200,
-              adx: result.adx, rsi: result.rsi, macd_hist: result.macdHist,
-              scanned_at: new Date().toISOString(),
-            });
-          }
-
-          send({ type: "progress", done, total, pct: Math.round((done / total) * 100), symbol: pair.symbol });
-        }
+      // Bulk upsert candles in batches of 1000
+      for (let i = 0; i < candleRows.length; i += 1000) {
+        const batch = candleRows.slice(i, i + 1000);
+        await supabase.from("candles").upsert(batch as any, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
       }
 
       // Bulk upsert scores

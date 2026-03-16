@@ -5,7 +5,6 @@ import { ChatAssistant } from "@/components/chat/ChatAssistant";
 import { useChatContext } from "@/hooks/useChatContext";
 import { MobileScanFAB } from "./MobileScanFAB";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useFinnhubWebSocket } from "@/hooks/useFinnhubWebSocket";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -40,7 +39,6 @@ export function AppLayout({
 }: AppLayoutProps) {
   const chatContext = useChatContext(timeframe);
   usePushNotifications(); // activate event notifications globally
-  useFinnhubWebSocket(); // connect Finnhub live price feed
 
   return (
     <div className="min-h-screen">

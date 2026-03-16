@@ -1,11 +1,10 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { finnhubWS } from "@/services/finnhubWebSocket";
 
 const TICKER_SYMBOLS = [
-  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD",
-  "USDCHF", "EURGBP", "XAUUSD", "ES1!", "NQ1!",
+  "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD",
+  "USD/CHF", "EUR/GBP", "XAU/USD", "US30", "US100", "USD/MXN",
 ];
 
 interface TickerItem {
@@ -16,12 +15,11 @@ interface TickerItem {
 
 export function PriceTicker() {
   const [items, setItems] = useState<TickerItem[]>([]);
-  const basePrices = useRef<Map<string, number>>(new Map());
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Load initial prices from candles, then subscribe to WebSocket
   useEffect(() => {
-    async function loadInitial() {
+    async function load() {
+      // Get latest candle close for each ticker symbol by fetching pairs + latest candle
       const { data: pairs } = await supabase
         .from("pairs")
         .select("id, symbol")
@@ -29,7 +27,10 @@ export function PriceTicker() {
 
       if (!pairs) return;
 
-      const tickerPairs = pairs.filter((p) => TICKER_SYMBOLS.includes(p.symbol));
+      const tickerPairs = pairs.filter((p) =>
+        TICKER_SYMBOLS.includes(p.symbol)
+      );
+
       const results: TickerItem[] = [];
 
       for (const pair of tickerPairs) {
@@ -45,7 +46,6 @@ export function PriceTicker() {
           const current = Number(candles[0].close);
           const prev = candles.length >= 2 ? Number(candles[1].close) : Number(candles[0].open);
           const changePct = prev !== 0 ? ((current - prev) / prev) * 100 : 0;
-          basePrices.current.set(pair.symbol, prev);
           results.push({ symbol: pair.symbol, price: current, change: changePct });
         } else {
           results.push({ symbol: pair.symbol, price: null, change: null });
@@ -53,31 +53,11 @@ export function PriceTicker() {
       }
 
       setItems(results);
-
-      // Subscribe to WebSocket for live updates
-      finnhubWS.subscribe(TICKER_SYMBOLS);
     }
 
-    loadInitial();
-
-    // Listen for live ticks
-    const unsubscribe = finnhubWS.onTick((symbol, price) => {
-      if (!TICKER_SYMBOLS.includes(symbol)) return;
-
-      setItems((prev) =>
-        prev.map((item) => {
-          if (item.symbol !== symbol) return item;
-          const base = basePrices.current.get(symbol) ?? price;
-          const changePct = base !== 0 ? ((price - base) / base) * 100 : 0;
-          return { ...item, price, change: changePct };
-        })
-      );
-    });
-
-    return () => {
-      unsubscribe();
-      finnhubWS.unsubscribe(TICKER_SYMBOLS);
-    };
+    load();
+    const interval = setInterval(load, 60_000); // refresh every minute
+    return () => clearInterval(interval);
   }, []);
 
   // Auto-scroll animation
@@ -106,7 +86,7 @@ export function PriceTicker() {
     );
   }
 
-  const doubled = [...items, ...items];
+  const doubled = [...items, ...items]; // duplicate for infinite scroll
 
   return (
     <div
@@ -129,7 +109,7 @@ export function PriceTicker() {
           return (
             <div key={`${item.symbol}-${i}`} className="flex items-center gap-1.5 shrink-0">
               <span className="text-[11px] font-display font-semibold text-foreground">
-                {formatSymbolDisplay(item.symbol)}
+                {item.symbol}
               </span>
               <span className="text-[11px] font-mono text-muted-foreground">
                 {item.price != null ? formatPrice(item.symbol, item.price) : "—"}
@@ -151,22 +131,8 @@ export function PriceTicker() {
   );
 }
 
-function formatSymbolDisplay(symbol: string): string {
-  // Format for display: EURUSD -> EUR/USD, ES1! -> S&P 500
-  const displayNames: Record<string, string> = {
-    "ES1!": "S&P 500", "NQ1!": "Nasdaq", "YM1!": "Dow 30",
-    "US500": "S&P 500", "US100": "Nasdaq", "US30": "Dow 30",
-    "USOIL": "WTI Oil", "UKOIL": "Brent Oil", "NATGAS": "Nat Gas",
-  };
-  if (displayNames[symbol]) return displayNames[symbol];
-  if (symbol.length === 6 && !symbol.includes("!")) {
-    return `${symbol.slice(0, 3)}/${symbol.slice(3)}`;
-  }
-  return symbol;
-}
-
 function formatPrice(symbol: string, price: number): string {
   if (symbol.includes("JPY")) return price.toFixed(3);
-  if (symbol.startsWith("XAU") || symbol.startsWith("ES") || symbol.startsWith("NQ") || symbol.startsWith("YM")) return price.toFixed(2);
+  if (symbol.startsWith("XAU") || symbol.startsWith("US")) return price.toFixed(2);
   return price.toFixed(5);
 }
