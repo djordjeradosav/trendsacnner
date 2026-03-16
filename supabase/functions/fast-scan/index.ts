@@ -430,9 +430,10 @@ Deno.serve(async (req) => {
       }
 
       // Bulk upsert scores
+      // INSERT instead of upsert to preserve history
       if (scoreRows.length > 0) {
-        const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
-        if (scoreError) console.error("Score upsert error:", scoreError);
+        const { error: scoreError } = await supabase.from("scores").insert(scoreRows as any);
+        if (scoreError) console.error("Score insert error:", scoreError);
       }
 
       // Store scan history

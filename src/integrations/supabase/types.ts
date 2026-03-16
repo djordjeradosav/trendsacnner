@@ -811,7 +811,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_market_score_history: {
+        Args: { p_limit?: number; p_timeframe: string }
+        Returns: {
+          avg_score: number
+          bearish_count: number
+          bullish_count: number
+          neutral_count: number
+          scan_time: string
+          total_pairs: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

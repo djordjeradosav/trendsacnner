@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import SettingsPage from "./pages/Settings";
 import ScannerPage from "./pages/Scanner";
 import ScanHistoryPage from "./pages/ScanHistory";
+import HistoryPage from "./pages/History";
 import PairDetail from "./pages/PairDetail";
 import WatchlistPage from "./pages/Watchlist";
 import AlertsPage from "./pages/Alerts";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/dashboard" element={<RequireAuth><Index /></RequireAuth>} />
             <Route path="/scanner" element={<RequireAuth><ScannerPage /></RequireAuth>} />
             <Route path="/scan-history" element={<RequireAuth><ScanHistoryPage /></RequireAuth>} />
+            <Route path="/history" element={<RequireAuth><HistoryPage /></RequireAuth>} />
             <Route path="/pair/:symbol" element={<RequireAuth><PairDetail /></RequireAuth>} />
             <Route path="/watchlist" element={<RequireAuth><WatchlistPage /></RequireAuth>} />
             <Route path="/alerts" element={<RequireAuth><AlertsPage /></RequireAuth>} />
