@@ -304,13 +304,13 @@ Deno.serve(async (req) => {
 
   if (req.method === "GET") {
     const url = new URL(req.url);
-    timeframe = url.searchParams.get("timeframe") || "1h";
+    timeframe = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
     const ids = url.searchParams.get("pairIds");
     if (ids) pairIds = ids.split(",");
   } else {
     try {
       const body = await req.json();
-      timeframe = body.timeframe || "1h";
+      timeframe = (body.timeframe || "1h").toLowerCase().trim();
       pairIds = body.pairIds;
     } catch { /* use defaults */ }
   }
