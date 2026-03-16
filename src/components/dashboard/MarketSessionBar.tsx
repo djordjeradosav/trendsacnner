@@ -121,14 +121,14 @@ export function MarketSessionBar() {
 
   return (
     <div
-      className="flex items-center gap-6 rounded-lg px-3 py-3 overflow-x-auto"
+      className="flex items-center gap-2 sm:gap-6 rounded-lg px-2 sm:px-3 py-2 sm:py-3 overflow-x-auto scrollbar-hide"
       style={{
         background: "hsl(var(--card))",
         border: "0.5px solid hsl(var(--border))",
       }}
     >
       {sessions.map((s) => (
-        <div key={s.name} className="flex items-center gap-2 shrink-0">
+        <div key={s.name} className="flex items-center gap-1 sm:gap-2 shrink-0">
           <span
             className="w-1.5 h-1.5 rounded-full shrink-0"
             style={{
@@ -140,21 +140,12 @@ export function MarketSessionBar() {
                   : "hsl(var(--border))",
             }}
           />
-          <span
-            className="font-display"
-            style={{
-              fontSize: "10px",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              color: "hsl(var(--muted-foreground))",
-            }}
-          >
+          <span className="font-display text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
             {s.name}
           </span>
           <span
-            className="font-display"
+            className="font-display text-[9px] sm:text-[10px] hidden sm:inline"
             style={{
-              fontSize: "10px",
               color:
                 s.status === "open"
                   ? "hsl(var(--bullish))"
@@ -163,7 +154,7 @@ export function MarketSessionBar() {
                   : "hsl(var(--muted-foreground))",
             }}
           >
-            {s.label} {s.countdown}
+            {s.label}
           </span>
         </div>
       ))}
@@ -171,8 +162,8 @@ export function MarketSessionBar() {
       <NextEventCountdown variant="pill" />
       <div className="flex-1" />
 
-      {/* Live clocks — seconds pulse */}
-      <div className="flex items-center gap-4 shrink-0">
+      {/* Live clocks — hidden on small mobile */}
+      <div className="hidden sm:flex items-center gap-4 shrink-0">
         <span
           className="font-display tabular-nums"
           style={{ fontSize: "12px", color: "hsl(var(--bullish))", letterSpacing: "0.04em" }}

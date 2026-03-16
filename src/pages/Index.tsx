@@ -178,19 +178,19 @@ const Index = () => {
           <HeatmapWidget timeframe={selectedTimeframe} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_minmax(300px,380px)] gap-3">
-          <div className="min-h-[400px] anim-fade-up" style={{ animationDelay: "160ms" }}>
-            <div className="rounded-lg p-4 h-full overflow-y-auto bg-card border border-border/50">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_minmax(280px,360px)] gap-3">
+          <div className="min-h-[300px] sm:min-h-[400px] anim-fade-up" style={{ animationDelay: "160ms" }}>
+            <div className="rounded-lg p-3 sm:p-4 h-full overflow-y-auto bg-card border border-border/50">
               <AIMacroDesk timeframe={selectedTimeframe} />
             </div>
           </div>
           <div className="flex flex-col gap-3 anim-fade-up" style={{ animationDelay: "200ms" }}>
-            <div className="min-h-[280px]"><MarketBriefCard timeframe={selectedTimeframe} /></div>
-            <div className="min-h-[200px]"><CapitalFlowWidget timeframe={selectedTimeframe} /></div>
+            <div className="min-h-[240px] sm:min-h-[280px]"><MarketBriefCard timeframe={selectedTimeframe} /></div>
+            <div className="min-h-[180px] sm:min-h-[200px]"><CapitalFlowWidget timeframe={selectedTimeframe} /></div>
           </div>
           <div className="flex flex-col gap-3 lg:col-span-2 xl:col-span-1 anim-fade-right" style={{ animationDelay: "240ms" }}>
-            <div className="min-h-[280px] rounded-lg p-4 overflow-y-auto bg-card border border-border/50"><ForYouPanel /></div>
-            <div className="min-h-[200px]"><CalendarWidget /></div>
+            <div className="min-h-[240px] sm:min-h-[280px] rounded-lg p-3 sm:p-4 overflow-y-auto bg-card border border-border/50"><ForYouPanel /></div>
+            <div className="min-h-[180px] sm:min-h-[200px]"><CalendarWidget /></div>
           </div>
         </div>
       </div>
