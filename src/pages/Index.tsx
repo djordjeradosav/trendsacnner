@@ -18,6 +18,7 @@ import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useAllScores } from "@/hooks/useScores";
 import { useFastScan } from "@/hooks/useFastScan";
+import { useTickFeedStatus } from "@/hooks/useTickFeedStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
