@@ -161,11 +161,11 @@ function SentimentRatioChart({ data }: { data: MarketPoint[] }) {
       width: containerRef.current.clientWidth,
     });
 
-    const bullSeries = chart.addAreaSeries({
+    const bullSeries = chart.addSeries(AreaSeries, {
       topColor: "rgba(34,197,94,0.4)", bottomColor: "rgba(34,197,94,0.05)",
       lineColor: "#22c55e", lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: "Bullish %",
     });
-    const bearSeries = chart.addAreaSeries({
+    const bearSeries = chart.addSeries(AreaSeries, {
       topColor: "rgba(239,68,68,0.4)", bottomColor: "rgba(239,68,68,0.05)",
       lineColor: "#ef4444", lineWidth: 1, priceLineVisible: false, lastValueVisible: false, title: "Bearish %",
     });
