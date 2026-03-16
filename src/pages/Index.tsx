@@ -1,7 +1,6 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
-import { ScanProgress } from "@/components/scanner/ScanProgress";
 import { DebugPanel } from "@/components/debug/DebugPanel";
 import { IndicatorTestPanel } from "@/components/debug/IndicatorTestPanel";
 import { DashboardGreeting } from "@/components/dashboard/DashboardGreeting";
@@ -14,10 +13,11 @@ import { BreakingNewsBanner } from "@/components/news/BreakingNewsBanner";
 import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
 import { PriceTicker } from "@/components/dashboard/PriceTicker";
 import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
-import { useTimeframe } from "@/hooks/useTimeframe";
+import { ScanButton } from "@/components/scanner/ScanButton";
+import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useAllScores } from "@/hooks/useScores";
-import { runFullScan, createScanController } from "@/services/scannerService";
+import { useFastScan } from "@/hooks/useFastScan";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -27,7 +27,6 @@ import {
   Activity,
   BarChart3,
   Zap,
-  RefreshCw,
 } from "lucide-react";
 
 const isDev = import.meta.env.DEV;
@@ -58,18 +57,12 @@ function StatCard({ label, value, icon, color, sub }: { label: string; value: st
 
 const Index = () => {
   const { selectedTimeframe, setTimeframe } = useTimeframe();
-  const [scanning, setScanning] = useState(false);
-  const [scanDone, setScanDone] = useState(0);
-  const [scanTotal, setScanTotal] = useState(0);
-  const [scanSymbol, setScanSymbol] = useState("");
-  const [lastScan, setLastScan] = useState<string | null>(null);
-  const [lastRefresh, setLastRefresh] = useState(Date.now());
-  const controllerRef = useRef<ReturnType<typeof createScanController> | null>(null);
   const { toast } = useToast();
+  const [lastScan, setLastScan] = useState<string | null>(null);
 
+  const scan = useFastScan();
   const { data: allScores } = useAllScores(selectedTimeframe);
 
-  // Compute live stats from scores
   const stats = useMemo(() => {
     if (!allScores || allScores.length === 0) return { total: 0, bullish: 0, bearish: 0, neutral: 0, avg: 0, strongBull: 0, strongBear: 0 };
     let bullish = 0, bearish = 0, neutral = 0, totalScore = 0, strongBull = 0, strongBear = 0;
@@ -82,87 +75,63 @@ const Index = () => {
     return { total: allScores.length, bullish, bearish, neutral, avg: Math.round(totalScore / allScores.length * 10) / 10, strongBull, strongBear };
   }, [allScores]);
 
-  const executeScan = useCallback(async () => {
-    if (scanning) return;
-    setScanning(true);
-    setScanDone(0);
-    setScanTotal(0);
-    setScanSymbol("");
-    const controller = createScanController();
-    controllerRef.current = controller;
-    try {
-      const result = await runFullScan(
-        selectedTimeframe,
-        (done, total, symbol) => { setScanDone(done); setScanTotal(total); setScanSymbol(symbol); },
-        controller
-      );
-      if (!controller.isCancelled()) {
-        setLastScan(new Date(result.scannedAt).toLocaleString());
-        setLastRefresh(Date.now());
-        toast({ title: "Scan complete", description: `${result.totalPairs} pairs scanned` });
-      }
-    } catch (err) {
-      toast({ title: "Scan failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
-    } finally {
-      setScanning(false);
-      controllerRef.current = null;
+  const executeScan = async () => {
+    if (scan.isScanning) return;
+    await scan.runScan(selectedTimeframe);
+  };
+
+  // Show toast on completion
+  useEffect(() => {
+    if (scan.result && !scan.isScanning) {
+      setLastScan(new Date().toLocaleString());
+      toast({
+        title: "Scan complete",
+        description: `${scan.result.scored} pairs scored in ${(scan.result.durationMs / 1000).toFixed(1)}s`,
+      });
     }
-  }, [scanning, selectedTimeframe, toast]);
+  }, [scan.result, scan.isScanning]);
 
   const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo, scanInterval, scanIntervalOptions } = useAutoScan(executeScan);
 
-  // Auto-refresh dashboard data every 10 minutes
-  useEffect(() => {
-    const interval = setInterval(() => setLastRefresh(Date.now()), 10 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
-
   useEffect(() => {
     const fetchLastScan = async () => {
-      const { data } = await supabase
-        .from("scan_history")
-        .select("scanned_at")
-        .order("scanned_at", { ascending: false })
-        .limit(1);
+      const { data } = await supabase.from("scan_history").select("scanned_at").order("scanned_at", { ascending: false }).limit(1);
       if (data && data.length > 0) setLastScan(new Date(data[0].scanned_at).toLocaleString());
     };
     fetchLastScan();
   }, []);
 
-  const handleCancelScan = () => { controllerRef.current?.cancel(); };
-
   const marketSentiment = stats.avg >= 60 ? "Risk-On" : stats.avg <= 40 ? "Risk-Off" : "Mixed";
   const sentimentColor = stats.avg >= 60 ? "hsl(var(--primary))" : stats.avg <= 40 ? "#ef4444" : "#f59e0b";
+
+  const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
 
   return (
     <AppLayout
       lastScan={lastScan}
-      isLive={scanning}
-      scanning={scanning}
-      scanDone={scanDone}
-      scanTotal={scanTotal}
+      isLive={scan.isScanning}
+      scanning={scan.isScanning}
+      scanDone={scan.done}
+      scanTotal={scan.total}
       onRunScan={executeScan}
-      onCancelScan={handleCancelScan}
+      onCancelScan={scan.cancelScan}
       timeUntilNextScan={timeUntilNextScan}
       isAutoScanEnabled={isAutoScanEnabled}
       autoScanAgo={autoScanAgo}
       timeframe={selectedTimeframe}
-      currentSymbol={scanSymbol}
+      currentSymbol={scan.currentSymbol}
     >
       <BreakingNewsBanner />
 
       <div className="flex flex-col gap-3">
-        {/* Live Price Ticker */}
         <div className="anim-fade-down shrink-0">
           <PriceTicker />
         </div>
 
-        {/* Session Bar */}
         <div className="anim-fade-down shrink-0">
           <MarketSessionBar />
         </div>
 
-        {/* Greeting + Controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 anim-fade-up shrink-0" style={{ animationDelay: "80ms" }}>
           <DashboardGreeting />
           <div className="flex items-center gap-2 flex-wrap">
@@ -175,94 +144,53 @@ const Index = () => {
                 {stats.avg || "—"}
               </span>
             </div>
-            <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scanning} />
+            <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scan.isScanning} />
           </div>
         </div>
 
-        {scanning && (
-          <div className="shrink-0">
-            <ScanProgress done={scanDone} total={scanTotal} currentSymbol={scanSymbol} onCancel={handleCancelScan} />
-          </div>
-        )}
+        {/* Scan Button — replaces old ScanProgress */}
+        <div className="flex justify-end shrink-0">
+          <ScanButton
+            isScanning={scan.isScanning}
+            progress={scan.progress}
+            done={scan.done}
+            total={scan.total}
+            currentSymbol={scan.currentSymbol}
+            eta={scan.eta}
+            lastScanDuration={scan.lastScanDuration}
+            lastScanAt={scan.lastScanAt}
+            timeframeLabel={tfLabel}
+            onScan={executeScan}
+          />
+        </div>
 
         {/* Live Stats Row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2 anim-fade-up shrink-0" style={{ animationDelay: "120ms" }}>
-          <StatCard
-            label="Total Pairs"
-            value={stats.total || "—"}
-            icon={<BarChart3 className="w-4 h-4" style={{ color: "hsl(var(--primary))" }} />}
-            color="hsl(var(--primary))"
-            sub="Actively monitored"
-          />
-          <StatCard
-            label="Bullish"
-            value={stats.bullish}
-            icon={<TrendingUp className="w-4 h-4" style={{ color: "#22c55e" }} />}
-            color="#22c55e"
-            sub={`${stats.strongBull} strong signals`}
-          />
-          <StatCard
-            label="Bearish"
-            value={stats.bearish}
-            icon={<TrendingDown className="w-4 h-4" style={{ color: "#ef4444" }} />}
-            color="#ef4444"
-            sub={`${stats.strongBear} strong signals`}
-          />
-          <StatCard
-            label="Neutral"
-            value={stats.neutral}
-            icon={<Minus className="w-4 h-4" style={{ color: "#f59e0b" }} />}
-            color="#f59e0b"
-            sub="Consolidating"
-          />
-          <StatCard
-            label="Avg Score"
-            value={stats.avg || "—"}
-            icon={<Activity className="w-4 h-4" style={{ color: sentimentColor }} />}
-            color={sentimentColor}
-            sub={marketSentiment}
-          />
-          <StatCard
-            label="Auto-Scan"
-            value={isAutoScanEnabled ? "ON" : "OFF"}
-            icon={<Zap className="w-4 h-4" style={{ color: isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }} />}
-            color={isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))"}
-            sub={isAutoScanEnabled ? scanIntervalOptions.find(o => o.value === scanInterval)?.label ?? scanInterval : "Manual only"}
-          />
+          <StatCard label="Total Pairs" value={stats.total || "—"} icon={<BarChart3 className="w-4 h-4" style={{ color: "hsl(var(--primary))" }} />} color="hsl(var(--primary))" sub="Actively monitored" />
+          <StatCard label="Bullish" value={stats.bullish} icon={<TrendingUp className="w-4 h-4" style={{ color: "#22c55e" }} />} color="#22c55e" sub={`${stats.strongBull} strong signals`} />
+          <StatCard label="Bearish" value={stats.bearish} icon={<TrendingDown className="w-4 h-4" style={{ color: "#ef4444" }} />} color="#ef4444" sub={`${stats.strongBear} strong signals`} />
+          <StatCard label="Neutral" value={stats.neutral} icon={<Minus className="w-4 h-4" style={{ color: "#f59e0b" }} />} color="#f59e0b" sub="Consolidating" />
+          <StatCard label="Avg Score" value={stats.avg || "—"} icon={<Activity className="w-4 h-4" style={{ color: sentimentColor }} />} color={sentimentColor} sub={marketSentiment} />
+          <StatCard label="Auto-Scan" value={isAutoScanEnabled ? "ON" : "OFF"} icon={<Zap className="w-4 h-4" style={{ color: isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }} />} color={isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))"} sub={isAutoScanEnabled ? scanIntervalOptions.find(o => o.value === scanInterval)?.label ?? scanInterval : "Manual only"} />
         </div>
 
-        {/* Heatmap */}
         <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", minHeight: "160px" }}>
           <HeatmapWidget timeframe={selectedTimeframe} />
         </div>
 
-        {/* Main 3-column grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_minmax(300px,380px)] gap-3">
-          {/* Col 1: AI Macro Desk */}
           <div className="min-h-[400px] anim-fade-up" style={{ animationDelay: "160ms" }}>
             <div className="rounded-lg p-4 h-full overflow-y-auto bg-card border border-border/50">
               <AIMacroDesk timeframe={selectedTimeframe} />
             </div>
           </div>
-
-          {/* Col 2: Market Brief + Capital Flow */}
           <div className="flex flex-col gap-3 anim-fade-up" style={{ animationDelay: "200ms" }}>
-            <div className="min-h-[280px]">
-              <MarketBriefCard timeframe={selectedTimeframe} />
-            </div>
-            <div className="min-h-[200px]">
-              <CapitalFlowWidget timeframe={selectedTimeframe} />
-            </div>
+            <div className="min-h-[280px]"><MarketBriefCard timeframe={selectedTimeframe} /></div>
+            <div className="min-h-[200px]"><CapitalFlowWidget timeframe={selectedTimeframe} /></div>
           </div>
-
-          {/* Col 3: For You + Calendar */}
           <div className="flex flex-col gap-3 lg:col-span-2 xl:col-span-1 anim-fade-right" style={{ animationDelay: "240ms" }}>
-            <div className="min-h-[280px] rounded-lg p-4 overflow-y-auto bg-card border border-border/50">
-              <ForYouPanel />
-            </div>
-            <div className="min-h-[200px]">
-              <CalendarWidget />
-            </div>
+            <div className="min-h-[280px] rounded-lg p-4 overflow-y-auto bg-card border border-border/50"><ForYouPanel /></div>
+            <div className="min-h-[200px]"><CalendarWidget /></div>
           </div>
         </div>
       </div>

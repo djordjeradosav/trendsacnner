@@ -11,14 +11,15 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { Radar, Search, TrendingUp, TrendingDown, Minus, Clock } from "lucide-react";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
-import { runFullScan, createScanController } from "@/services/scannerService";
+import { useFastScan } from "@/hooks/useFastScan";
 import { useToast } from "@/hooks/use-toast";
-import { ScanProgress } from "@/components/scanner/ScanProgress";
+import { ScanButton } from "@/components/scanner/ScanButton";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
 import { useSectorStats } from "@/hooks/useSectorStats";
 import { useWatchlists } from "@/hooks/useWatchlists";
 import { useAllScores, type ScoreRow } from "@/hooks/useScores";
+import { timeframeOptions } from "@/hooks/useTimeframe";
 import { Grid, type CellComponentProps } from "react-window";
 
 interface PairInfo {
@@ -72,14 +73,11 @@ export default function ScannerPage() {
   const { watchlists } = useWatchlists();
   const [activeWatchlist, setActiveWatchlist] = useState<string | null>(null);
   const { selectedTimeframe, setTimeframe } = useTimeframe();
-  const [scanning, setScanning] = useState(false);
-  const [scanDone, setScanDone] = useState(0);
-  const [scanTotal, setScanTotal] = useState(0);
-  const [scanSymbol, setScanSymbol] = useState("");
   const [lastScan, setLastScan] = useState<string | null>(null);
-  const controllerRef = useRef<ReturnType<typeof createScanController> | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const scan = useFastScan();
 
   // Track recently updated pair_ids for flash animation
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
@@ -129,30 +127,20 @@ export default function ScannerPage() {
   }, [pairsInfo, allScores]);
 
   const executeScan = useCallback(async () => {
-    if (scanning) return;
-    setScanning(true);
-    setScanDone(0);
-    setScanTotal(0);
-    setScanSymbol("");
-    const controller = createScanController();
-    controllerRef.current = controller;
-    try {
-      const result = await runFullScan(
-        selectedTimeframe,
-        (done, total, symbol) => { setScanDone(done); setScanTotal(total); setScanSymbol(symbol); },
-        controller
-      );
-      if (!controller.isCancelled()) {
-        setLastScan(new Date(result.scannedAt).toLocaleString());
-        toast({ title: "Scan complete", description: `${result.totalPairs} pairs | ${result.bullish} bullish | ${result.neutral} neutral | ${result.bearish} bearish | Avg score: ${result.avgScore}` });
-      }
-    } catch (err) {
-      toast({ title: "Scan failed", description: err instanceof Error ? err.message : "Unknown error", variant: "destructive" });
-    } finally {
-      setScanning(false);
-      controllerRef.current = null;
+    if (scan.isScanning) return;
+    await scan.runScan(selectedTimeframe);
+  }, [scan.isScanning, selectedTimeframe, scan.runScan]);
+
+  // Show toast on completion
+  useEffect(() => {
+    if (scan.result && !scan.isScanning) {
+      setLastScan(new Date().toLocaleString());
+      toast({
+        title: "Scan complete",
+        description: `${scan.result.scored} pairs scored in ${(scan.result.durationMs / 1000).toFixed(1)}s`,
+      });
     }
-  }, [scanning, selectedTimeframe, toast]);
+  }, [scan.result, scan.isScanning]);
 
   const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo } = useAutoScan(executeScan);
 
@@ -192,20 +180,21 @@ export default function ScannerPage() {
   const strongest = useMemo(() => [...pairs].filter((p) => p.trend === "bullish").sort((a, b) => b.score - a.score).slice(0, 8), [pairs]);
   const weakest = useMemo(() => [...pairs].filter((p) => p.trend === "bearish").sort((a, b) => a.score - b.score).slice(0, 8), [pairs]);
 
-  const handleCancelScan = () => { controllerRef.current?.cancel(); };
+  const handleCancelScan = () => { scan.cancelScan(); };
 
-  // Pass cancel handler to AppLayout for mobile FAB
+  const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
+
   const layoutProps = {
     lastScan,
-    scanning,
-    scanDone,
-    scanTotal,
+    scanning: scan.isScanning,
+    scanDone: scan.done,
+    scanTotal: scan.total,
     onRunScan: executeScan,
     onCancelScan: handleCancelScan,
     timeUntilNextScan,
     isAutoScanEnabled,
     autoScanAgo,
-    currentSymbol: scanSymbol,
+    currentSymbol: scan.currentSymbol,
   };
 
   const loading = pairsLoading || scoresLoading;
@@ -316,7 +305,7 @@ export default function ScannerPage() {
           <div className="text-center space-y-3">
             <p className="text-lg font-display text-foreground">No scan data yet</p>
             <p className="text-sm text-muted-foreground">Run your first scan to see live trends</p>
-            <Button onClick={executeScan} disabled={scanning} className="gap-2">
+            <Button onClick={executeScan} disabled={scan.isScanning} className="gap-2">
               <Radar className="w-4 h-4" />
               Run first scan
             </Button>
@@ -339,14 +328,22 @@ export default function ScannerPage() {
             </span>
           )}
         </div>
-        <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scanning} />
-      </div>
-
-      {scanning && (
-        <div className="mb-4">
-          <ScanProgress done={scanDone} total={scanTotal} currentSymbol={scanSymbol} onCancel={handleCancelScan} />
+        <div className="flex items-center gap-3">
+          <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scan.isScanning} />
+          <ScanButton
+            isScanning={scan.isScanning}
+            progress={scan.progress}
+            done={scan.done}
+            total={scan.total}
+            currentSymbol={scan.currentSymbol}
+            eta={scan.eta}
+            lastScanDuration={scan.lastScanDuration}
+            lastScanAt={scan.lastScanAt}
+            timeframeLabel={tfLabel}
+            onScan={executeScan}
+          />
         </div>
-      )}
+      </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
