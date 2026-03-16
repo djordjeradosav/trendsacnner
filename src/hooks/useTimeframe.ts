@@ -1,24 +1,23 @@
 import { useState, useCallback } from "react";
+import { TIMEFRAME_ORDER, TIMEFRAME_CONFIG, type TimeframeConfig } from "@/config/timeframes";
 
 export interface TimeframeOption {
   value: string;
   label: string;
 }
 
-export const timeframeOptions: TimeframeOption[] = [
-  { value: "15min", label: "15M" },
-  { value: "1h", label: "1H" },
-  { value: "4h", label: "4H" },
-  { value: "1day", label: "1D" },
-  { value: "1week", label: "1W" },
-];
+// Legacy export for backwards compat
+export const timeframeOptions: TimeframeOption[] = TIMEFRAME_ORDER.map((tf) => ({
+  value: tf,
+  label: TIMEFRAME_CONFIG[tf].label,
+}));
 
 const STORAGE_KEY = "trendscan_timeframe";
 
 function getStoredTimeframe(): string {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && timeframeOptions.some((o) => o.value === stored)) {
+    if (stored && TIMEFRAME_ORDER.includes(stored as any)) {
       return stored;
     }
   } catch {}
@@ -35,5 +34,7 @@ export function useTimeframe() {
     } catch {}
   }, []);
 
-  return { selectedTimeframe, setTimeframe, timeframeOptions };
+  const currentConfig: TimeframeConfig = TIMEFRAME_CONFIG[selectedTimeframe] ?? TIMEFRAME_CONFIG["1h"];
+
+  return { selectedTimeframe, setTimeframe, timeframeOptions, currentConfig };
 }
