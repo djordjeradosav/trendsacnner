@@ -429,11 +429,10 @@ Deno.serve(async (req) => {
         await supabase.from("candles").upsert(batch as any, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
       }
 
-      // Bulk upsert scores
-      // INSERT instead of upsert to preserve history
+      // Bulk upsert scores (unique on pair_id + timeframe)
       if (scoreRows.length > 0) {
-        const { error: scoreError } = await supabase.from("scores").insert(scoreRows as any);
-        if (scoreError) console.error("Score insert error:", scoreError);
+        const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
+        if (scoreError) console.error("Score upsert error:", scoreError);
       }
 
       // Store scan history
