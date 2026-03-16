@@ -14,6 +14,7 @@ import { BreakingNewsBanner } from "@/components/news/BreakingNewsBanner";
 import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
 import { PriceTicker } from "@/components/dashboard/PriceTicker";
 import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
+import { MTFAlignmentWidget } from "@/components/dashboard/MTFAlignmentWidget";
 import { ScanButton } from "@/components/scanner/ScanButton";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useAutoScan, scanIntervalOptions } from "@/hooks/useAutoScan";
