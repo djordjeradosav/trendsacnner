@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  const candleLimit = getCandleLimit(timeframe);
+  const candleLimit = getTFConfig(timeframe).candleLimit;
   const CHUNK_SIZE = 20;
   const chunks = chunkArray(pairs, CHUNK_SIZE);
   const total = pairs.length;
