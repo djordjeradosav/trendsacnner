@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { finnhubWS, type TickHandler } from "@/services/finnhubWebSocket";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,28 +8,24 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export function useFinnhubWebSocket() {
   const [isConnected, setIsConnected] = useState(false);
-  const initialized = useRef(false);
 
   useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
+    let checkerInterval: ReturnType<typeof setInterval> | null = null;
 
     async function init() {
       try {
-        // Fetch the API key from the get-finnhub-token edge function
+        // Only fetch token if not already connected
+        if (finnhubWS.isConnected) {
+          setIsConnected(true);
+          return;
+        }
+
         const { data, error } = await supabase.functions.invoke("get-finnhub-token");
         if (error || !data?.token) {
           console.warn("Failed to get Finnhub token:", error?.message || "No token returned");
           return;
         }
         finnhubWS.connect(data.token);
-
-        // Check connection status periodically
-        const checker = setInterval(() => {
-          setIsConnected(finnhubWS.isConnected);
-        }, 2000);
-
-        return () => clearInterval(checker);
       } catch (err) {
         console.error("Finnhub WS init error:", err);
       }
@@ -37,8 +33,14 @@ export function useFinnhubWebSocket() {
 
     init();
 
+    // Check connection status periodically
+    checkerInterval = setInterval(() => {
+      setIsConnected(finnhubWS.isConnected);
+    }, 2000);
+
     return () => {
-      finnhubWS.disconnect();
+      if (checkerInterval) clearInterval(checkerInterval);
+      // Don't disconnect on unmount — singleton stays alive for the app lifetime
     };
   }, []);
 

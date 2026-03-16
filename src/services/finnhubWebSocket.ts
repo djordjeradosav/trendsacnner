@@ -37,6 +37,13 @@ class FinnhubWebSocketService {
     }
     if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) return;
 
+    // Reset reconnect counter on explicit connect calls
+    this.reconnectAttempts = 0;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     this.isConnecting = true;
     const url = `wss://ws.finnhub.io?token=${this.apiKey}`;
 
