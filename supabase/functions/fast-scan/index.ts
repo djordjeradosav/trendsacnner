@@ -330,20 +330,29 @@ Deno.serve(async (req) => {
       const scoreRows: Array<Record<string, unknown>> = [];
       const candleRows: Array<Record<string, unknown>> = [];
 
+      let apiExhausted = false;
+
       for (let ci = 0; ci < chunks.length; ci++) {
         const chunk = chunks[ci];
 
-        // Fetch all in parallel
+        // Fetch all in parallel from API (skip if API already exhausted)
         const results = await Promise.allSettled(
           chunk.map(async (pair) => {
+            if (apiExhausted) return null;
             const tdSymbol = getTwelveDataSymbol(pair.symbol);
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), 8000);
             try {
               const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=${timeframe}&outputsize=${candleLimit}&apikey=${apiKey}`;
               const res = await fetch(url, { signal: controller.signal });
-              if (res.status === 429) return null;
+              if (res.status === 429) { apiExhausted = true; return null; }
               const data = await res.json();
+              // Check for API credit exhaustion in response body
+              if (data.code === 429 || (data.status === "error" && data.message?.includes("API credits"))) {
+                apiExhausted = true;
+                console.warn(`API credits exhausted: ${data.message}`);
+                return null;
+              }
               if (!data.values || !Array.isArray(data.values) || data.values.length === 0) return null;
               return {
                 pairId: pair.id,
@@ -365,12 +374,56 @@ Deno.serve(async (req) => {
           })
         );
 
-        // Process results
-        for (const r of results) {
+        // Process results — fall back to cached DB candles when API fails
+        for (let ri = 0; ri < results.length; ri++) {
           done++;
+          const r = results[ri];
+          const pair = chunk[ri];
+          let pairCandles: CandleData[] | null = null;
+          let pairId = pair.id;
+          let symbol = pair.symbol;
+
+          // Try API result first
           if (r.status === "fulfilled" && r.value && r.value.candles.length >= getMinimumCandles(timeframe)) {
-            const { pairId, symbol, candles } = r.value;
-            const result = calcTrendScore(candles, timeframe);
+            pairCandles = r.value.candles;
+            // Store fresh candles for future fallback
+            for (const c of pairCandles) {
+              candleRows.push({
+                pair_id: pairId,
+                timeframe,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close,
+                volume: c.volume ?? 0,
+                ts: new Date(c.ts).toISOString(),
+              });
+            }
+          }
+
+          // Fallback: load cached candles from DB
+          if (!pairCandles) {
+            const { data: dbCandles } = await supabase
+              .from("candles")
+              .select("open, high, low, close, volume")
+              .eq("pair_id", pairId)
+              .eq("timeframe", timeframe)
+              .order("ts", { ascending: true })
+              .limit(candleLimit);
+
+            if (dbCandles && dbCandles.length >= getMinimumCandles(timeframe)) {
+              pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
+                open: Number(c.open),
+                high: Number(c.high),
+                low: Number(c.low),
+                close: Number(c.close),
+                volume: c.volume ? Number(c.volume) : 0,
+              }));
+            }
+          }
+
+          if (pairCandles && pairCandles.length >= getMinimumCandles(timeframe)) {
+            const result = calcTrendScore(pairCandles, timeframe);
 
             if (result.trend === "bullish") bullish++;
             else if (result.trend === "bearish") bearish++;
@@ -394,26 +447,9 @@ Deno.serve(async (req) => {
               scanned_at: new Date().toISOString(),
             });
 
-            // Also store candles
-            const pair = chunk.find(p => p.id === pairId);
-            if (pair) {
-              for (const c of candles) {
-                candleRows.push({
-                  pair_id: pairId,
-                  timeframe,
-                  open: c.open,
-                  high: c.high,
-                  low: c.low,
-                  close: c.close,
-                  volume: c.volume,
-                  ts: new Date(c.ts).toISOString(),
-                });
-              }
-            }
-
             send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
           } else {
-            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol: chunk[results.indexOf(r)]?.symbol || "" });
+            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
           }
         }
 
