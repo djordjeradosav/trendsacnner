@@ -327,11 +327,16 @@ Deno.serve(async (req) => {
     });
   }
 
-  const candleLimit = getCandleLimit(timeframe);
-  const resolution = RESOLUTION_MAP[timeframe] || "60";
+  const normalisedTimeframe = timeframe.toLowerCase().trim();
+  const candleLimit = getCandleLimit(normalisedTimeframe);
+  const resolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
   const to = Math.floor(Date.now() / 1000);
-  const intervalSec = getIntervalSeconds(timeframe);
-  const from = to - Math.floor(candleLimit * intervalSec * 1.3);
+  const intervalSec = getIntervalSeconds(normalisedTimeframe);
+  // Use larger buffer for short timeframes to cover weekend/holiday gaps
+  const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(normalisedTimeframe) ? 2.5 : 1.3;
+  const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
+  
+  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
   // Finnhub allows 60 calls/min — use chunks of 55 with 1.1s delay
   const CHUNK_SIZE = 55;
