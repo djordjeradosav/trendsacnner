@@ -3,6 +3,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { MTFLeaderboard } from "@/components/scanner/MTFLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
