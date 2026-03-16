@@ -265,9 +265,9 @@ const CANDLE_LIMITS: Record<string, number> = {
 };
 
 const MINIMUM_CANDLES: Record<string, number> = {
-  "1min": 60, "3min": 60, "5min": 80,
-  "15min": 100, "30min": 100,
-  "1h": 100, "4h": 100, "1day": 100, "1week": 50,
+  "1min": 30, "3min": 30, "5min": 40,
+  "15min": 55, "30min": 55,
+  "1h": 60, "4h": 60, "1day": 100, "1week": 50,
 };
 
 function getCandleLimit(tf: string): number { return CANDLE_LIMITS[tf] || 200; }
