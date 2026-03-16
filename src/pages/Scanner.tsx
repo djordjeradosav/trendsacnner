@@ -78,7 +78,8 @@ export default function ScannerPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const scan = useFastScan();
+  const { runScan, cancelScan } = useFastScan();
+  const scan = useScanStore();
 
   // Track recently updated pair_ids for flash animation
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
