@@ -12,6 +12,7 @@ import { Radar, Search, TrendingUp, TrendingDown, Minus, Clock } from "lucide-re
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useFastScan } from "@/hooks/useFastScan";
+import { useScanStore } from "@/store/scanStore";
 import { useToast } from "@/hooks/use-toast";
 import { ScanButton } from "@/components/scanner/ScanButton";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
