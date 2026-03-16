@@ -82,6 +82,14 @@ export function TopHeader({
       </div>
 
       <div className="flex items-center gap-2 md:gap-3">
+        <div className="hidden md:flex">
+          <WsStatusIndicator
+            status={wsStatus}
+            pairCount={wsPairCount}
+            isEligible={wsEligible}
+            onReconnect={onWsReconnect ?? (() => {})}
+          />
+        </div>
         <NotificationBell />
         <div className="hidden md:block">
           <UserMenu />
