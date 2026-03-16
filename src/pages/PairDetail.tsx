@@ -602,3 +602,84 @@ function adxColor(adx: number): string {
   if (adx >= 15) return "text-amber-400";
   return "text-muted-foreground";
 }
+
+function MTFAlignmentCard({ data }: { data: MTFAlignmentRow }) {
+  const timeframes = [
+    { key: "scores_5m" as const, label: "5M", scores: data.scores_5m },
+    { key: "scores_30m" as const, label: "30M", scores: data.scores_30m },
+    { key: "scores_1h" as const, label: "1H", scores: data.scores_1h },
+    { key: "scores_4h" as const, label: "4H", scores: data.scores_4h },
+  ];
+
+  const dirColor = data.direction === "bullish"
+    ? "text-bullish"
+    : data.direction === "bearish"
+      ? "text-bearish"
+      : "text-muted-foreground";
+
+  const labelBg = data.label === "Perfect"
+    ? "bg-bullish/15 text-bullish border-bullish/30"
+    : data.label === "Strong"
+      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+      : data.label === "Partial"
+        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+        : "bg-muted text-muted-foreground border-border";
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-display font-semibold text-foreground">MTF Alignment</h3>
+        <div className="flex items-center gap-2">
+          <span className={`text-[11px] font-display font-semibold px-2 py-0.5 rounded-md border ${labelBg}`}>
+            {data.label} · {data.bull_count + data.bear_count > 0 ? `${Math.max(data.bull_count, data.bear_count)}/${data.bull_count + data.bear_count + (4 - data.bull_count - data.bear_count)}` : "—"}
+          </span>
+          <span className={`text-sm font-display font-bold ${dirColor}`}>
+            {data.direction.toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {timeframes.map((tf) => {
+          const score = tf.scores?.score ?? 0;
+          const trend = tf.scores?.trend ?? "neutral";
+          const barColor = trend === "bullish"
+            ? "bg-bullish"
+            : trend === "bearish"
+              ? "bg-bearish"
+              : "bg-muted-foreground/40";
+          const textColor = trend === "bullish"
+            ? "text-bullish"
+            : trend === "bearish"
+              ? "text-bearish"
+              : "text-muted-foreground";
+
+          return (
+            <div key={tf.key}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-display font-medium text-muted-foreground w-8">{tf.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-display uppercase ${textColor}`}>{trend}</span>
+                  <span className={`text-xs font-display font-bold ${textColor}`}>{tf.scores ? score : "—"}</span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${barColor} transition-all duration-500`}
+                  style={{ width: tf.scores ? `${score}%` : "0%" }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-border">
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+          <span>Alignment Score: {data.alignment_score}%</span>
+          <span>Scanned: {new Date(data.scanned_at).toLocaleTimeString()}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
