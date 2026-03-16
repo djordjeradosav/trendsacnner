@@ -531,6 +531,9 @@ export default function PairDetail() {
         </div>
       )}
 
+      {/* MTF Alignment */}
+      {mtfData && <MTFAlignmentCard data={mtfData} />}
+
       {/* AI Analysis */}
       <ErrorBoundary name="AIBrief">
       {pair && (
