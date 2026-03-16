@@ -18,6 +18,7 @@ import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useAllScores } from "@/hooks/useScores";
 import { useFastScan } from "@/hooks/useFastScan";
+import { useTickFeedStatus } from "@/hooks/useTickFeedStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -61,6 +62,7 @@ const Index = () => {
   const [lastScan, setLastScan] = useState<string | null>(null);
 
   const scan = useFastScan();
+  const wsFeed = useTickFeedStatus(selectedTimeframe);
   const { data: allScores } = useAllScores(selectedTimeframe);
 
   const stats = useMemo(() => {
@@ -120,6 +122,10 @@ const Index = () => {
       autoScanAgo={autoScanAgo}
       timeframe={selectedTimeframe}
       currentSymbol={scan.currentSymbol}
+      wsStatus={wsFeed.status}
+      wsPairCount={wsFeed.pairCount}
+      wsEligible={wsFeed.isEligible}
+      onWsReconnect={wsFeed.reconnect}
     >
       <BreakingNewsBanner />
 

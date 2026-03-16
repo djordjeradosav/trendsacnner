@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllScores } from "@/hooks/useScores";
 import { useNavigate } from "react-router-dom";
+import { useLivePrice } from "@/hooks/useLivePrice";
+import { isLiveEligible } from "@/services/tickFeedService";
 
 interface PairMap {
   [id: string]: { symbol: string; category: string };
@@ -26,6 +28,48 @@ function scoreToBorder(score: number): string {
   if (score >= 35) return "hsl(0 30% 30%)";
   if (score >= 20) return "hsl(0 50% 38%)";
   return "hsl(0 70% 42%)";
+}
+
+interface CellData {
+  pairId: string;
+  symbol: string;
+  category: string;
+  score: number;
+  trend: string;
+}
+
+function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe: string; navigate: (path: string) => void }) {
+  const showLive = isLiveEligible(timeframe);
+  const { price, direction } = useLivePrice(showLive ? cell.symbol : undefined);
+
+  return (
+    <button
+      onClick={() => navigate(`/pair/${cell.symbol}`)}
+      className="rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer"
+      style={{
+        background: scoreToColor(cell.score),
+        border: `1px solid ${scoreToBorder(cell.score)}`,
+      }}
+      title={`${cell.symbol}: Score ${cell.score} (${cell.trend})${price ? ` · ${price.toFixed(5)}` : ""}`}
+    >
+      <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
+        {cell.symbol.replace("/", "")}
+      </div>
+      <div className="text-[8px] font-mono text-white/60 leading-tight">
+        {cell.score}
+      </div>
+      {showLive && price !== null && (
+        <div
+          className="text-[7px] font-mono leading-tight transition-colors duration-300"
+          style={{
+            color: direction === "up" ? "hsl(142 70% 60%)" : direction === "down" ? "hsl(0 70% 60%)" : "rgba(255,255,255,0.5)",
+          }}
+        >
+          {price.toFixed(price >= 100 ? 2 : price >= 10 ? 3 : 5)}
+        </div>
+      )}
+    </button>
+  );
 }
 
 export function HeatmapWidget({ timeframe }: { timeframe: string }) {
@@ -82,23 +126,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
       <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
           {cells.map((cell) => (
-            <button
-              key={cell.pairId}
-              onClick={() => navigate(`/pair/${cell.symbol}`)}
-              className="rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer"
-              style={{
-                background: scoreToColor(cell.score),
-                border: `1px solid ${scoreToBorder(cell.score)}`,
-              }}
-              title={`${cell.symbol}: Score ${cell.score} (${cell.trend})`}
-            >
-              <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
-                {cell.symbol.replace("/", "")}
-              </div>
-              <div className="text-[8px] font-mono text-white/60 leading-tight">
-                {cell.score}
-              </div>
-            </button>
+            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} />
           ))}
         </div>
       </div>
