@@ -118,9 +118,9 @@ export function NewAlertDialog({ open, onOpenChange, onCreated }: NewAlertDialog
       const rule: any = {
         user_id: user.id,
         rule_type: ruleType,
-        pair_id: ruleType !== "strong_trend_scan" ? selectedPairId : null,
-        direction: ruleType === "score_threshold" ? direction : ruleType === "trend_flip" ? flipType : "above",
-        threshold: ruleType === "trend_flip" ? 0 : threshold,
+        pair_id: ruleType !== "strong_trend_scan" && ruleType !== "mtf_alignment" ? selectedPairId : (ruleType === "mtf_alignment" ? selectedPairId : null),
+        direction: ruleType === "score_threshold" ? direction : ruleType === "trend_flip" ? flipType : ruleType === "mtf_alignment" ? "perfect" : "above",
+        threshold: ruleType === "trend_flip" ? 0 : ruleType === "mtf_alignment" ? 4 : threshold,
         category_filter: ruleType === "strong_trend_scan" ? categoryFilter : "all",
         webhook_url: channels.includes("webhook") ? webhookUrl : null,
         description: getDescription(),
