@@ -305,7 +305,7 @@ export default function ScannerPage() {
           <div className="text-center space-y-3">
             <p className="text-lg font-display text-foreground">No scan data yet</p>
             <p className="text-sm text-muted-foreground">Run your first scan to see live trends</p>
-            <Button onClick={executeScan} disabled={scanning} className="gap-2">
+            <Button onClick={executeScan} disabled={scan.isScanning} className="gap-2">
               <Radar className="w-4 h-4" />
               Run first scan
             </Button>
