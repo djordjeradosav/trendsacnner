@@ -73,14 +73,11 @@ export default function ScannerPage() {
   const { watchlists } = useWatchlists();
   const [activeWatchlist, setActiveWatchlist] = useState<string | null>(null);
   const { selectedTimeframe, setTimeframe } = useTimeframe();
-  const [scanning, setScanning] = useState(false);
-  const [scanDone, setScanDone] = useState(0);
-  const [scanTotal, setScanTotal] = useState(0);
-  const [scanSymbol, setScanSymbol] = useState("");
   const [lastScan, setLastScan] = useState<string | null>(null);
-  const controllerRef = useRef<ReturnType<typeof createScanController> | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const scan = useFastScan();
 
   // Track recently updated pair_ids for flash animation
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
