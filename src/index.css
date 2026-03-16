@@ -244,4 +244,41 @@
   .anim-sec-pulse {
     animation: secPulse 1s ease-in-out infinite;
   }
+
+  /* Scanning shimmer overlay for heatmap cells */
+  @keyframes scanShimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .scan-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scan-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 25%,
+      hsl(var(--primary) / 0.06) 50%,
+      transparent 75%
+    );
+    background-size: 200% 100%;
+    animation: scanShimmer 2s linear infinite;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  /* Scanning border glow for cards */
+  @keyframes scanBorderGlow {
+    0%, 100% { border-color: hsl(var(--border)); }
+    50% { border-color: hsl(var(--primary) / 0.4); }
+  }
+
+  .scan-border-glow {
+    animation: scanBorderGlow 2s ease-in-out infinite;
+  }
 }
