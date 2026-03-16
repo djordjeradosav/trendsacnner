@@ -1,5 +1,6 @@
 import React from "react";
 import { ScoreExplanation, ScoreFreshnessBadge } from "@/components/score/ScoreExplanation";
+import { useScanStore } from "@/store/scanStore";
 
 interface InstrumentCardProps {
   symbol: string;
