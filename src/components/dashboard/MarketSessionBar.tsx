@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { NextEventCountdown } from "@/components/calendar/NextEventCountdown";
 
 interface SessionInfo {
   name: string;
