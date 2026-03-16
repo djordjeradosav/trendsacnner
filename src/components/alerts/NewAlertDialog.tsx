@@ -24,13 +24,14 @@ interface NewAlertDialogProps {
   onCreated: () => void;
 }
 
-type RuleType = "score_threshold" | "trend_flip" | "strong_trend_scan";
+type RuleType = "score_threshold" | "trend_flip" | "strong_trend_scan" | "mtf_alignment";
 type Step = 1 | 2 | 3;
 
 const RULE_TYPES: { type: RuleType; label: string; desc: string; icon: React.ReactNode }[] = [
   { type: "score_threshold", label: "Score Threshold", desc: "Alert when a pair's score crosses a level", icon: <Gauge className="w-6 h-6" /> },
   { type: "trend_flip", label: "Trend Flip", desc: "Alert when a pair flips bullish or bearish", icon: <RefreshCw className="w-6 h-6" /> },
   { type: "strong_trend_scan", label: "Strong Trend Scan", desc: "Alert when any pair in a category scores high", icon: <TrendingUp className="w-6 h-6" /> },
+  { type: "mtf_alignment", label: "MTF Alignment", desc: "Alert when a pair reaches perfect multi-timeframe alignment", icon: <Layers className="w-6 h-6" /> },
 ];
 
 export function NewAlertDialog({ open, onOpenChange, onCreated }: NewAlertDialogProps) {
