@@ -70,7 +70,13 @@ Deno.serve(async (req) => {
     const events: Record<string, unknown>[] = [];
 
     for (const ev of allRaw) {
-      const isTentative = !ev.time || ev.time === "Tentative" || ev.time === "All Day";
+      // Determine tentative: explicit "Tentative"/"All Day" in time field,
+      // OR if the ISO date has midnight exactly (T00:00 or T12:00 with no real time)
+      const timeField = (ev.time || "").trim();
+      const explicitTentative = timeField === "Tentative" || timeField === "All Day";
+      // If date has a "T" with a real non-midnight time, it's NOT tentative
+      const hasRealTime = ev.date && ev.date.includes("T") && !ev.date.includes("T00:00") && !ev.date.includes("T12:00:00");
+      const isTentative = explicitTentative || (!timeField && !hasRealTime);
       let scheduledAt: string | null = null;
 
       if (ev.date) {
