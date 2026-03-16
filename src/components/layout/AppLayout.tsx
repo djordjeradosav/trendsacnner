@@ -40,6 +40,7 @@ export function AppLayout({
 }: AppLayoutProps) {
   const chatContext = useChatContext(timeframe);
   usePushNotifications(); // activate event notifications globally
+  useFinnhubWebSocket(); // connect Finnhub live price feed
 
   return (
     <div className="min-h-screen">
