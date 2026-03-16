@@ -13,6 +13,7 @@ import Index from "./pages/Index";
 import SettingsPage from "./pages/Settings";
 import ScannerPage from "./pages/Scanner";
 import ScanHistoryPage from "./pages/ScanHistory";
+import HistoryPage from "./pages/History";
 import PairDetail from "./pages/PairDetail";
 import WatchlistPage from "./pages/Watchlist";
 import AlertsPage from "./pages/Alerts";
