@@ -121,7 +121,7 @@ export function useCalendarWeek() {
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { toast } = useToast();
+  const onActualReleasedRef = useRef<((ev: EconomicEvent) => void) | null>(null);
 
   const weekStart = useMemo(() => {
     const now = new Date();
