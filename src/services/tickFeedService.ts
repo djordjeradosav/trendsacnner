@@ -25,7 +25,6 @@ function candleIntervalSeconds(timeframe: string): number {
 }
 
 class TickFeedService {
-  private ws: WebSocket | null = null;
   private lastPrices: Map<string, number> = new Map();
   private lastCandleTime: Map<string, number> = new Map();
   private priceSubscribers: Map<string, Set<PriceCallback>> = new Map();
@@ -34,7 +33,6 @@ class TickFeedService {
   private _symbols: string[] = [];
   private _activeTimeframe: string = "1h";
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
   get status(): WsStatus {
     return this._status;
