@@ -11,14 +11,15 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { Radar, Search, TrendingUp, TrendingDown, Minus, Clock } from "lucide-react";
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
-import { runFullScan, createScanController } from "@/services/scannerService";
+import { useFastScan } from "@/hooks/useFastScan";
 import { useToast } from "@/hooks/use-toast";
-import { ScanProgress } from "@/components/scanner/ScanProgress";
+import { ScanButton } from "@/components/scanner/ScanButton";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
 import { useSectorStats } from "@/hooks/useSectorStats";
 import { useWatchlists } from "@/hooks/useWatchlists";
 import { useAllScores, type ScoreRow } from "@/hooks/useScores";
+import { timeframeOptions } from "@/hooks/useTimeframe";
 import { Grid, type CellComponentProps } from "react-window";
 
 interface PairInfo {
