@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   useCalendarWeek,
