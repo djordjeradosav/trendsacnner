@@ -60,8 +60,7 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, " ");
 }
-
-
+interface UnifiedArticle {
   headline: string;
   summary: string;
   source: string;
