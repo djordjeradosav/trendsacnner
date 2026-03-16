@@ -1,4 +1,4 @@
-import { Radar, Loader2, Clock } from "lucide-react";
+import { Radar, Clock } from "lucide-react";
 import { formatCountdown } from "@/hooks/useAutoScan";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
@@ -20,8 +20,6 @@ export function TopHeader({
   lastScan,
   isLive = false,
   scanning = false,
-  scanDone = 0,
-  scanTotal = 0,
   onRunScan,
   timeUntilNextScan,
   isAutoScanEnabled,
@@ -29,7 +27,6 @@ export function TopHeader({
 }: TopHeaderProps) {
   return (
     <header className="h-14 border-b border-border bg-background md:bg-card/50 md:backdrop-blur-sm flex items-center justify-between px-4 md:px-6">
-      {/* Mobile: logo + hamburger. Desktop: scan info */}
       <div className="flex items-center gap-3">
         {/* Mobile logo */}
         <div className="flex md:hidden items-center gap-2">
@@ -75,24 +72,6 @@ export function TopHeader({
       </div>
 
       <div className="flex items-center gap-2 md:gap-3">
-        {/* Desktop scan button */}
-        <button
-          onClick={onRunScan}
-          disabled={scanning}
-          className="hidden md:inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold font-display hover:bg-primary/90 transition-colors disabled:opacity-60"
-        >
-          {scanning ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Scanning... ({scanDone}/{scanTotal})
-            </>
-          ) : (
-            <>
-              <Radar className="w-3.5 h-3.5" />
-              Run scan
-            </>
-          )}
-        </button>
         <NotificationBell />
         <div className="hidden md:block">
           <UserMenu />
