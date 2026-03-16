@@ -59,9 +59,11 @@ export function InstrumentCard({
       ? "#f5a623"
       : "hsl(var(--destructive))";
 
+  const isScanning = useScanStore((s) => s.isScanning);
+
   return (
     <div
-      className="rounded-lg p-3.5 transition-colors"
+      className={`rounded-lg p-3.5 transition-colors ${isScanning ? "scan-border-glow" : ""}`}
       style={{
         background: "hsl(var(--secondary))",
         border: "0.5px solid hsl(var(--border))",
