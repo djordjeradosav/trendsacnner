@@ -5,6 +5,3 @@ verify_jwt = false
 
 [functions.fast-scan]
 verify_jwt = false
-
-[functions.tick-feed]
-verify_jwt = false

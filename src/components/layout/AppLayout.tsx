@@ -5,7 +5,6 @@ import { ChatAssistant } from "@/components/chat/ChatAssistant";
 import { useChatContext } from "@/hooks/useChatContext";
 import { MobileScanFAB } from "./MobileScanFAB";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { type WsStatus } from "@/services/tickFeedService";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -21,10 +20,6 @@ interface AppLayoutProps {
   autoScanAgo?: number | null;
   timeframe?: string;
   currentSymbol?: string;
-  wsStatus?: WsStatus;
-  wsPairCount?: number;
-  wsEligible?: boolean;
-  onWsReconnect?: () => void;
 }
 
 export function AppLayout({
@@ -41,10 +36,6 @@ export function AppLayout({
   autoScanAgo,
   timeframe = "1h",
   currentSymbol,
-  wsStatus,
-  wsPairCount,
-  wsEligible,
-  onWsReconnect,
 }: AppLayoutProps) {
   const chatContext = useChatContext(timeframe);
   usePushNotifications(); // activate event notifications globally
@@ -67,10 +58,6 @@ export function AppLayout({
           timeUntilNextScan={timeUntilNextScan}
           isAutoScanEnabled={isAutoScanEnabled}
           autoScanAgo={autoScanAgo}
-          wsStatus={wsStatus}
-          wsPairCount={wsPairCount}
-          wsEligible={wsEligible}
-          onWsReconnect={onWsReconnect}
         />
         <main className="flex-1 p-4 md:p-6">
           {children}

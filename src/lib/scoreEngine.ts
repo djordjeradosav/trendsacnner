@@ -6,7 +6,6 @@ import {
   getLatestValue,
 } from "./indicators";
 import { supabase } from "@/integrations/supabase/client";
-import { getTimeframeConfig, type TimeframeConfig } from "@/config/timeframes";
 
 export interface Candle {
   open: number;
@@ -20,23 +19,30 @@ export interface Candle {
 }
 
 export interface ScoreBreakdown {
-  emaScore: number;
-  adxScore: number;
-  rsiScore: number;
-  macdScore: number;
-  technicalTotal: number;
-  newsScore: number;
-  eventRiskScore: number;
-  fundamentalTotal: number;
-  stocktwitsScore: number;
-  redditScore: number;
-  socialTotal: number;
+  // Technical Layer (0-55)
+  emaScore: number;       // 0-22
+  adxScore: number;       // 0-11
+  rsiScore: number;       // 0-11
+  macdScore: number;      // 0-11
+  technicalTotal: number; // 0-55
+
+  // Fundamental Layer (0-25)
+  newsScore: number;          // 0-13
+  eventRiskScore: number;     // 0-12
+  fundamentalTotal: number;   // 0-25
+
+  // Social Layer (0-20)
+  stocktwitsScore: number;    // 0-10
+  redditScore: number;        // 0-10
+  socialTotal: number;        // 0-20
 }
 
 export interface EnhancedScoreResult {
   score: number;
   trend: "bullish" | "neutral" | "bearish";
   breakdown: ScoreBreakdown;
+
+  // Raw indicator values
   ema20: number;
   ema50: number;
   ema200: number;
@@ -44,48 +50,44 @@ export interface EnhancedScoreResult {
   rsi: number;
   macdHist: number;
   macdHistPrev: number;
+
+  // Event risk
   eventRiskFlag: boolean;
   upcomingEvent: string | null;
   upcomingEventTime: string | null;
   scoreBeforeEventRisk: number;
+
+  // Data quality
   dataQuality: "full" | "no-social" | "no-news" | "technical-only";
   lastNewsUpdate: string | null;
   lastSocialUpdate: string | null;
+
+  // Legacy compat
   emaScore: number;
   adxScore: number;
   rsiScore: number;
   macdScore: number;
   newsScore: number | null;
   socialScore: number | null;
+
+  // Explanation lines
   explanationLines: string[];
 }
 
+// Keep old interface for backwards compat
 export type ScoreResult = EnhancedScoreResult;
 
 // ─── EMA Alignment (0–22) ───────────────────────────────────────────────────
-function scoreEMA(price: number, emaFast: number, emaMid: number, emaSlow: number, hasSlowEMA: boolean): { score: number; line: string } {
-  if (hasSlowEMA) {
-    if (price > emaFast && emaFast > emaMid && emaMid > emaSlow)
-      return { score: 22, line: `✓ EMA Stack: Price > Fast > Mid > Slow (+22)` };
-    if (price > emaFast && emaFast > emaMid)
-      return { score: 15, line: `~ EMA: Price > Fast > Mid (+15)` };
-    if (price > emaFast)
-      return { score: 8, line: `~ EMA: Price above Fast EMA only (+8)` };
-    if (price < emaFast && emaFast < emaMid && emaMid < emaSlow)
-      return { score: 0, line: `✗ EMA Stack: Full bearish alignment (+0)` };
-    return { score: 11, line: `~ EMA: Mixed/choppy (+11)` };
-  } else {
-    // Shorter TFs without EMA200: use 3-EMA stack with adjusted scoring
-    if (price > emaFast && emaFast > emaMid && emaMid > emaSlow)
-      return { score: 20, line: `✓ EMA Stack (short): Full bullish (+20)` };
-    if (price > emaFast && emaFast > emaMid)
-      return { score: 14, line: `~ EMA: Price > Fast > Mid (+14)` };
-    if (price > emaFast)
-      return { score: 8, line: `~ EMA: Price above Fast only (+8)` };
-    if (price < emaFast && emaFast < emaMid && emaMid < emaSlow)
-      return { score: 2, line: `✗ EMA Stack (short): Full bearish (+2)` };
-    return { score: 11, line: `~ EMA: Mixed (+11)` };
-  }
+function scoreEMA(price: number, ema20: number, ema50: number, ema200: number): { score: number; line: string } {
+  if (price > ema20 && ema20 > ema50 && ema50 > ema200)
+    return { score: 22, line: "✓ EMA Stack: Price > EMA20 > EMA50 > EMA200 (+22)" };
+  if (price > ema20 && ema20 > ema50)
+    return { score: 15, line: "~ EMA: Price > EMA20 > EMA50 (+15)" };
+  if (price > ema20)
+    return { score: 8, line: "~ EMA: Price above EMA20 only (+8)" };
+  if (price < ema20 && ema20 < ema50 && ema50 < ema200)
+    return { score: 0, line: "✗ EMA Stack: Full bearish alignment (+0)" };
+  return { score: 11, line: "~ EMA: Mixed/choppy (+11)" };
 }
 
 // ─── ADX Strength (0–11) ────────────────────────────────────────────────────
@@ -120,6 +122,7 @@ function scoreMACD(hist: number, histPrev: number): { score: number; line: strin
 // ─── News Score (0–13) ──────────────────────────────────────────────────────
 function scaleNewsScore(rawScore: number | null | undefined): { score: number; line: string } {
   if (rawScore == null) return { score: 7, line: "— News: no data available (+7/13 default)" };
+  // rawScore is 0-11, scale to 0-13
   const score = Math.round((rawScore / 11) * 13);
   const label = score >= 9 ? "✓" : score <= 4 ? "✗" : "~";
   return { score: Math.max(0, Math.min(13, score)), line: `${label} News sentiment (+${score}/13)` };
@@ -177,20 +180,19 @@ async function calcEventRisk(currency: string): Promise<EventRiskInfo> {
 // ─── Social Scores (0–10 each) ──────────────────────────────────────────────
 function scaleSocialScore(rawScore: number | null | undefined, source: string): { score: number; line: string } {
   if (rawScore == null) return { score: 5, line: `— ${source}: no data available (+5/10 default)` };
+  // rawScore is 0-11, scale to 0-10
   const score = Math.round((rawScore / 11) * 10);
   const label = score >= 7 ? "✓" : score <= 3 ? "✗" : "~";
   return { score: Math.max(0, Math.min(10, score)), line: `${label} ${source} sentiment (+${score}/10)` };
 }
 
-// ─── Composite (now accepts timeframe config) ───────────────────────────────
+// ─── Composite ──────────────────────────────────────────────────────────────
 
 export function calcTrendScore(
   candles: Candle[],
   newsScore?: number | null,
-  socialScore?: number | null,
-  tfConfig?: TimeframeConfig
+  socialScore?: number | null
 ): EnhancedScoreResult {
-  const config = tfConfig ?? getTimeframeConfig("1h");
   const sorted = [...candles].sort(
     (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
   );
@@ -199,17 +201,17 @@ export function calcTrendScore(
   const highs = sorted.map((c) => c.high);
   const lows = sorted.map((c) => c.low);
 
-  const emaFastArr = calcEMA(closes, config.emaFast);
-  const emaMidArr = calcEMA(closes, config.emaMid);
-  const emaSlowArr = calcEMA(closes, config.emaSlow);
-  const rsiArr = calcRSI(closes, config.rsiPeriod);
-  const adxArr = calcADX(highs, lows, closes, config.adxPeriod);
-  const { histogram } = calcMACD(closes, config.macdFast, config.macdSlow, config.macdSignal);
+  const ema20Arr = calcEMA(closes, 20);
+  const ema50Arr = calcEMA(closes, 50);
+  const ema200Arr = calcEMA(closes, 200);
+  const rsiArr = calcRSI(closes, 14);
+  const adxArr = calcADX(highs, lows, closes, 14);
+  const { histogram } = calcMACD(closes, 12, 26, 9);
 
   const price = closes[closes.length - 1];
-  const emaFastVal = getLatestValue(emaFastArr);
-  const emaMidVal = getLatestValue(emaMidArr);
-  const emaSlowVal = getLatestValue(emaSlowArr);
+  const ema20 = getLatestValue(ema20Arr);
+  const ema50 = getLatestValue(ema50Arr);
+  const ema200 = getLatestValue(ema200Arr);
   const rsi = getLatestValue(rsiArr);
   const adx = getLatestValue(adxArr);
   const macdHist = getLatestValue(histogram);
@@ -219,26 +221,27 @@ export function calcTrendScore(
     if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; }
   }
 
-  const hasSlowEMA = config.emaSlow >= 100;
-  const ema = !isNaN(emaFastVal) && !isNaN(emaMidVal) && !isNaN(emaSlowVal)
-    ? scoreEMA(price, emaFastVal, emaMidVal, emaSlowVal, hasSlowEMA)
-    : { score: 11, line: "~ EMA: insufficient data (+11)" };
+  const ema = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200) : { score: 11, line: "~ EMA: insufficient data (+11)" };
   const adxR = !isNaN(adx) ? scoreADX(adx) : { score: 2, line: "— ADX: insufficient data (+2)" };
   const rsiR = !isNaN(rsi) ? scoreRSI(rsi) : { score: 6, line: "— RSI: insufficient data (+6)" };
   const macdR = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : { score: 6, line: "— MACD: insufficient data (+6)" };
 
   const technicalTotal = ema.score + adxR.score + rsiR.score + macdR.score;
 
+  // Fundamental
   const newsR = scaleNewsScore(newsScore);
+  // Event risk computed async, use full score here (sync version)
   const eventRiskScore = 12;
   const fundamentalTotal = newsR.score + eventRiskScore;
 
+  // Social — split raw socialScore evenly between stocktwits and reddit
   const stocktwitsR = scaleSocialScore(socialScore, "StockTwits");
   const redditR = scaleSocialScore(socialScore != null ? Math.max(0, socialScore - 1) : null, "Reddit/Social");
   const socialTotal = stocktwitsR.score + redditR.score;
 
   const rawScore = Math.round(Math.max(0, Math.min(100, technicalTotal + fundamentalTotal + socialTotal)));
 
+  // Data quality
   let dataQuality: "full" | "no-social" | "no-news" | "technical-only" = "full";
   if (newsScore == null && socialScore == null) dataQuality = "technical-only";
   else if (socialScore == null) dataQuality = "no-social";
@@ -278,9 +281,9 @@ export function calcTrendScore(
       redditScore: redditR.score,
       socialTotal,
     },
-    ema20: isNaN(emaFastVal) ? 0 : emaFastVal,
-    ema50: isNaN(emaMidVal) ? 0 : emaMidVal,
-    ema200: isNaN(emaSlowVal) ? 0 : emaSlowVal,
+    ema20: isNaN(ema20) ? 0 : ema20,
+    ema50: isNaN(ema50) ? 0 : ema50,
+    ema200: isNaN(ema200) ? 0 : ema200,
     adx: isNaN(adx) ? 0 : adx,
     rsi: isNaN(rsi) ? 50 : rsi,
     macdHist: isNaN(macdHist) ? 0 : macdHist,
@@ -292,6 +295,7 @@ export function calcTrendScore(
     dataQuality,
     lastNewsUpdate: null,
     lastSocialUpdate: null,
+    // Legacy compat
     emaScore: ema.score,
     adxScore: adxR.score,
     rsiScore: rsiR.score,
@@ -308,13 +312,14 @@ export async function calcEnhancedScore(
   candles: Candle[],
   currency: string,
   newsScore?: number | null,
-  socialScore?: number | null,
-  tfConfig?: TimeframeConfig
+  socialScore?: number | null
 ): Promise<EnhancedScoreResult> {
-  const base = calcTrendScore(candles, newsScore, socialScore, tfConfig);
+  const base = calcTrendScore(candles, newsScore, socialScore);
 
+  // Compute event risk
   const eventRisk = await calcEventRisk(currency);
 
+  // Recalculate fundamental total with actual event risk
   const newsR = scaleNewsScore(newsScore);
   const fundamentalTotal = newsR.score + eventRisk.score;
   const socialTotal = base.breakdown.socialTotal;
@@ -323,6 +328,7 @@ export async function calcEnhancedScore(
   let rawScore = Math.round(Math.max(0, Math.min(100, technicalTotal + fundamentalTotal + socialTotal)));
   const scoreBeforeEventRisk = rawScore;
 
+  // Apply event risk multiplier to total score
   if (eventRisk.multiplier < 1.0) {
     rawScore = Math.round(rawScore * eventRisk.multiplier);
   }
@@ -330,6 +336,7 @@ export async function calcEnhancedScore(
   const trend: "bullish" | "neutral" | "bearish" =
     rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
 
+  // Update explanation
   const explanationLines = [
     ...base.explanationLines.slice(0, 5),
     `Fundamental signals: ${fundamentalTotal}/25`,
@@ -368,8 +375,7 @@ export async function scorePair(
   newsScore?: number | null,
   socialScore?: number | null
 ): Promise<EnhancedScoreResult> {
-  const tfConfig = getTimeframeConfig(timeframe);
-  const result = calcTrendScore(candles, newsScore, socialScore, tfConfig);
+  const result = calcTrendScore(candles, newsScore, socialScore);
 
   const { error } = await supabase.from("scores").upsert(
     {

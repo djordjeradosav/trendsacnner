@@ -3,7 +3,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { MTFLeaderboard } from "@/components/scanner/MTFLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +12,8 @@ import { Radar, Search, TrendingUp, TrendingDown, Minus, Clock } from "lucide-re
 import { useTimeframe } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useFastScan } from "@/hooks/useFastScan";
-import { useScanStore } from "@/store/scanStore";
 import { useToast } from "@/hooks/use-toast";
 import { ScanButton } from "@/components/scanner/ScanButton";
-import { MTFScanButton } from "@/components/scanner/MTFScanButton";
 import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
 import { useSectorStats } from "@/hooks/useSectorStats";
@@ -80,8 +77,7 @@ export default function ScannerPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const { runScan, cancelScan } = useFastScan();
-  const scan = useScanStore();
+  const scan = useFastScan();
 
   // Track recently updated pair_ids for flash animation
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
@@ -132,8 +128,8 @@ export default function ScannerPage() {
 
   const executeScan = useCallback(async () => {
     if (scan.isScanning) return;
-    await runScan(selectedTimeframe);
-  }, [scan.isScanning, selectedTimeframe, runScan]);
+    await scan.runScan(selectedTimeframe);
+  }, [scan.isScanning, selectedTimeframe, scan.runScan]);
 
   // Show toast on completion
   useEffect(() => {
@@ -184,7 +180,7 @@ export default function ScannerPage() {
   const strongest = useMemo(() => [...pairs].filter((p) => p.trend === "bullish").sort((a, b) => b.score - a.score).slice(0, 8), [pairs]);
   const weakest = useMemo(() => [...pairs].filter((p) => p.trend === "bearish").sort((a, b) => a.score - b.score).slice(0, 8), [pairs]);
 
-  const handleCancelScan = () => { cancelScan(); };
+  const handleCancelScan = () => { scan.cancelScan(); };
 
   const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
 
@@ -346,7 +342,6 @@ export default function ScannerPage() {
             timeframeLabel={tfLabel}
             onScan={executeScan}
           />
-          <MTFScanButton />
         </div>
       </div>
 
@@ -451,9 +446,6 @@ export default function ScannerPage() {
           <LeaderboardColumn title="Weakest Pairs" icon={<TrendingDown className="w-4 h-4 text-bearish" />} items={weakest} type="bearish" />
         </div>
       )}
-
-      {/* MTF Alignment Leaderboard */}
-      <MTFLeaderboard />
     </AppLayout>
   );
 }

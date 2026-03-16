@@ -3,8 +3,6 @@ import { formatCountdown } from "@/hooks/useAutoScan";
 import { NotificationBell } from "./NotificationBell";
 import { UserMenu } from "./UserMenu";
 import { MobileMenuButton } from "./MobileMenu";
-import { WsStatusIndicator } from "./WsStatusIndicator";
-import { type WsStatus } from "@/services/tickFeedService";
 
 interface TopHeaderProps {
   lastScan?: string | null;
@@ -16,10 +14,6 @@ interface TopHeaderProps {
   timeUntilNextScan?: number | null;
   isAutoScanEnabled?: boolean;
   autoScanAgo?: number | null;
-  wsStatus?: WsStatus;
-  wsPairCount?: number;
-  wsEligible?: boolean;
-  onWsReconnect?: () => void;
 }
 
 export function TopHeader({
@@ -30,10 +24,6 @@ export function TopHeader({
   timeUntilNextScan,
   isAutoScanEnabled,
   autoScanAgo,
-  wsStatus = "disconnected",
-  wsPairCount = 0,
-  wsEligible = false,
-  onWsReconnect,
 }: TopHeaderProps) {
   return (
     <header className="h-14 border-b border-border bg-background md:bg-card/50 md:backdrop-blur-sm flex items-center justify-between px-4 md:px-6">
@@ -82,14 +72,6 @@ export function TopHeader({
       </div>
 
       <div className="flex items-center gap-2 md:gap-3">
-        <div className="hidden md:flex">
-          <WsStatusIndicator
-            status={wsStatus}
-            pairCount={wsPairCount}
-            isEligible={wsEligible}
-            onReconnect={onWsReconnect ?? (() => {})}
-          />
-        </div>
         <NotificationBell />
         <div className="hidden md:block">
           <UserMenu />

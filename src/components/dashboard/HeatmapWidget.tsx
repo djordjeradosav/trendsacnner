@@ -3,12 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllScores } from "@/hooks/useScores";
 import { useNavigate } from "react-router-dom";
-import { useLivePrice } from "@/hooks/useLivePrice";
-import { useScoreChange } from "@/hooks/useScoreChange";
-import { isLiveEligible } from "@/services/tickFeedService";
-import { useScanStore } from "@/store/scanStore";
-import { useMTFAlignments } from "@/hooks/useMTFAlignments";
-import { MTFIndicator } from "@/components/scanner/MTFIndicator";
 
 interface PairMap {
   [id: string]: { symbol: string; category: string };
@@ -34,67 +28,8 @@ function scoreToBorder(score: number): string {
   return "hsl(0 70% 42%)";
 }
 
-interface CellData {
-  pairId: string;
-  symbol: string;
-  category: string;
-  score: number;
-  trend: string;
-}
-
-function HeatmapCell({ cell, timeframe, navigate, mtfAlignment }: { cell: CellData; timeframe: string; navigate: (path: string) => void; mtfAlignment?: any }) {
-  const showLive = isLiveEligible(timeframe);
-  const { price, direction } = useLivePrice(showLive ? cell.symbol : undefined);
-  const { flash } = useScoreChange(cell.pairId, timeframe);
-  const isScanning = useScanStore((s) => s.isScanning);
-  const scannedPairIds = useScanStore((s) => s.scannedPairIds);
-  const isThisPairScanned = scannedPairIds.has(cell.pairId);
-  const showShimmer = isScanning && !isThisPairScanned;
-
-  const flashBorder = flash === "up" ? "hsl(142 70% 50%)" : flash === "down" ? "hsl(0 70% 50%)" : scoreToBorder(cell.score);
-  const scoreColor = flash === "up" ? "hsl(142 70% 60%)" : flash === "down" ? "hsl(0 70% 60%)" : undefined;
-
-  return (
-    <button
-      onClick={() => navigate(`/pair/${cell.symbol}`)}
-      className={`rounded-md p-1.5 text-center hover:scale-105 hover:z-10 cursor-pointer ${showShimmer ? "scan-shimmer" : ""}`}
-      style={{
-        background: scoreToColor(cell.score),
-        border: `1px solid ${flashBorder}`,
-        transition: "border-color 150ms ease-in, transform 150ms ease",
-      }}
-      title={`${cell.symbol}: Score ${cell.score} (${cell.trend})${price ? ` · ${price.toFixed(5)}` : ""}`}
-    >
-      <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
-        {cell.symbol.replace("/", "")}
-      </div>
-      <div
-        className="text-[8px] font-mono leading-tight"
-        style={{
-          color: scoreColor ?? "rgba(255,255,255,0.6)",
-          transition: "color 150ms ease-in 0ms",
-        }}
-      >
-        {cell.score}
-      </div>
-      {showLive && price !== null && (
-        <div
-          className="text-[7px] font-mono leading-tight transition-colors duration-300"
-          style={{
-            color: direction === "up" ? "hsl(142 70% 60%)" : direction === "down" ? "hsl(0 70% 60%)" : "rgba(255,255,255,0.5)",
-          }}
-        >
-          {price.toFixed(price >= 100 ? 2 : price >= 10 ? 3 : 5)}
-        </div>
-      )}
-      {mtfAlignment && <MTFIndicator alignment={mtfAlignment} />}
-    </button>
-  );
-}
-
 export function HeatmapWidget({ timeframe }: { timeframe: string }) {
   const { data: allScores } = useAllScores(timeframe);
-  const { alignments } = useMTFAlignments();
   const navigate = useNavigate();
 
   const { data: pairs } = useQuery<PairMap>({
@@ -107,12 +42,6 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
     },
     staleTime: 5 * 60_000,
   });
-
-  const mtfMap = useMemo(() => {
-    const map = new Map<string, typeof alignments[0]>();
-    alignments.forEach((a) => map.set(a.pair_id, a));
-    return map;
-  }, [alignments]);
 
   const cells = useMemo(() => {
     if (!allScores || !pairs) return [];
@@ -153,7 +82,23 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
       <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
           {cells.map((cell) => (
-            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} mtfAlignment={mtfMap.get(cell.pairId)} />
+            <button
+              key={cell.pairId}
+              onClick={() => navigate(`/pair/${cell.symbol}`)}
+              className="rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer"
+              style={{
+                background: scoreToColor(cell.score),
+                border: `1px solid ${scoreToBorder(cell.score)}`,
+              }}
+              title={`${cell.symbol}: Score ${cell.score} (${cell.trend})`}
+            >
+              <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
+                {cell.symbol.replace("/", "")}
+              </div>
+              <div className="text-[8px] font-mono text-white/60 leading-tight">
+                {cell.score}
+              </div>
+            </button>
           ))}
         </div>
       </div>
