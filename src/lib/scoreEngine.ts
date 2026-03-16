@@ -205,7 +205,8 @@ function scaleSocialScore(rawScore: number | null | undefined, source: string): 
 export function calcTrendScore(
   candles: Candle[],
   newsScore?: number | null,
-  socialScore?: number | null
+  socialScore?: number | null,
+  timeframe?: string
 ): EnhancedScoreResult {
   const sorted = [...candles].sort(
     (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
@@ -215,9 +216,15 @@ export function calcTrendScore(
   const highs = sorted.map((c) => c.high);
   const lows = sorted.map((c) => c.low);
 
-  const ema20Arr = calcEMA(closes, 20);
-  const ema50Arr = calcEMA(closes, 50);
-  const ema200Arr = calcEMA(closes, 200);
+  // Timeframe-specific indicator periods
+  const isShortTF = ["1min","3min","5min","15min","30min"].includes(timeframe || "");
+  const emaFastP = isShortTF ? 9 : 20;
+  const emaMidP = isShortTF ? 21 : 50;
+  const emaSlowP = isShortTF ? 50 : 200;
+
+  const ema20Arr = calcEMA(closes, emaFastP);
+  const ema50Arr = calcEMA(closes, emaMidP);
+  const ema200Arr = calcEMA(closes, emaSlowP);
   const rsiArr = calcRSI(closes, 14);
   const adxArr = calcADX(highs, lows, closes, 14);
   const { histogram } = calcMACD(closes, 12, 26, 9);
@@ -235,7 +242,7 @@ export function calcTrendScore(
     if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; }
   }
 
-  const ema = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200) : { score: 11, line: "~ EMA: insufficient data (+11)" };
+  const ema = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200, timeframe) : { score: 11, line: "~ EMA: insufficient data (+11)" };
   const adxR = !isNaN(adx) ? scoreADX(adx) : { score: 2, line: "— ADX: insufficient data (+2)" };
   const rsiR = !isNaN(rsi) ? scoreRSI(rsi) : { score: 6, line: "— RSI: insufficient data (+6)" };
   const macdR = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : { score: 6, line: "— MACD: insufficient data (+6)" };

@@ -368,9 +368,9 @@ Deno.serve(async (req) => {
         // Process results
         for (const r of results) {
           done++;
-          if (r.status === "fulfilled" && r.value && r.value.candles.length >= 20) {
+          if (r.status === "fulfilled" && r.value && r.value.candles.length >= getMinimumCandles(timeframe)) {
             const { pairId, symbol, candles } = r.value;
-            const result = calcTrendScore(candles);
+            const result = calcTrendScore(candles, timeframe);
 
             if (result.trend === "bullish") bullish++;
             else if (result.trend === "bearish") bearish++;
