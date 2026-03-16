@@ -67,16 +67,41 @@ function isImminent(dateStr: string): boolean {
   return diff > 0 && diff < 15 * 60 * 1000;
 }
 
-function compareResult(actual: string | null, forecast: string | null): "better" | "worse" | "match" | null {
-  if (!actual) return null;
-  if (!forecast) return "match";
-  const a = parseFloat(actual.replace(/[^0-9.\-]/g, ""));
-  const f = parseFloat(forecast.replace(/[^0-9.\-]/g, ""));
-  if (isNaN(a) || isNaN(f)) return "match";
-  if (a > f) return "better";
-  if (a < f) return "worse";
-  return "match";
+// ── Beat/Miss detection ──────────────────────────────────
+
+const LOWER_IS_BETTER = new Set([
+  "unemployment",
+  "jobless",
+  "initial claims",
+  "continuing claims",
+  "cpi",
+  "ppi",
+  "inflation",
+  "trade deficit",
+  "budget deficit",
+]);
+
+function parseNumericValue(v: string): number {
+  return parseFloat(v.replace(/[%KMBkmb,]/g, ""));
 }
+
+function isBeat(
+  eventName: string,
+  actual: string | null,
+  forecast: string | null
+): boolean | null {
+  if (!actual || !forecast) return null;
+  const a = parseNumericValue(actual);
+  const f = parseNumericValue(forecast);
+  if (isNaN(a) || isNaN(f)) return null;
+  if (Math.abs(a - f) < 0.01) return null; // in-line
+
+  const eventLower = eventName.toLowerCase();
+  const lowerIsBetter = [...LOWER_IS_BETTER].some((k) => eventLower.includes(k));
+  return lowerIsBetter ? a < f : a > f;
+}
+
+// ─────────────────────────────────────────────────────────
 
 interface DayGroup {
   dateKey: string;
@@ -112,7 +137,7 @@ export function CalendarTable({ events }: Props) {
     const orderedKeys: string[] = [];
 
     deduped.forEach((ev) => {
-      const key = ev.is_tentative ? getLocalDateKey(ev.scheduled_at) : getLocalDateKey(ev.scheduled_at);
+      const key = getLocalDateKey(ev.scheduled_at);
       if (!map[key]) {
         map[key] = [];
         orderedKeys.push(key);
@@ -120,7 +145,6 @@ export function CalendarTable({ events }: Props) {
       map[key].push(ev);
     });
 
-    // Sort keys chronologically
     orderedKeys.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
     return orderedKeys.map((k) => ({
@@ -139,7 +163,7 @@ export function CalendarTable({ events }: Props) {
     }, 400);
   }, [days]);
 
-  const COLS = "80px 80px 64px 52px 1fr 36px 90px 90px 90px";
+  const COLS = "80px 80px 64px 52px 1fr 36px 100px 90px 90px";
 
   return (
     <div
@@ -185,7 +209,7 @@ export function CalendarTable({ events }: Props) {
 
         return (
           <div key={day.dateKey} ref={day.isToday ? todayRef : undefined} id={day.isToday ? "today-section" : undefined}>
-            {/* Day separator header — sticky within scroll */}
+            {/* Day separator header */}
             <div
               className="flex items-center gap-3 px-3 py-1.5 sticky top-[38px] z-10"
               style={{
@@ -202,12 +226,8 @@ export function CalendarTable({ events }: Props) {
                   Today
                 </span>
               )}
-              <span className="text-[12px] font-semibold text-foreground/80">
-                {day.label.weekday}
-              </span>
-              <span className="text-[12px] font-mono text-muted-foreground">
-                {day.label.monthDay}
-              </span>
+              <span className="text-[12px] font-semibold text-foreground/80">{day.label.weekday}</span>
+              <span className="text-[12px] font-mono text-muted-foreground">{day.label.monthDay}</span>
               <span className="text-[10px] text-muted-foreground ml-auto">
                 {day.events.length} events
                 {day.highCount > 0 && (
@@ -224,13 +244,12 @@ export function CalendarTable({ events }: Props) {
               const impactColor = IMPACT_COLORS[impact] || IMPACT_COLORS.low;
               const live = isLive(ev.scheduled_at);
               const imminent = !live && isImminent(ev.scheduled_at);
-              const comparison = compareResult(ev.actual, ev.forecast);
+              const beat = isBeat(ev.event_name, ev.actual, ev.forecast);
               const isPast = !!ev.actual;
               const isExpanded = expandedId === ev.id;
               const pairs = getAffectedPairs(ev);
               const curColor = CURRENCY_COLORS[(ev.currency || "").toUpperCase()] || "hsl(var(--muted-foreground))";
 
-              // Deduplicate time display: only show if different from previous
               const timeStr = ev.is_tentative ? "Tentative" : formatLocalTime(ev.scheduled_at);
               const showTime = timeStr !== prevTimeStr;
               prevTimeStr = timeStr;
@@ -346,21 +365,31 @@ export function CalendarTable({ events }: Props) {
                       </button>
                     </div>
 
-                    {/* Actual */}
+                    {/* Actual — with beat/miss coloring */}
                     <div className="px-2 text-center" style={{ borderRight: "1px solid hsl(var(--border))" }}>
                       {ev.actual ? (
-                        <span
-                          className="text-[13px] font-mono font-bold"
-                          style={{
-                            color:
-                              comparison === "better"
-                                ? "hsl(var(--bullish))"
-                                : comparison === "worse"
-                                  ? "hsl(var(--bearish))"
-                                  : "hsl(var(--foreground))",
-                          }}
-                        >
-                          {ev.actual}
+                        <span className="inline-flex items-center gap-1">
+                          <span
+                            className="text-[13px] font-mono font-bold"
+                            style={{
+                              color:
+                                beat === true
+                                  ? "#22c55e"
+                                  : beat === false
+                                    ? "#ef4444"
+                                    : "hsl(var(--foreground))",
+                            }}
+                          >
+                            {ev.actual}
+                          </span>
+                          {beat !== null && (
+                            <span
+                              className="text-[8px] font-semibold"
+                              style={{ color: beat ? "#22c55e" : "#ef4444" }}
+                            >
+                              {beat ? "↑Beat" : "↓Miss"}
+                            </span>
+                          )}
                         </span>
                       ) : (
                         <span className="text-[11px] text-muted-foreground">—</span>
