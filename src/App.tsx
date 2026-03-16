@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { RequireAuth } from "@/hooks/useAuth";
 import { RealtimeProvider } from "@/providers/RealtimeProvider";
+import { ScanProgressOverlay } from "@/components/scanner/ScanProgressOverlay";
 import LandingPage from "./pages/Landing";
 import LoginPage from "./pages/Login";
 import SignupPage from "./pages/Signup";
