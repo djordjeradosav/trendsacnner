@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAllScores } from "@/hooks/useScores";
 import { useNavigate } from "react-router-dom";
 import { useLivePrice } from "@/hooks/useLivePrice";
+import { useScoreChange } from "@/hooks/useScoreChange";
 import { isLiveEligible } from "@/services/tickFeedService";
 
 interface PairMap {
