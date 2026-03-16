@@ -265,9 +265,9 @@ const CANDLE_LIMITS: Record<string, number> = {
 };
 
 const MINIMUM_CANDLES: Record<string, number> = {
-  "1min": 60, "3min": 60, "5min": 80,
-  "15min": 100, "30min": 100,
-  "1h": 100, "4h": 100, "1day": 100, "1week": 50,
+  "1min": 30, "3min": 30, "5min": 40,
+  "15min": 55, "30min": 55,
+  "1h": 60, "4h": 60, "1day": 100, "1week": 50,
 };
 
 function getCandleLimit(tf: string): number { return CANDLE_LIMITS[tf] || 200; }
@@ -304,13 +304,13 @@ Deno.serve(async (req) => {
 
   if (req.method === "GET") {
     const url = new URL(req.url);
-    timeframe = url.searchParams.get("timeframe") || "1h";
+    timeframe = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
     const ids = url.searchParams.get("pairIds");
     if (ids) pairIds = ids.split(",");
   } else {
     try {
       const body = await req.json();
-      timeframe = body.timeframe || "1h";
+      timeframe = (body.timeframe || "1h").toLowerCase().trim();
       pairIds = body.pairIds;
     } catch { /* use defaults */ }
   }
@@ -327,11 +327,16 @@ Deno.serve(async (req) => {
     });
   }
 
-  const candleLimit = getCandleLimit(timeframe);
-  const resolution = RESOLUTION_MAP[timeframe] || "60";
+  const normalisedTimeframe = timeframe.toLowerCase().trim();
+  const candleLimit = getCandleLimit(normalisedTimeframe);
+  const resolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
   const to = Math.floor(Date.now() / 1000);
-  const intervalSec = getIntervalSeconds(timeframe);
-  const from = to - Math.floor(candleLimit * intervalSec * 1.3);
+  const intervalSec = getIntervalSeconds(normalisedTimeframe);
+  // Use larger buffer for short timeframes to cover weekend/holiday gaps
+  const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(normalisedTimeframe) ? 2.5 : 1.3;
+  const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
+  
+  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
   // Finnhub allows 60 calls/min — use chunks of 55 with 1.1s delay
   const CHUNK_SIZE = 55;
@@ -403,18 +408,25 @@ Deno.serve(async (req) => {
           let pairCandles: CandleData[] | null = null;
           const pairId = pair.id;
           const symbol = pair.symbol;
+          const minCandles = getMinimumCandles(normalisedTimeframe);
 
-          if (r.status === "fulfilled" && r.value && r.value.candles.length >= getMinimumCandles(timeframe)) {
+          if (r.status === "fulfilled" && r.value && r.value.candles.length >= 20) {
+            // Accept if we have at least 20 candles (partial scoring fallback)
             pairCandles = r.value.candles;
+            if (r.value.candles.length < minCandles) {
+              console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
+            }
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe,
+                timeframe: normalisedTimeframe,
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),
               });
             }
+          } else if (r.status === "fulfilled" && r.value) {
+            console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum 20 — skipping`);
           }
 
           // Fallback: load cached candles from DB
@@ -423,11 +435,11 @@ Deno.serve(async (req) => {
               .from("candles")
               .select("open, high, low, close, volume")
               .eq("pair_id", pairId)
-              .eq("timeframe", timeframe)
+              .eq("timeframe", normalisedTimeframe)
               .order("ts", { ascending: true })
               .limit(candleLimit);
 
-            if (dbCandles && dbCandles.length >= getMinimumCandles(timeframe)) {
+            if (dbCandles && dbCandles.length >= 20) {
               pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
                 open: Number(c.open), high: Number(c.high), low: Number(c.low),
                 close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
@@ -435,15 +447,15 @@ Deno.serve(async (req) => {
             }
           }
 
-          if (pairCandles && pairCandles.length >= getMinimumCandles(timeframe)) {
-            const result = calcTrendScore(pairCandles, timeframe);
+          if (pairCandles && pairCandles.length >= 20) {
+            const result = calcTrendScore(pairCandles, normalisedTimeframe);
 
             if (result.trend === "bullish") bullish++;
             else if (result.trend === "bearish") bearish++;
             else neutral++;
 
             scoreRows.push({
-              pair_id: pairId, timeframe,
+              pair_id: pairId, timeframe: normalisedTimeframe,
               score: result.score, trend: result.trend,
               ema_score: result.emaScore, adx_score: result.adxScore,
               rsi_score: result.rsiScore, macd_score: result.macdScore,
@@ -472,8 +484,12 @@ Deno.serve(async (req) => {
 
       // Bulk upsert scores
       if (scoreRows.length > 0) {
+        console.log(`[SCAN] Upserting ${scoreRows.length} scores with timeframe="${normalisedTimeframe}". Sample:`, JSON.stringify(scoreRows[0]));
         const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
         if (scoreError) console.error("Score upsert error:", scoreError);
+        else console.log(`[SCAN] Successfully upserted ${scoreRows.length} scores`);
+      } else {
+        console.warn(`[SCAN] No scores to upsert for timeframe="${normalisedTimeframe}"`);
       }
 
       // Store scan history
