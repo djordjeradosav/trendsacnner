@@ -221,7 +221,7 @@ class TickFeedService {
 
   reconnect() {
     if (this._symbols.length > 0) {
-      this.connect();
+      this.startPolling();
     }
   }
 
@@ -230,12 +230,7 @@ class TickFeedService {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.stopHeartbeat();
-    if (this.ws) {
-      this.ws.onclose = null;
-      this.ws.close();
-      this.ws = null;
-    }
+    this.stopPolling();
     this.setStatus("disconnected");
   }
 }
