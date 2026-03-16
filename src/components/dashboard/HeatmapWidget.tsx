@@ -30,42 +30,6 @@ function scoreToBorder(score: number): string {
   return "hsl(0 70% 42%)";
 }
 
-export function HeatmapWidget({ timeframe }: { timeframe: string }) {
-  const { data: allScores } = useAllScores(timeframe);
-  const navigate = useNavigate();
-
-  const { data: pairs } = useQuery<PairMap>({
-    queryKey: ["pairs-map"],
-    queryFn: async () => {
-      const { data } = await supabase.from("pairs").select("id, symbol, category").eq("is_active", true);
-      const map: PairMap = {};
-      (data ?? []).forEach((p) => { map[p.id] = { symbol: p.symbol, category: p.category }; });
-      return map;
-    },
-    staleTime: 5 * 60_000,
-  });
-
-  const cells = useMemo(() => {
-    if (!allScores || !pairs) return [];
-    return allScores
-      .map((s) => ({
-        pairId: s.pair_id,
-        symbol: pairs[s.pair_id]?.symbol ?? "?",
-        category: pairs[s.pair_id]?.category ?? "",
-        score: s.score,
-        trend: s.trend,
-      }))
-      .sort((a, b) => b.score - a.score);
-  }, [allScores, pairs]);
-
-  if (cells.length === 0) {
-    return (
-      <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex items-center justify-center">
-        <span className="text-xs text-muted-foreground font-mono">Run a scan to see the heatmap</span>
-    </div>
-  );
-}
-
 interface CellData {
   pairId: string;
   symbol: string;
@@ -105,5 +69,67 @@ function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe:
         </div>
       )}
     </button>
+  );
+}
+
+export function HeatmapWidget({ timeframe }: { timeframe: string }) {
+  const { data: allScores } = useAllScores(timeframe);
+  const navigate = useNavigate();
+
+  const { data: pairs } = useQuery<PairMap>({
+    queryKey: ["pairs-map"],
+    queryFn: async () => {
+      const { data } = await supabase.from("pairs").select("id, symbol, category").eq("is_active", true);
+      const map: PairMap = {};
+      (data ?? []).forEach((p) => { map[p.id] = { symbol: p.symbol, category: p.category }; });
+      return map;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const cells = useMemo(() => {
+    if (!allScores || !pairs) return [];
+    return allScores
+      .map((s) => ({
+        pairId: s.pair_id,
+        symbol: pairs[s.pair_id]?.symbol ?? "?",
+        category: pairs[s.pair_id]?.category ?? "",
+        score: s.score,
+        trend: s.trend,
+      }))
+      .sort((a, b) => b.score - a.score);
+  }, [allScores, pairs]);
+
+  if (cells.length === 0) {
+    return (
+      <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex items-center justify-center">
+        <span className="text-xs text-muted-foreground font-mono">Run a scan to see the heatmap</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-display font-semibold text-foreground uppercase tracking-wider">
+          Market Heatmap
+        </h3>
+        <div className="flex items-center gap-1">
+          <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(0 70% 33%)" }} />
+          <span className="text-[9px] text-muted-foreground font-mono">Bearish</span>
+          <div className="w-8 h-1.5 rounded-full mx-1" style={{ background: "linear-gradient(90deg, hsl(0 70% 33%), hsl(200 15% 18%), hsl(142 70% 35%))" }} />
+          <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(142 70% 35%)" }} />
+          <span className="text-[9px] text-muted-foreground font-mono">Bullish</span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
+          {cells.map((cell) => (
+            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
