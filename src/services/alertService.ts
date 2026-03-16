@@ -161,5 +161,8 @@ function buildMessage(rule: any, match: ScoreData): string {
   if (rule.rule_type === "strong_trend_scan") {
     return `${match.symbol} (${match.category}) scored ${Math.round(match.score)} — above ${rule.threshold} threshold`;
   }
+  if (rule.rule_type === "mtf_alignment") {
+    return `⭐ ${match.symbol} — Perfect MTF Alignment (5M+30M+1H+4H all ${match.trend}, score ${Math.round(match.score)})`;
+  }
   return `Alert triggered for ${match.symbol}`;
 }

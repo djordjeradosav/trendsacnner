@@ -191,6 +191,10 @@ const Index = () => {
           <StatCard label="Auto-Scan" value={isAutoScanEnabled ? "ON" : "OFF"} icon={<Zap className="w-4 h-4" style={{ color: isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }} />} color={isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))"} sub={isAutoScanEnabled ? scanIntervalOptions.find(o => o.value === scanInterval)?.label ?? scanInterval : "Manual only"} />
         </div>
 
+        <div className="anim-fade-up shrink-0" style={{ animationDelay: "135ms" }}>
+          <MTFAlignmentWidget />
+        </div>
+
         <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", minHeight: "160px" }}>
           <HeatmapWidget timeframe={selectedTimeframe} />
         </div>
