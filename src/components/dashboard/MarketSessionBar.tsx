@@ -168,6 +168,7 @@ export function MarketSessionBar() {
         </div>
       ))}
 
+      <NextEventCountdown variant="pill" />
       <div className="flex-1" />
 
       {/* Live clocks — seconds pulse */}

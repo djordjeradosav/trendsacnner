@@ -121,6 +121,9 @@ export default function CalendarPage() {
           </div>
         </div>
 
+        {/* Next high-impact countdown */}
+        <NextEventCountdown variant="full" />
+
         {/* Filters */}
         <CalendarFilters
           impactFilter={impactFilter}
