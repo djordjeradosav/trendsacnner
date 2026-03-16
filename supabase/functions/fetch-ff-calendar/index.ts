@@ -12,20 +12,6 @@ const FF_URLS = [
   "https://nfs.faireconomy.media/ff_calendar_nextweek.json",
 ];
 
-// Is a given date in US Eastern Daylight Time?
-function isEDT(date: Date): boolean {
-  const year = date.getFullYear();
-  // EDT starts: 2nd Sunday of March at 2am
-  const march = new Date(year, 2, 1);
-  const firstSundayMarch = (7 - march.getDay()) % 7;
-  const edtStart = new Date(year, 2, firstSundayMarch + 8, 2, 0, 0);
-  // EDT ends: 1st Sunday of November at 2am
-  const nov = new Date(year, 10, 1);
-  const firstSundayNov = (7 - nov.getDay()) % 7;
-  const edtEnd = new Date(year, 10, firstSundayNov + 1, 2, 0, 0);
-  return date >= edtStart && date < edtEnd;
-}
-
 function nullIfEmpty(val: string | null | undefined): string | null {
   if (!val || val.trim() === "") return null;
   return val.trim();
@@ -88,64 +74,37 @@ Deno.serve(async (req) => {
       let scheduledAt: string | null = null;
 
       if (ev.date) {
-        // FF date format: "2026-03-15T21:00:00-04:00" (ISO with offset)
-        // or sometimes "03-15-2026" (MM-DD-YYYY)
-        let year: number, month: number, day: number;
-
+        // FF feed dates are ISO with EDT/EST offset: "2026-03-15T17:30:00-04:00"
         if (ev.date.includes("T")) {
-          // ISO format
+          // Direct ISO parse — JS handles the offset correctly
           const d = new Date(ev.date);
-          year = d.getFullYear();
-          month = d.getMonth();
-          day = d.getDate();
+          if (!isNaN(d.getTime())) {
+            scheduledAt = d.toISOString();
+          }
         } else {
-          // MM-DD-YYYY format
+          // Fallback: MM-DD-YYYY format
           const parts = ev.date.split("-");
           if (parts.length === 3) {
-            month = parseInt(parts[0], 10) - 1;
-            day = parseInt(parts[1], 10);
-            year = parseInt(parts[2], 10);
-          } else {
-            continue; // skip unparseable
-          }
-        }
-
-        if (!isTentative && ev.time) {
-          const timeMatch = ev.time.match(/^(\d{1,2}):(\d{2})(am|pm)$/i);
-          if (timeMatch) {
-            let hours = parseInt(timeMatch[1], 10);
-            const minutes = parseInt(timeMatch[2], 10);
-            const ampm = timeMatch[3].toLowerCase();
-            if (ampm === "pm" && hours !== 12) hours += 12;
-            if (ampm === "am" && hours === 12) hours = 0;
-
-            // FF times are US/Eastern
-            const estDate = new Date(year, month, day);
-            const offset = isEDT(estDate) ? 4 : 5;
-
-            scheduledAt = new Date(
-              Date.UTC(year, month, day, hours + offset, minutes)
-            ).toISOString();
-          } else {
-            // Unparseable time — use midnight UTC
+            const month = parseInt(parts[0], 10) - 1;
+            const day = parseInt(parts[1], 10);
+            const year = parseInt(parts[2], 10);
             scheduledAt = new Date(Date.UTC(year, month, day, 12, 0)).toISOString();
           }
-        } else {
-          // Tentative/All Day — use noon UTC so it sorts mid-day
-          scheduledAt = new Date(Date.UTC(year, month, day, 12, 0)).toISOString();
         }
       }
 
       if (!scheduledAt) continue;
 
-      const key = `${(ev.title || "").trim()}|${scheduledAt}|${(ev.currency || "").trim()}`;
+      // Use empty string for null currency in dedup key to match DB unique index
+      const currency = nullIfEmpty(ev.country) || nullIfEmpty(ev.currency) || "";
+      const key = `${(ev.title || "").trim()}|${scheduledAt}|${currency}`;
       if (seen.has(key)) continue;
       seen.add(key);
 
       events.push({
         event_name: (ev.title || "Unknown Event").trim(),
         country: nullIfEmpty(ev.country),
-        currency: nullIfEmpty(ev.currency),
+        currency: currency || null,
         impact: normalizeImpact(ev.impact || "low"),
         scheduled_at: scheduledAt,
         forecast: nullIfEmpty(ev.forecast),
@@ -157,18 +116,56 @@ Deno.serve(async (req) => {
 
     console.log(`Deduped to ${events.length} events`);
 
+    // Use raw SQL upsert via the service client to handle COALESCE index
     let upserted = 0;
     if (events.length > 0) {
-      for (let i = 0; i < events.length; i += 500) {
-        const chunk = events.slice(i, i + 500);
-        const { error } = await sb
-          .from("economic_events")
-          .upsert(chunk as any, {
-            onConflict: "event_name,scheduled_at,currency",
-            ignoreDuplicates: false,
-          });
-        if (error) console.error("Upsert error:", error);
-        else upserted += chunk.length;
+      for (let i = 0; i < events.length; i += 200) {
+        const chunk = events.slice(i, i + 200);
+        // Use INSERT ... ON CONFLICT with the COALESCE index
+        for (const ev of chunk) {
+          const { error } = await sb.from("economic_events").upsert(
+            {
+              event_name: ev.event_name,
+              country: ev.country,
+              currency: ev.currency,
+              impact: ev.impact,
+              scheduled_at: ev.scheduled_at,
+              forecast: ev.forecast,
+              previous: ev.previous,
+              actual: ev.actual,
+              is_tentative: ev.is_tentative,
+            } as any,
+            { onConflict: "event_name,scheduled_at,currency", ignoreDuplicates: false }
+          );
+          if (error) {
+            // If upsert fails (null currency conflict), try insert-or-skip
+            // Check if already exists
+            const { data: existing } = await sb
+              .from("economic_events")
+              .select("id")
+              .eq("event_name", ev.event_name as string)
+              .eq("scheduled_at", ev.scheduled_at as string)
+              .is("currency", ev.currency === null ? null : undefined)
+              .limit(1);
+            
+            if (existing && existing.length > 0) {
+              // Update the existing row
+              await sb
+                .from("economic_events")
+                .update({
+                  forecast: ev.forecast,
+                  previous: ev.previous,
+                  actual: ev.actual,
+                  impact: ev.impact,
+                } as any)
+                .eq("id", existing[0].id);
+            } else {
+              // Insert new
+              await sb.from("economic_events").insert(ev as any);
+            }
+          }
+          upserted++;
+        }
       }
     }
 
