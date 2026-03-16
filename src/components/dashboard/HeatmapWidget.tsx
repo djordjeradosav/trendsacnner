@@ -84,23 +84,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
       <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
           {cells.map((cell) => (
-            <button
-              key={cell.pairId}
-              onClick={() => navigate(`/pair/${cell.symbol}`)}
-              className="rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer"
-              style={{
-                background: scoreToColor(cell.score),
-                border: `1px solid ${scoreToBorder(cell.score)}`,
-              }}
-              title={`${cell.symbol}: Score ${cell.score} (${cell.trend})`}
-            >
-              <div className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
-                {cell.symbol.replace("/", "")}
-              </div>
-              <div className="text-[8px] font-mono text-white/60 leading-tight">
-                {cell.score}
-              </div>
-            </button>
+            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} />
           ))}
         </div>
       </div>
