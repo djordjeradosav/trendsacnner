@@ -117,7 +117,17 @@ function latest(arr: number[]): number {
 
 interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
-function scoreEMA(price: number, e20: number, e50: number, e200: number): number {
+function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
+  const isShortTF = ["1min","3min","5min","15min","30min"].includes(timeframe || "");
+  if (isShortTF) {
+    // 3-EMA system for short timeframes (fast/mid/slow — no EMA200)
+    if (price > e20 && e20 > e50 && e50 > e200) return 22;
+    if (price < e20 && e20 < e50 && e50 < e200) return 0;
+    if (price > e20 && e20 > e50) return 16;
+    if (price > e20) return 10;
+    if (price < e20 && e20 < e50) return 6;
+    return 11;
+  }
   if (price > e20 && e20 > e50 && e50 > e200) return 22;
   if (price > e20 && e20 > e50) return 15;
   if (price > e20) return 8;
