@@ -120,7 +120,6 @@ interface CandleData { open: number; high: number; low: number; close: number; v
 function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
   const isShortTF = ["1min","3min","5min","15min","30min"].includes(timeframe || "");
   if (isShortTF) {
-    // 3-EMA system for short timeframes (fast/mid/slow — no EMA200)
     if (price > e20 && e20 > e50 && e50 > e200) return 22;
     if (price < e20 && e20 < e50 && e50 < e200) return 0;
     if (price > e20 && e20 > e50) return 16;
@@ -150,7 +149,6 @@ function scoreMACD(hist: number, histPrev: number): number {
   return 0;
 }
 
-// Timeframe-specific indicator periods
 const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
   "1min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "3min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
@@ -215,24 +213,50 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   };
 }
 
-// ─── Symbol Mapping ─────────────────────────────────────────────────────────
+// ─── Finnhub Symbol & Resolution Mapping ────────────────────────────────────
 
-const futuresMap: Record<string, string> = {
-  "CL1!":"CL","BZ1!":"BZ","NG1!":"NG","HO1!":"HO","RB1!":"RB",
-  "ZC1!":"ZC","ZW1!":"ZW","ZS1!":"ZS","ZM1!":"ZM","ZL1!":"ZL",
-  "CC1!":"CC","KC1!":"KC","CT1!":"CT","SB1!":"SB",
-  "ES1!":"ES","NQ1!":"NQ","YM1!":"YM","RTY1!":"RTY","VX1!":"VX","Z1!":"Z",
-  "ZB1!":"ZB","ZN1!":"ZN","ZF1!":"ZF","ZT1!":"ZT",
-  "FDAX1!":"FDAX","NK1!":"NK","HSI1!":"HSI",
+const SYMBOL_MAP: Record<string, string> = {
+  "EURUSD": "OANDA:EUR_USD", "GBPUSD": "OANDA:GBP_USD", "USDJPY": "OANDA:USD_JPY",
+  "USDCHF": "OANDA:USD_CHF", "AUDUSD": "OANDA:AUD_USD", "USDCAD": "OANDA:USD_CAD",
+  "NZDUSD": "OANDA:NZD_USD", "EURGBP": "OANDA:EUR_GBP", "EURJPY": "OANDA:EUR_JPY",
+  "GBPJPY": "OANDA:GBP_JPY", "AUDJPY": "OANDA:AUD_JPY", "CADJPY": "OANDA:CAD_JPY",
+  "CHFJPY": "OANDA:CHF_JPY", "NZDJPY": "OANDA:NZD_JPY", "EURCAD": "OANDA:EUR_CAD",
+  "EURAUD": "OANDA:EUR_AUD", "EURNZD": "OANDA:EUR_NZD", "EURCHF": "OANDA:EUR_CHF",
+  "GBPCAD": "OANDA:GBP_CAD", "GBPAUD": "OANDA:GBP_AUD", "GBPNZD": "OANDA:GBP_NZD",
+  "GBPCHF": "OANDA:GBP_CHF", "AUDCAD": "OANDA:AUD_CAD", "AUDNZD": "OANDA:AUD_NZD",
+  "AUDCHF": "OANDA:AUD_CHF", "NZDCAD": "OANDA:NZD_CAD", "NZDCHF": "OANDA:NZD_CHF",
+  "CADCHF": "OANDA:CAD_CHF",
+  "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
+  "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
+  "CL1!": "OANDA:WTICO_USD", "BZ1!": "OANDA:BCO_USD", "NG1!": "OANDA:NATGAS_USD",
+  "ES1!": "OANDA:SPX500_USD", "NQ1!": "OANDA:NAS100_USD", "YM1!": "OANDA:US30_USD",
 };
 
-function getTwelveDataSymbol(symbol: string): string {
-  if (symbol.includes("/")) return symbol;
-  if (futuresMap[symbol]) return futuresMap[symbol];
-  if (symbol.includes("!")) return symbol.replace("!", "").replace(/1$/, "");
-  if (symbol.length === 6) return `${symbol.slice(0,3)}/${symbol.slice(3)}`;
-  return symbol;
+const RESOLUTION_MAP: Record<string, string> = {
+  "1min": "1", "3min": "3", "5min": "5", "15min": "15", "30min": "30",
+  "1h": "60", "4h": "240", "1day": "D", "1week": "W",
+};
+
+function getIntervalSeconds(tf: string): number {
+  const map: Record<string, number> = {
+    "1min": 60, "3min": 180, "5min": 300, "15min": 900, "30min": 1800,
+    "1h": 3600, "4h": 14400, "1day": 86400, "1week": 604800,
+  };
+  return map[tf] ?? 3600;
 }
+
+function getFinnhubSymbol(symbol: string): string | null {
+  if (SYMBOL_MAP[symbol]) return SYMBOL_MAP[symbol];
+  if (symbol.length === 6 && !symbol.includes("!")) {
+    return `OANDA:${symbol.slice(0, 3)}_${symbol.slice(3)}`;
+  }
+  return null;
+}
+
+type FinnhubCandleResponse = {
+  c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[]; t?: number[];
+  s: string;
+};
 
 const CANDLE_LIMITS: Record<string, number> = {
   "1min": 120, "3min": 120, "5min": 150,
@@ -246,15 +270,8 @@ const MINIMUM_CANDLES: Record<string, number> = {
   "1h": 100, "4h": 100, "1day": 100, "1week": 50,
 };
 
-function getCandleLimit(tf: string): number {
-  return CANDLE_LIMITS[tf] || 200;
-}
-
-function getMinimumCandles(tf: string): number {
-  return MINIMUM_CANDLES[tf] || 50;
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
+function getCandleLimit(tf: string): number { return CANDLE_LIMITS[tf] || 200; }
+function getMinimumCandles(tf: string): number { return MINIMUM_CANDLES[tf] || 50; }
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -271,9 +288,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const apiKey = Deno.env.get("TWELVE_DATA_API_KEY");
+  const apiKey = Deno.env.get("FINNHUB_API_KEY");
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: "TWELVE_DATA_API_KEY not set" }), {
+    return new Response(JSON.stringify({ error: "FINNHUB_API_KEY not set" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -285,7 +302,6 @@ Deno.serve(async (req) => {
   let timeframe = "1h";
   let pairIds: string[] | undefined;
 
-  // Support both GET (SSE) and POST
   if (req.method === "GET") {
     const url = new URL(req.url);
     timeframe = url.searchParams.get("timeframe") || "1h";
@@ -312,11 +328,16 @@ Deno.serve(async (req) => {
   }
 
   const candleLimit = getCandleLimit(timeframe);
-  const CHUNK_SIZE = 20;
+  const resolution = RESOLUTION_MAP[timeframe] || "60";
+  const to = Math.floor(Date.now() / 1000);
+  const intervalSec = getIntervalSeconds(timeframe);
+  const from = to - Math.floor(candleLimit * intervalSec * 1.3);
+
+  // Finnhub allows 60 calls/min — use chunks of 55 with 1.1s delay
+  const CHUNK_SIZE = 55;
   const chunks = chunkArray(pairs, CHUNK_SIZE);
   const total = pairs.length;
 
-  // SSE stream
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -330,40 +351,40 @@ Deno.serve(async (req) => {
       const scoreRows: Array<Record<string, unknown>> = [];
       const candleRows: Array<Record<string, unknown>> = [];
 
-      let apiExhausted = false;
+      let rateLimited = false;
 
       for (let ci = 0; ci < chunks.length; ci++) {
         const chunk = chunks[ci];
 
-        // Fetch all in parallel from API (skip if API already exhausted)
         const results = await Promise.allSettled(
           chunk.map(async (pair) => {
-            if (apiExhausted) return null;
-            const tdSymbol = getTwelveDataSymbol(pair.symbol);
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 8000);
+            if (rateLimited) return null;
+
+            const finnhubSymbol = getFinnhubSymbol(pair.symbol);
+            if (!finnhubSymbol) return null;
+
+            const abortCtl = new AbortController();
+            const timeout = setTimeout(() => abortCtl.abort(), 8000);
             try {
-              const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=${timeframe}&outputsize=${candleLimit}&apikey=${apiKey}`;
-              const res = await fetch(url, { signal: controller.signal });
-              if (res.status === 429) { apiExhausted = true; return null; }
-              const data = await res.json();
-              // Check for API credit exhaustion in response body
-              if (data.code === 429 || (data.status === "error" && data.message?.includes("API credits"))) {
-                apiExhausted = true;
-                console.warn(`API credits exhausted: ${data.message}`);
-                return null;
-              }
-              if (!data.values || !Array.isArray(data.values) || data.values.length === 0) return null;
+              const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+              const res = await fetch(url, { signal: abortCtl.signal });
+
+              if (res.status === 429) { rateLimited = true; return null; }
+              if (res.status === 403) return null;
+
+              const data = (await res.json()) as FinnhubCandleResponse;
+              if (data.s !== "ok" || !data.c?.length) return null;
+
               return {
                 pairId: pair.id,
                 symbol: pair.symbol,
-                candles: data.values.map((v: { datetime: string; open: string; high: string; low: string; close: string; volume?: string }) => ({
-                  open: parseFloat(v.open),
-                  high: parseFloat(v.high),
-                  low: parseFloat(v.low),
-                  close: parseFloat(v.close),
-                  volume: v.volume ? parseFloat(v.volume) : 0,
-                  ts: v.datetime,
+                candles: data.c.map((close, i) => ({
+                  open: data.o![i],
+                  high: data.h![i],
+                  low: data.l![i],
+                  close,
+                  volume: data.v?.[i] ?? 0,
+                  ts: new Date(data.t![i] * 1000).toISOString(),
                 })),
               };
             } catch {
@@ -380,23 +401,18 @@ Deno.serve(async (req) => {
           const r = results[ri];
           const pair = chunk[ri];
           let pairCandles: CandleData[] | null = null;
-          let pairId = pair.id;
-          let symbol = pair.symbol;
+          const pairId = pair.id;
+          const symbol = pair.symbol;
 
-          // Try API result first
           if (r.status === "fulfilled" && r.value && r.value.candles.length >= getMinimumCandles(timeframe)) {
             pairCandles = r.value.candles;
-            // Store fresh candles for future fallback
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
                 timeframe,
-                open: c.open,
-                high: c.high,
-                low: c.low,
-                close: c.close,
+                open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
-                ts: new Date(c.ts).toISOString(),
+                ts: (c as any).ts || new Date().toISOString(),
               });
             }
           }
@@ -413,11 +429,8 @@ Deno.serve(async (req) => {
 
             if (dbCandles && dbCandles.length >= getMinimumCandles(timeframe)) {
               pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
-                open: Number(c.open),
-                high: Number(c.high),
-                low: Number(c.low),
-                close: Number(c.close),
-                volume: c.volume ? Number(c.volume) : 0,
+                open: Number(c.open), high: Number(c.high), low: Number(c.low),
+                close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
               }));
             }
           }
@@ -430,20 +443,12 @@ Deno.serve(async (req) => {
             else neutral++;
 
             scoreRows.push({
-              pair_id: pairId,
-              timeframe,
-              score: result.score,
-              trend: result.trend,
-              ema_score: result.emaScore,
-              adx_score: result.adxScore,
-              rsi_score: result.rsiScore,
-              macd_score: result.macdScore,
-              ema20: result.ema20,
-              ema50: result.ema50,
-              ema200: result.ema200,
-              adx: result.adx,
-              rsi: result.rsi,
-              macd_hist: result.macdHist,
+              pair_id: pairId, timeframe,
+              score: result.score, trend: result.trend,
+              ema_score: result.emaScore, adx_score: result.adxScore,
+              rsi_score: result.rsiScore, macd_score: result.macdScore,
+              ema20: result.ema20, ema50: result.ema50, ema200: result.ema200,
+              adx: result.adx, rsi: result.rsi, macd_hist: result.macdHist,
               scanned_at: new Date().toISOString(),
             });
 
@@ -453,9 +458,9 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Delay between chunks (skip last)
+        // Delay between chunks — only 1.1s needed for Finnhub's 60/min limit
         if (ci < chunks.length - 1) {
-          await sleep(1200);
+          await sleep(1100);
         }
       }
 
@@ -465,7 +470,7 @@ Deno.serve(async (req) => {
         await supabase.from("candles").upsert(batch as any, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
       }
 
-      // Bulk upsert scores (unique on pair_id + timeframe)
+      // Bulk upsert scores
       if (scoreRows.length > 0) {
         const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
         if (scoreError) console.error("Score upsert error:", scoreError);
@@ -489,8 +494,7 @@ Deno.serve(async (req) => {
 
       send({
         type: "complete",
-        total: done,
-        bullish, bearish, neutral,
+        total: done, bullish, bearish, neutral,
         scored: scoreRows.length,
         durationMs: Date.now() - startMs,
         avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s, r) => s + (r.score as number), 0) / scoreRows.length * 10) / 10 : 0,

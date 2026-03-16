@@ -3,8 +3,8 @@ import { fetchCandlesForPair } from "./dataService";
 import { scorePair, type Candle } from "@/lib/scoreEngine";
 import { checkAlertRules } from "./alertService";
 
-const BATCH_SIZE = 8;
-const BATCH_DELAY_MS = 61_000; // 61s for Twelve Data free tier
+const BATCH_SIZE = 55; // Finnhub allows 60 calls/min
+const BATCH_DELAY_MS = 1_100; // 1.1s between batches for Finnhub rate limit
 
 export interface ScanResult {
   totalPairs: number;
