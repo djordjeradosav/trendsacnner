@@ -180,20 +180,21 @@ export default function ScannerPage() {
   const strongest = useMemo(() => [...pairs].filter((p) => p.trend === "bullish").sort((a, b) => b.score - a.score).slice(0, 8), [pairs]);
   const weakest = useMemo(() => [...pairs].filter((p) => p.trend === "bearish").sort((a, b) => a.score - b.score).slice(0, 8), [pairs]);
 
-  const handleCancelScan = () => { controllerRef.current?.cancel(); };
+  const handleCancelScan = () => { scan.cancelScan(); };
 
-  // Pass cancel handler to AppLayout for mobile FAB
+  const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
+
   const layoutProps = {
     lastScan,
-    scanning,
-    scanDone,
-    scanTotal,
+    scanning: scan.isScanning,
+    scanDone: scan.done,
+    scanTotal: scan.total,
     onRunScan: executeScan,
     onCancelScan: handleCancelScan,
     timeUntilNextScan,
     isAutoScanEnabled,
     autoScanAgo,
-    currentSymbol: scanSymbol,
+    currentSymbol: scan.currentSymbol,
   };
 
   const loading = pairsLoading || scoresLoading;
