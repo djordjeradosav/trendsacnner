@@ -226,16 +226,33 @@ const SYMBOL_MAP: Record<string, string> = {
   "GBPCHF": "OANDA:GBP_CHF", "AUDCAD": "OANDA:AUD_CAD", "AUDNZD": "OANDA:AUD_NZD",
   "AUDCHF": "OANDA:AUD_CHF", "NZDCAD": "OANDA:NZD_CAD", "NZDCHF": "OANDA:NZD_CHF",
   "CADCHF": "OANDA:CAD_CHF",
+  // Metals
   "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
   "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
-  "CL1!": "OANDA:WTICO_USD", "BZ1!": "OANDA:BCO_USD", "NG1!": "OANDA:NATGAS_USD",
-  "ES1!": "OANDA:SPX500_USD", "NQ1!": "OANDA:NAS100_USD", "YM1!": "OANDA:US30_USD",
+  // Commodities & Futures — mapped from DB symbol names
+  "USOIL":  "OANDA:WTICO_USD",  "CL1!":  "OANDA:WTICO_USD",
+  "UKOIL":  "OANDA:BCO_USD",    "BZ1!":  "OANDA:BCO_USD",
+  "NATGAS": "OANDA:NATGAS_USD", "NG1!":  "OANDA:NATGAS_USD",
+  "US500":  "OANDA:SPX500_USD", "ES1!":  "OANDA:SPX500_USD",
+  "US100":  "OANDA:NAS100_USD", "NQ1!":  "OANDA:NAS100_USD",
+  "US30":   "OANDA:US30_USD",   "YM1!":  "OANDA:US30_USD",
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
   "1min": "1", "3min": "3", "5min": "5", "15min": "15", "30min": "30",
   "1h": "60", "4h": "240", "1day": "D", "1week": "W",
 };
+
+// Finnhub free tier only supports resolution "60" and above for forex candles.
+// For sub-hourly timeframes, we fetch 1H candles and score with the requested
+// timeframe's indicator config (shorter EMA periods etc).
+const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
+
+function getEffectiveResolution(resolution: string): string {
+  if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
+  // Fallback: use 1H candles for sub-hourly timeframes
+  return "60";
+}
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
@@ -328,14 +345,22 @@ Deno.serve(async (req) => {
   }
 
   const normalisedTimeframe = timeframe.toLowerCase().trim();
-  const candleLimit = getCandleLimit(normalisedTimeframe);
-  const resolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
+  const rawResolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
+  // Finnhub free tier: sub-hourly resolutions return 403 for forex.
+  // Fall back to 1H candles and score with the requested timeframe's indicator config.
+  const resolution = getEffectiveResolution(rawResolution);
+  const usedFallback = resolution !== rawResolution;
+  // When using fallback resolution, fetch candles based on the fallback (1H) timing
+  const effectiveTF = usedFallback ? "1h" : normalisedTimeframe;
+  const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
-  const intervalSec = getIntervalSeconds(normalisedTimeframe);
-  // Use larger buffer for short timeframes to cover weekend/holiday gaps
-  const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(normalisedTimeframe) ? 2.5 : 1.3;
+  const intervalSec = getIntervalSeconds(effectiveTF);
+  const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
   const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
   
+  if (usedFallback) {
+    console.log(`[SCAN] Finnhub free tier: resolution "${rawResolution}" not supported, falling back to "${resolution}" (1H candles) for scoring`);
+  }
   console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
   // Finnhub allows 60 calls/min — use chunks of 55 with 1.1s delay
@@ -366,7 +391,10 @@ Deno.serve(async (req) => {
             if (rateLimited) return null;
 
             const finnhubSymbol = getFinnhubSymbol(pair.symbol);
-            if (!finnhubSymbol) return null;
+            if (!finnhubSymbol) {
+              console.warn(`[SCAN] ${pair.symbol}: no Finnhub symbol mapping`);
+              return null;
+            }
 
             const abortCtl = new AbortController();
             const timeout = setTimeout(() => abortCtl.abort(), 8000);
@@ -374,11 +402,23 @@ Deno.serve(async (req) => {
               const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
               const res = await fetch(url, { signal: abortCtl.signal });
 
-              if (res.status === 429) { rateLimited = true; return null; }
-              if (res.status === 403) return null;
+              if (res.status === 429) {
+                console.warn(`[SCAN] ${pair.symbol}: rate limited (429), waiting...`);
+                rateLimited = true;
+                return null;
+              }
+              if (res.status === 403) {
+                console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}`);
+                return null;
+              }
 
               const data = (await res.json()) as FinnhubCandleResponse;
-              if (data.s !== "ok" || !data.c?.length) return null;
+              if (data.s !== "ok" || !data.c?.length) {
+                console.warn(`[SCAN] ${pair.symbol}: status="${data.s}" candles=0`);
+                return null;
+              }
+
+              console.log(`[SCAN] ${pair.symbol}: ${data.c.length} candles fetched`);
 
               return {
                 pairId: pair.id,
@@ -411,15 +451,15 @@ Deno.serve(async (req) => {
           const minCandles = getMinimumCandles(normalisedTimeframe);
 
           if (r.status === "fulfilled" && r.value && r.value.candles.length >= 20) {
-            // Accept if we have at least 20 candles (partial scoring fallback)
             pairCandles = r.value.candles;
             if (r.value.candles.length < minCandles) {
               console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
             }
+            // Store candles with the effective timeframe used for fetching
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe: normalisedTimeframe,
+                timeframe: effectiveTF,
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),
@@ -431,23 +471,31 @@ Deno.serve(async (req) => {
 
           // Fallback: load cached candles from DB
           if (!pairCandles) {
-            const { data: dbCandles } = await supabase
-              .from("candles")
-              .select("open, high, low, close, volume")
-              .eq("pair_id", pairId)
-              .eq("timeframe", normalisedTimeframe)
-              .order("ts", { ascending: true })
-              .limit(candleLimit);
+            // Try the requested timeframe first, then fall back to 1h
+            for (const dbTf of [normalisedTimeframe, "1h"]) {
+              const { data: dbCandles } = await supabase
+                .from("candles")
+                .select("open, high, low, close, volume")
+                .eq("pair_id", pairId)
+                .eq("timeframe", dbTf)
+                .order("ts", { ascending: true })
+                .limit(candleLimit);
 
-            if (dbCandles && dbCandles.length >= 20) {
-              pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
-                open: Number(c.open), high: Number(c.high), low: Number(c.low),
-                close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
-              }));
+              if (dbCandles && dbCandles.length >= 20) {
+                pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
+                  open: Number(c.open), high: Number(c.high), low: Number(c.low),
+                  close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
+                }));
+                if (dbTf !== normalisedTimeframe) {
+                  console.log(`[SCAN] ${symbol}: using cached ${dbTf} candles as fallback`);
+                }
+                break;
+              }
             }
           }
 
           if (pairCandles && pairCandles.length >= 20) {
+            // Score with the REQUESTED timeframe's indicator config (shorter EMAs for 15min etc)
             const result = calcTrendScore(pairCandles, normalisedTimeframe);
 
             if (result.trend === "bullish") bullish++;
