@@ -7,21 +7,23 @@ import {
 import { CalendarFilters } from "@/components/calendar/CalendarFilters";
 import { CalendarTable } from "@/components/calendar/CalendarTable";
 import { EventDetailDrawer } from "@/components/calendar/EventDetailDrawer";
-import { ChevronLeft, ChevronRight, Calendar, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, RefreshCw, Loader2 } from "lucide-react";
 
 const formatWeekRange = (start: Date, end: Date) => {
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  return `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", opts)}`;
+  const yearOpts: Intl.DateTimeFormatOptions = { ...opts, year: "numeric" };
+  return `${start.toLocaleDateString("en-US", opts)} – ${end.toLocaleDateString("en-US", yearOpts)}`;
 };
 
 export default function CalendarPage() {
   const {
-    events, loading, weekStart, weekEnd,
+    events, loading, refreshing, weekStart, weekEnd,
     goNextWeek, goPrevWeek, goThisWeek, weekOffset, refetch,
   } = useCalendarWeek();
 
   const [impactFilter, setImpactFilter] = useState<string>("All");
   const [currencyFilters, setCurrencyFilters] = useState<string[]>([]);
+  const [hideHolidays, setHideHolidays] = useState(true);
 
   const toggleCurrency = useCallback((cur: string) => {
     setCurrencyFilters((prev) =>
@@ -36,21 +38,26 @@ export default function CalendarPage() {
     } else if (impactFilter === "Medium+") {
       result = result.filter((e) => e.impact === "high" || e.impact === "medium");
     }
+    if (hideHolidays) {
+      result = result.filter((e) => e.impact !== "holiday");
+    }
     if (currencyFilters.length > 0) {
       result = result.filter((e) =>
         currencyFilters.includes((e.currency || "").toUpperCase())
       );
     }
     return result;
-  }, [events, impactFilter, currencyFilters]);
+  }, [events, impactFilter, currencyFilters, hideHolidays]);
 
   const eventCount = filtered.length;
   const highCount = filtered.filter((e) => e.impact === "high").length;
+  const medCount = filtered.filter((e) => e.impact === "medium").length;
+  const lowCount = filtered.filter((e) => e.impact === "low").length;
 
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
-        {/* Top bar — responsive */}
+        {/* Top bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 px-3 py-2 rounded-lg shrink-0 bg-secondary border border-border">
           <div className="flex items-center gap-2 flex-wrap">
             <Calendar className="w-5 h-5 text-primary shrink-0" />
@@ -58,11 +65,11 @@ export default function CalendarPage() {
               Economic Calendar
             </h1>
             <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-accent text-muted-foreground whitespace-nowrap">
-              {eventCount} events · {highCount} high
+              {eventCount} events · {highCount} high · {medCount} med · {lowCount} low
             </span>
           </div>
 
-          {/* Week navigation — wraps on small screens */}
+          {/* Week navigation */}
           <div className="flex items-center gap-1 flex-wrap">
             <button
               onClick={goPrevWeek}
@@ -72,9 +79,11 @@ export default function CalendarPage() {
             </button>
 
             <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-accent border border-border">
-              <span className="text-[11px] font-semibold text-foreground hidden sm:inline">
-                This Week:
-              </span>
+              {weekOffset === 0 && (
+                <span className="text-[11px] font-semibold text-foreground hidden sm:inline">
+                  This Week:
+                </span>
+              )}
               <span className="text-[11px] font-mono text-primary">
                 {formatWeekRange(weekStart, weekEnd)}
               </span>
@@ -98,10 +107,15 @@ export default function CalendarPage() {
 
             <button
               onClick={refetch}
-              className="p-1.5 rounded transition-colors hover:bg-accent"
-              title="Refresh data"
+              disabled={refreshing}
+              className="p-1.5 rounded transition-colors hover:bg-accent disabled:opacity-50"
+              title="Refresh calendar data"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+              {refreshing ? (
+                <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+              )}
             </button>
           </div>
         </div>
@@ -112,9 +126,11 @@ export default function CalendarPage() {
           setImpactFilter={setImpactFilter}
           currencyFilters={currencyFilters}
           toggleCurrency={toggleCurrency}
+          hideHolidays={hideHolidays}
+          setHideHolidays={setHideHolidays}
         />
 
-        {/* Legend — scrollable on mobile */}
+        {/* Legend */}
         <div className="flex items-center gap-3 mb-2 px-1 overflow-x-auto scrollbar-hide">
           <div className="flex items-center gap-1 shrink-0">
             <span className="flex gap-[1px]">
@@ -151,27 +167,25 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* Table — horizontally scrollable on mobile */}
+        {/* Table */}
         <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-border">
           {loading ? (
-            <div className="space-y-0">
-              {Array.from({ length: 15 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-10 animate-pulse"
-                  style={{
-                    borderBottom: "1px solid hsl(var(--border))",
-                    background: i % 2 === 0 ? "hsl(var(--card))" : "hsl(var(--background))",
-                  }}
-                />
-              ))}
+            <div className="flex flex-col items-center justify-center h-40 gap-2">
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+              <span className="text-sm text-muted-foreground">Loading calendar data...</span>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
-              No events found for this week.
+            <div className="flex flex-col items-center justify-center h-40 gap-2">
+              <span className="text-sm text-muted-foreground">No events found for this week.</span>
+              <button
+                onClick={refetch}
+                className="text-xs text-primary hover:underline"
+              >
+                Refresh calendar data
+              </button>
             </div>
           ) : (
-            <div className="min-w-[600px]">
+            <div className="min-w-[700px]">
               <CalendarTable events={filtered} />
             </div>
           )}

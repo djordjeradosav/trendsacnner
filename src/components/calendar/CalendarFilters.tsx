@@ -7,6 +7,8 @@ interface Props {
   setImpactFilter: (v: string) => void;
   currencyFilters: string[];
   toggleCurrency: (c: string) => void;
+  hideHolidays: boolean;
+  setHideHolidays: (v: boolean) => void;
 }
 
 const IMPACT_OPTIONS = [
@@ -15,7 +17,7 @@ const IMPACT_OPTIONS = [
   { label: "Medium+", value: "Medium+", color: "#f59e0b", bars: 2 },
 ];
 
-export function CalendarFilters({ impactFilter, setImpactFilter, currencyFilters, toggleCurrency }: Props) {
+export function CalendarFilters({ impactFilter, setImpactFilter, currencyFilters, toggleCurrency, hideHolidays, setHideHolidays }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 mb-3 shrink-0 px-1">
       {/* Impact filter */}
@@ -49,6 +51,18 @@ export function CalendarFilters({ impactFilter, setImpactFilter, currencyFilters
           </button>
         );
       })}
+
+      {/* Hide holidays toggle */}
+      <button
+        onClick={() => setHideHolidays(!hideHolidays)}
+        className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-mono transition-colors border ${
+          hideHolidays
+            ? "bg-accent border-border text-foreground"
+            : "bg-transparent border-transparent text-muted-foreground"
+        }`}
+      >
+        {hideHolidays ? "☑" : "☐"} Hide holidays
+      </button>
 
       <span className="w-px h-5 mx-2 bg-border" />
 

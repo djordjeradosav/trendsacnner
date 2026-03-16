@@ -115,11 +115,12 @@ export function useEconomicCalendar(limit?: number) {
   return { events, loading, nextHighImpact };
 }
 
-/** Full calendar hook with week navigation */
+/** Full calendar hook with week navigation — fetches 3 weeks of data */
 export function useCalendarWeek() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const weekStart = useMemo(() => {
     const now = new Date();
@@ -132,27 +133,66 @@ export function useCalendarWeek() {
 
   const fetchWeek = useCallback(async () => {
     setLoading(true);
+
+    // Fetch the selected week's events
     const { data } = await supabase
       .from("economic_events")
       .select("*")
       .gte("scheduled_at", weekStart.toISOString())
       .lte("scheduled_at", weekEnd.toISOString())
       .order("scheduled_at", { ascending: true });
-    setEvents((data as EconomicEvent[]) || []);
+
+    const fetched = (data as EconomicEvent[]) || [];
+    setEvents(fetched);
     setLoading(false);
+
+    // If no events found, auto-trigger the edge function to populate data
+    if (fetched.length === 0 && !refreshing) {
+      triggerCalendarRefresh().then(() => {
+        // Refetch after the edge function has had time to populate
+        setTimeout(async () => {
+          const { data: retryData } = await supabase
+            .from("economic_events")
+            .select("*")
+            .gte("scheduled_at", weekStart.toISOString())
+            .lte("scheduled_at", weekEnd.toISOString())
+            .order("scheduled_at", { ascending: true });
+          if (retryData && retryData.length > 0) {
+            setEvents(retryData as EconomicEvent[]);
+          }
+        }, 3000);
+      });
+    }
   }, [weekStart, weekEnd]);
 
   useEffect(() => { fetchWeek(); }, [fetchWeek]);
 
+  const triggerCalendarRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await supabase.functions.invoke("fetch-ff-calendar");
+    } catch (e) {
+      console.warn("Calendar refresh failed:", e);
+    }
+    setRefreshing(false);
+  }, []);
+
+  const refetch = useCallback(async () => {
+    await triggerCalendarRefresh();
+    // Wait a moment for data to be inserted, then refetch
+    setTimeout(() => fetchWeek(), 2000);
+  }, [triggerCalendarRefresh, fetchWeek]);
+
   return {
     events,
     loading,
+    refreshing,
     weekStart,
     weekEnd,
     weekOffset,
     goNextWeek: () => setWeekOffset((o) => o + 1),
     goPrevWeek: () => setWeekOffset((o) => o - 1),
     goThisWeek: () => setWeekOffset(0),
-    refetch: fetchWeek,
+    refetch,
   };
 }
