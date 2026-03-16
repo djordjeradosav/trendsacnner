@@ -30,6 +30,10 @@ export function TopHeader({
   timeUntilNextScan,
   isAutoScanEnabled,
   autoScanAgo,
+  wsStatus = "disconnected",
+  wsPairCount = 0,
+  wsEligible = false,
+  onWsReconnect,
 }: TopHeaderProps) {
   return (
     <header className="h-14 border-b border-border bg-background md:bg-card/50 md:backdrop-blur-sm flex items-center justify-between px-4 md:px-6">
