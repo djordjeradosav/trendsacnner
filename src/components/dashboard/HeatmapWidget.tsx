@@ -155,7 +155,6 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
           {cells.map((cell) => (
             <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} mtfAlignment={mtfMap.get(cell.pairId)} />
           ))}
-          ))}
         </div>
       </div>
     </div>
