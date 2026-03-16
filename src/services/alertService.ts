@@ -24,6 +24,10 @@ export async function checkAlertRules(scores: ScoreData[]): Promise<number> {
 
   if (!rules || rules.length === 0) return 0;
 
+  // Also check MTF alignment alerts
+  const { data: mtfAlignments } = await supabase.from("mtf_alignments").select("*");
+  const mtfMap = new Map<string, any>();
+  mtfAlignments?.forEach((a: any) => mtfMap.set(a.pair_id, a));
   // Build lookup maps
   const scoreMap = new Map<string, ScoreData>();
   scores.forEach((s) => scoreMap.set(s.pair_id, s));
@@ -55,6 +59,19 @@ export async function checkAlertRules(scores: ScoreData[]): Promise<number> {
       );
       for (const s of candidates) {
         if (s.score >= rule.threshold) matches.push(s);
+      }
+    } else if (rule.rule_type === "mtf_alignment") {
+      // Check for MTF alignment alerts
+      const candidates = rule.pair_id ? [scoreMap.get(rule.pair_id)].filter(Boolean) as ScoreData[] : Array.from(scoreMap.values());
+      for (const s of candidates) {
+        const mtf = mtfMap.get(s.pair_id);
+        if (!mtf) continue;
+        const alignmentCount = Math.max(mtf.bull_count, mtf.bear_count);
+        if (rule.direction === "perfect" && mtf.label === "Perfect") {
+          matches.push(s);
+        } else if (rule.direction === "strengthens" && alignmentCount >= rule.threshold) {
+          matches.push(s);
+        }
       }
     }
 
@@ -143,6 +160,9 @@ function buildMessage(rule: any, match: ScoreData): string {
   }
   if (rule.rule_type === "strong_trend_scan") {
     return `${match.symbol} (${match.category}) scored ${Math.round(match.score)} — above ${rule.threshold} threshold`;
+  }
+  if (rule.rule_type === "mtf_alignment") {
+    return `⭐ ${match.symbol} — Perfect MTF Alignment (5M+30M+1H+4H all ${match.trend}, score ${Math.round(match.score)})`;
   }
   return `Alert triggered for ${match.symbol}`;
 }

@@ -7,6 +7,8 @@ import { useLivePrice } from "@/hooks/useLivePrice";
 import { useScoreChange } from "@/hooks/useScoreChange";
 import { isLiveEligible } from "@/services/tickFeedService";
 import { useScanStore } from "@/store/scanStore";
+import { useMTFAlignments } from "@/hooks/useMTFAlignments";
+import { MTFIndicator } from "@/components/scanner/MTFIndicator";
 
 interface PairMap {
   [id: string]: { symbol: string; category: string };
@@ -40,7 +42,7 @@ interface CellData {
   trend: string;
 }
 
-function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe: string; navigate: (path: string) => void }) {
+function HeatmapCell({ cell, timeframe, navigate, mtfAlignment }: { cell: CellData; timeframe: string; navigate: (path: string) => void; mtfAlignment?: any }) {
   const showLive = isLiveEligible(timeframe);
   const { price, direction } = useLivePrice(showLive ? cell.symbol : undefined);
   const { flash } = useScoreChange(cell.pairId, timeframe);
@@ -85,12 +87,14 @@ function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe:
           {price.toFixed(price >= 100 ? 2 : price >= 10 ? 3 : 5)}
         </div>
       )}
+      {mtfAlignment && <MTFIndicator alignment={mtfAlignment} />}
     </button>
   );
 }
 
 export function HeatmapWidget({ timeframe }: { timeframe: string }) {
   const { data: allScores } = useAllScores(timeframe);
+  const { alignments } = useMTFAlignments();
   const navigate = useNavigate();
 
   const { data: pairs } = useQuery<PairMap>({
@@ -103,6 +107,12 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
     },
     staleTime: 5 * 60_000,
   });
+
+  const mtfMap = useMemo(() => {
+    const map = new Map<string, typeof alignments[0]>();
+    alignments.forEach((a) => map.set(a.pair_id, a));
+    return map;
+  }, [alignments]);
 
   const cells = useMemo(() => {
     if (!allScores || !pairs) return [];
@@ -143,7 +153,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
       <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
           {cells.map((cell) => (
-            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} />
+            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} mtfAlignment={mtfMap.get(cell.pairId)} />
           ))}
         </div>
       </div>

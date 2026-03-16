@@ -14,6 +14,7 @@ import { BreakingNewsBanner } from "@/components/news/BreakingNewsBanner";
 import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
 import { PriceTicker } from "@/components/dashboard/PriceTicker";
 import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
+import { MTFAlignmentWidget } from "@/components/dashboard/MTFAlignmentWidget";
 import { ScanButton } from "@/components/scanner/ScanButton";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useAutoScan, scanIntervalOptions } from "@/hooks/useAutoScan";
@@ -188,6 +189,10 @@ const Index = () => {
           <StatCard label="Neutral" value={stats.neutral} icon={<Minus className="w-4 h-4" style={{ color: "#f59e0b" }} />} color="#f59e0b" sub="Consolidating" />
           <StatCard label="Avg Score" value={stats.avg || "—"} icon={<Activity className="w-4 h-4" style={{ color: sentimentColor }} />} color={sentimentColor} sub={marketSentiment} />
           <StatCard label="Auto-Scan" value={isAutoScanEnabled ? "ON" : "OFF"} icon={<Zap className="w-4 h-4" style={{ color: isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }} />} color={isAutoScanEnabled ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))"} sub={isAutoScanEnabled ? scanIntervalOptions.find(o => o.value === scanInterval)?.label ?? scanInterval : "Manual only"} />
+        </div>
+
+        <div className="anim-fade-up shrink-0" style={{ animationDelay: "135ms" }}>
+          <MTFAlignmentWidget />
         </div>
 
         <div className="anim-fade-up shrink-0" style={{ animationDelay: "140ms", minHeight: "160px" }}>
