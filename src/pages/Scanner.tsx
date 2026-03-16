@@ -328,14 +328,22 @@ export default function ScannerPage() {
             </span>
           )}
         </div>
-        <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scanning} />
-      </div>
-
-      {scanning && (
-        <div className="mb-4">
-          <ScanProgress done={scanDone} total={scanTotal} currentSymbol={scanSymbol} onCancel={handleCancelScan} />
+        <div className="flex items-center gap-3">
+          <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scan.isScanning} />
+          <ScanButton
+            isScanning={scan.isScanning}
+            progress={scan.progress}
+            done={scan.done}
+            total={scan.total}
+            currentSymbol={scan.currentSymbol}
+            eta={scan.eta}
+            lastScanDuration={scan.lastScanDuration}
+            lastScanAt={scan.lastScanAt}
+            timeframeLabel={tfLabel}
+            onScan={executeScan}
+          />
         </div>
-      )}
+      </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
