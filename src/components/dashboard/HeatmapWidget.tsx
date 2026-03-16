@@ -94,6 +94,7 @@ function HeatmapCell({ cell, timeframe, navigate, mtfAlignment }: { cell: CellDa
 
 export function HeatmapWidget({ timeframe }: { timeframe: string }) {
   const { data: allScores } = useAllScores(timeframe);
+  const { alignments } = useMTFAlignments();
   const navigate = useNavigate();
 
   const { data: pairs } = useQuery<PairMap>({
@@ -106,6 +107,12 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
     },
     staleTime: 5 * 60_000,
   });
+
+  const mtfMap = useMemo(() => {
+    const map = new Map<string, typeof alignments[0]>();
+    alignments.forEach((a) => map.set(a.pair_id, a));
+    return map;
+  }, [alignments]);
 
   const cells = useMemo(() => {
     if (!allScores || !pairs) return [];
@@ -146,7 +153,8 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
       <div className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1">
           {cells.map((cell) => (
-            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} />
+            <HeatmapCell key={cell.pairId} cell={cell} timeframe={timeframe} navigate={navigate} mtfAlignment={mtfMap.get(cell.pairId)} />
+          ))}
           ))}
         </div>
       </div>
