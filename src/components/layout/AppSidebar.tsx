@@ -10,7 +10,8 @@ import {
   Users,
   Settings,
   Bell,
-  LogOut } from
+  LogOut,
+  History } from
 "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,6 +22,7 @@ const mainNav = [
 { label: "News", icon: Newspaper, path: "/news" },
 { label: "Calendar", icon: Calendar, path: "/calendar" },
 { label: "Macro Desk", icon: Globe, path: "/scanner" },
+{ label: "Scan History", icon: History, path: "/scan-history" },
 { label: "Psychology", icon: Brain, path: null, soon: true },
 { label: "Journal", icon: BookOpen, path: null, soon: true },
 { label: "Community", icon: Users, path: null, soon: true }];
