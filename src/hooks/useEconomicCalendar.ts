@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface EconomicEvent {
@@ -122,7 +121,7 @@ export function useCalendarWeek() {
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { toast } = useToast();
+  const onActualReleasedRef = useRef<((ev: EconomicEvent) => void) | null>(null);
 
   const weekStart = useMemo(() => {
     const now = new Date();
@@ -181,16 +180,13 @@ export function useCalendarWeek() {
             prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
           );
 
-          toast({
-            title: `${updated.currency || ""} ${updated.event_name} Released`,
-            description: `Actual: ${updated.actual} | Forecast: ${updated.forecast || "N/A"}`,
-          });
+          onActualReleasedRef.current?.(updated);
         }
       )
       .subscribe();
 
     return () => { channel.unsubscribe(); };
-  }, [toast]);
+  }, []);
 
   const triggerCalendarRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -214,6 +210,7 @@ export function useCalendarWeek() {
     weekStart,
     weekEnd,
     weekOffset,
+    onActualReleasedRef,
     goNextWeek: () => setWeekOffset((o) => o + 1),
     goPrevWeek: () => setWeekOffset((o) => o - 1),
     goThisWeek: () => setWeekOffset(0),

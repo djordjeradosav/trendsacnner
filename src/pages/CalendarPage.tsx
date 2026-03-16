@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import {
   useCalendarWeek,
@@ -9,6 +9,7 @@ import { CalendarTable } from "@/components/calendar/CalendarTable";
 import { EventDetailDrawer } from "@/components/calendar/EventDetailDrawer";
 import { NextEventCountdown } from "@/components/calendar/NextEventCountdown";
 import { ChevronLeft, ChevronRight, Calendar, RefreshCw, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const formatWeekRange = (start: Date, end: Date) => {
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
@@ -19,8 +20,20 @@ const formatWeekRange = (start: Date, end: Date) => {
 export default function CalendarPage() {
   const {
     events, loading, refreshing, weekStart, weekEnd,
-    goNextWeek, goPrevWeek, goThisWeek, weekOffset, refetch,
+    goNextWeek, goPrevWeek, goThisWeek, weekOffset, refetch, onActualReleasedRef,
   } = useCalendarWeek();
+  const { toast } = useToast();
+
+  // Wire up realtime toast from the hook's ref
+  useEffect(() => {
+    onActualReleasedRef.current = (ev) => {
+      toast({
+        title: `${ev.currency || ""} ${ev.event_name} Released`,
+        description: `Actual: ${ev.actual} | Forecast: ${ev.forecast || "N/A"}`,
+      });
+    };
+    return () => { onActualReleasedRef.current = null; };
+  }, [toast, onActualReleasedRef]);
 
   const [impactFilter, setImpactFilter] = useState<string>("All");
   const [currencyFilters, setCurrencyFilters] = useState<string[]>([]);
