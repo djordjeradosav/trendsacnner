@@ -1,50 +1,18 @@
-import { useState, useCallback, useRef } from "react";
-
-export interface ScanState {
-  isScanning: boolean;
-  progress: number;
-  currentSymbol: string;
-  done: number;
-  total: number;
-  eta: number | null;
-  lastScanDuration: number | null;
-  lastScanAt: string | null;
-  result: {
-    total: number;
-    bullish: number;
-    bearish: number;
-    neutral: number;
-    scored: number;
-    durationMs: number;
-    avgScore: number;
-  } | null;
-}
-
-const initialState: ScanState = {
-  isScanning: false,
-  progress: 0,
-  currentSymbol: "",
-  done: 0,
-  total: 0,
-  eta: null,
-  lastScanDuration: null,
-  lastScanAt: null,
-  result: null,
-};
+import { useCallback, useRef } from "react";
+import { useScanStore } from "@/store/scanStore";
 
 export function useFastScan() {
-  const [state, setState] = useState<ScanState>(initialState);
+  const store = useScanStore();
   const abortRef = useRef<(() => void) | null>(null);
 
   const runScan = useCallback(async (timeframe: string) => {
-    setState((s) => ({ ...s, isScanning: true, progress: 0, done: 0, total: 0, currentSymbol: "", eta: null, result: null }));
+    store.startScan(timeframe);
     const startTime = Date.now();
 
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const url = `https://${projectId}.supabase.co/functions/v1/fast-scan?timeframe=${encodeURIComponent(timeframe)}`;
 
-    // Get auth token for scan history storage
     const { supabase } = await import("@/integrations/supabase/client");
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -67,7 +35,7 @@ export function useFastScan() {
 
       abortRef.current = () => {
         reader.cancel();
-        setState((s) => ({ ...s, isScanning: false }));
+        store.resetScan();
       };
 
       while (true) {
@@ -89,29 +57,12 @@ export function useFastScan() {
               const elapsed = Date.now() - startTime;
               const rate = msg.done / elapsed;
               const remaining = rate > 0 ? (msg.total - msg.done) / rate : 0;
-
-              setState((s) => ({
-                ...s,
-                progress: msg.pct,
-                currentSymbol: msg.symbol,
-                done: msg.done,
-                total: msg.total,
-                eta: Math.round(remaining / 1000),
-              }));
+              store.updateProgress(msg.done, msg.total, msg.pct, msg.symbol, Math.round(remaining / 1000));
             }
 
             if (msg.type === "complete") {
               const duration = Date.now() - startTime;
-              setState((s) => ({
-                ...s,
-                isScanning: false,
-                progress: 100,
-                done: msg.total,
-                total: msg.total,
-                lastScanDuration: duration,
-                lastScanAt: new Date().toISOString(),
-                result: msg,
-              }));
+              store.completeScan(msg, duration);
             }
           } catch {
             // skip malformed SSE
@@ -120,15 +71,15 @@ export function useFastScan() {
       }
     } catch (err) {
       console.error("Fast scan error:", err);
-      setState((s) => ({ ...s, isScanning: false }));
+      store.resetScan();
     } finally {
       abortRef.current = null;
     }
-  }, []);
+  }, [store]);
 
   const cancelScan = useCallback(() => {
     abortRef.current?.();
   }, []);
 
-  return { ...state, runScan, cancelScan };
+  return { runScan, cancelScan };
 }
