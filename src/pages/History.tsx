@@ -117,7 +117,7 @@ function MarketScoreChart({ data }: { data: MarketPoint[] }) {
     });
     chartRef.current = chart;
 
-    const series = chart.addLineSeries({ color: "#00ff7f", lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: "Avg Score" });
+    const series = chart.addSeries(LineSeries, { color: "#00ff7f", lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: "Avg Score" });
     const chartData = data.map((d) => ({ time: toChartTime(d.scan_time), value: d.avg_score }));
     series.setData(chartData);
 
@@ -125,9 +125,9 @@ function MarketScoreChart({ data }: { data: MarketPoint[] }) {
     if (chartData.length >= 2) {
       const t1 = chartData[0].time;
       const t2 = chartData[chartData.length - 1].time;
-      const bullLine = chart.addLineSeries({ color: "#22c55e", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
+      const bullLine = chart.addSeries(LineSeries, { color: "#22c55e", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
       bullLine.setData([{ time: t1, value: 65 }, { time: t2, value: 65 }]);
-      const bearLine = chart.addLineSeries({ color: "#ef4444", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
+      const bearLine = chart.addSeries(LineSeries, { color: "#ef4444", lineWidth: 1, lineStyle: LineStyle.Dashed, priceLineVisible: false, lastValueVisible: false });
       bearLine.setData([{ time: t1, value: 35 }, { time: t2, value: 35 }]);
     }
 
