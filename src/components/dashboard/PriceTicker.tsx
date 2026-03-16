@@ -154,7 +154,9 @@ export function PriceTicker() {
 function formatSymbolDisplay(symbol: string): string {
   // Format for display: EURUSD -> EUR/USD, ES1! -> S&P 500
   const displayNames: Record<string, string> = {
-    "ES1!": "S&P 500", "NQ1!": "Nasdaq",
+    "ES1!": "S&P 500", "NQ1!": "Nasdaq", "YM1!": "Dow 30",
+    "US500": "S&P 500", "US100": "Nasdaq", "US30": "Dow 30",
+    "USOIL": "WTI Oil", "UKOIL": "Brent Oil", "NATGAS": "Nat Gas",
   };
   if (displayNames[symbol]) return displayNames[symbol];
   if (symbol.length === 6 && !symbol.includes("!")) {
