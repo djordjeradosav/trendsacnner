@@ -23,9 +23,11 @@ const SYMBOL_MAP: Record<string, string> = {
   // Metals
   "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
   "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
-  // Commodities & Futures
+  // Commodities & Futures (canonical + DB alias symbols)
   "CL1!": "OANDA:WTICO_USD", "BZ1!": "OANDA:BCO_USD", "NG1!": "OANDA:NATGAS_USD",
   "ES1!": "OANDA:SPX500_USD", "NQ1!": "OANDA:NAS100_USD", "YM1!": "OANDA:US30_USD",
+  "USOIL": "OANDA:WTICO_USD", "UKOIL": "OANDA:BCO_USD", "NATGAS": "OANDA:NATGAS_USD",
+  "US500": "OANDA:SPX500_USD", "US100": "OANDA:NAS100_USD", "US30": "OANDA:US30_USD",
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
