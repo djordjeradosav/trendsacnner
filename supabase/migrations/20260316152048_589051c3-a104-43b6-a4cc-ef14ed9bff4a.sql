@@ -1,0 +1,1 @@
+UPDATE scores SET timeframe = '15min' WHERE timeframe IN ('15m','15M','15','15 min','15min ');
