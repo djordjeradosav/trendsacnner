@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllScores } from "@/hooks/useScores";
 import { useNavigate } from "react-router-dom";
+import { useLivePrice } from "@/hooks/useLivePrice";
+import { isLiveEligible } from "@/services/tickFeedService";
 
 interface PairMap {
   [id: string]: { symbol: string; category: string };
