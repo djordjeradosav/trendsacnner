@@ -7,6 +7,7 @@ import {
 import { CalendarFilters } from "@/components/calendar/CalendarFilters";
 import { CalendarTable } from "@/components/calendar/CalendarTable";
 import { EventDetailDrawer } from "@/components/calendar/EventDetailDrawer";
+import { NextEventCountdown } from "@/components/calendar/NextEventCountdown";
 import { ChevronLeft, ChevronRight, Calendar, RefreshCw, Loader2 } from "lucide-react";
 
 const formatWeekRange = (start: Date, end: Date) => {
@@ -119,6 +120,9 @@ export default function CalendarPage() {
             </button>
           </div>
         </div>
+
+        {/* Next high-impact countdown */}
+        <NextEventCountdown variant="full" />
 
         {/* Filters */}
         <CalendarFilters

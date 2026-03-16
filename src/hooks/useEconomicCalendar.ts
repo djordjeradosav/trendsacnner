@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface EconomicEvent {
@@ -115,12 +116,13 @@ export function useEconomicCalendar(limit?: number) {
   return { events, loading, nextHighImpact };
 }
 
-/** Full calendar hook with week navigation — fetches 3 weeks of data */
+/** Full calendar hook with week navigation, realtime actual updates */
 export function useCalendarWeek() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { toast } = useToast();
 
   const weekStart = useMemo(() => {
     const now = new Date();
@@ -133,8 +135,6 @@ export function useCalendarWeek() {
 
   const fetchWeek = useCallback(async () => {
     setLoading(true);
-
-    // Fetch the selected week's events
     const { data } = await supabase
       .from("economic_events")
       .select("*")
@@ -146,10 +146,8 @@ export function useCalendarWeek() {
     setEvents(fetched);
     setLoading(false);
 
-    // If no events found, auto-trigger the edge function to populate data
     if (fetched.length === 0 && !refreshing) {
       triggerCalendarRefresh().then(() => {
-        // Refetch after the edge function has had time to populate
         setTimeout(async () => {
           const { data: retryData } = await supabase
             .from("economic_events")
@@ -167,6 +165,33 @@ export function useCalendarWeek() {
 
   useEffect(() => { fetchWeek(); }, [fetchWeek]);
 
+  // Realtime: watch for UPDATE on economic_events (actual value releases)
+  useEffect(() => {
+    const channel = supabase
+      .channel("calendar-actuals")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "economic_events" },
+        (payload) => {
+          const updated = payload.new as EconomicEvent;
+          // Only care if actual was just set
+          if (!updated.actual) return;
+
+          setEvents((prev) =>
+            prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
+          );
+
+          toast({
+            title: `${updated.currency || ""} ${updated.event_name} Released`,
+            description: `Actual: ${updated.actual} | Forecast: ${updated.forecast || "N/A"}`,
+          });
+        }
+      )
+      .subscribe();
+
+    return () => { channel.unsubscribe(); };
+  }, [toast]);
+
   const triggerCalendarRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -179,7 +204,6 @@ export function useCalendarWeek() {
 
   const refetch = useCallback(async () => {
     await triggerCalendarRefresh();
-    // Wait a moment for data to be inserted, then refetch
     setTimeout(() => fetchWeek(), 2000);
   }, [triggerCalendarRefresh, fetchWeek]);
 
