@@ -366,7 +366,10 @@ Deno.serve(async (req) => {
             if (rateLimited) return null;
 
             const finnhubSymbol = getFinnhubSymbol(pair.symbol);
-            if (!finnhubSymbol) return null;
+            if (!finnhubSymbol) {
+              console.warn(`[SCAN] ${pair.symbol}: no Finnhub symbol mapping`);
+              return null;
+            }
 
             const abortCtl = new AbortController();
             const timeout = setTimeout(() => abortCtl.abort(), 8000);
@@ -374,10 +377,17 @@ Deno.serve(async (req) => {
               const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
               const res = await fetch(url, { signal: abortCtl.signal });
 
-              if (res.status === 429) { rateLimited = true; return null; }
-              if (res.status === 403) return null;
+              if (res.status === 429) { 
+                console.warn(`[SCAN] ${pair.symbol}: rate limited (429)`);
+                rateLimited = true; return null; 
+              }
+              if (res.status === 403) {
+                console.warn(`[SCAN] ${pair.symbol}: forbidden (403)`);
+                return null;
+              }
 
               const data = (await res.json()) as FinnhubCandleResponse;
+              console.log(`[SCAN] ${pair.symbol} (${finnhubSymbol}): status="${data.s}" candles=${data.c?.length ?? 0} resolution=${resolution}`);
               if (data.s !== "ok" || !data.c?.length) return null;
 
               return {
