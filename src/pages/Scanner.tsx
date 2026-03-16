@@ -345,6 +345,7 @@ export default function ScannerPage() {
             timeframeLabel={tfLabel}
             onScan={executeScan}
           />
+          <MTFScanButton />
         </div>
       </div>
 
