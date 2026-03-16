@@ -115,17 +115,17 @@ const Index = () => {
   return (
     <AppLayout
       lastScan={lastScan}
-      isLive={scan.isScanning}
-      scanning={scan.isScanning}
-      scanDone={scan.done}
-      scanTotal={scan.total}
+      isLive={scanState.isScanning}
+      scanning={scanState.isScanning}
+      scanDone={scanState.done}
+      scanTotal={scanState.total}
       onRunScan={executeScan}
-      onCancelScan={scan.cancelScan}
+      onCancelScan={cancelScan}
       timeUntilNextScan={timeUntilNextScan}
       isAutoScanEnabled={isAutoScanEnabled}
       autoScanAgo={autoScanAgo}
       timeframe={selectedTimeframe}
-      currentSymbol={scan.currentSymbol}
+      currentSymbol={scanState.currentSymbol}
       wsStatus={wsFeed.status}
       wsPairCount={wsFeed.pairCount}
       wsEligible={wsFeed.isEligible}
@@ -154,21 +154,27 @@ const Index = () => {
                 {stats.avg || "—"}
               </span>
             </div>
-            <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scan.isScanning} />
+            <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scanState.isScanning} />
+            <AutoScanCountdown
+              timeUntilNextScan={timeUntilNextScan}
+              isAutoScanEnabled={isAutoScanEnabled}
+              isScanning={scanState.isScanning}
+              intervalMs={activeIntervalMs}
+            />
           </div>
         </div>
 
-        {/* Scan Button — replaces old ScanProgress */}
+        {/* Scan Button */}
         <div className="flex justify-end shrink-0">
           <ScanButton
-            isScanning={scan.isScanning}
-            progress={scan.progress}
-            done={scan.done}
-            total={scan.total}
-            currentSymbol={scan.currentSymbol}
-            eta={scan.eta}
-            lastScanDuration={scan.lastScanDuration}
-            lastScanAt={scan.lastScanAt}
+            isScanning={scanState.isScanning}
+            progress={scanState.progress}
+            done={scanState.done}
+            total={scanState.total}
+            currentSymbol={scanState.currentSymbol}
+            eta={scanState.eta}
+            lastScanDuration={scanState.lastScanDuration}
+            lastScanAt={scanState.lastScanAt}
             timeframeLabel={tfLabel}
             onScan={executeScan}
           />
