@@ -5,6 +5,7 @@ import { ChatAssistant } from "@/components/chat/ChatAssistant";
 import { useChatContext } from "@/hooks/useChatContext";
 import { MobileScanFAB } from "./MobileScanFAB";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useFinnhubWebSocket } from "@/hooks/useFinnhubWebSocket";
 
 interface AppLayoutProps {
   children: React.ReactNode;
