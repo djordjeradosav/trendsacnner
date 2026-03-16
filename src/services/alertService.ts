@@ -60,6 +60,19 @@ export async function checkAlertRules(scores: ScoreData[]): Promise<number> {
       for (const s of candidates) {
         if (s.score >= rule.threshold) matches.push(s);
       }
+    } else if (rule.rule_type === "mtf_alignment") {
+      // Check for MTF alignment alerts
+      const candidates = rule.pair_id ? [scoreMap.get(rule.pair_id)].filter(Boolean) as ScoreData[] : Array.from(scoreMap.values());
+      for (const s of candidates) {
+        const mtf = mtfMap.get(s.pair_id);
+        if (!mtf) continue;
+        const alignmentCount = Math.max(mtf.bull_count, mtf.bear_count);
+        if (rule.direction === "perfect" && mtf.label === "Perfect") {
+          matches.push(s);
+        } else if (rule.direction === "strengthens" && alignmentCount >= rule.threshold) {
+          matches.push(s);
+        }
+      }
     }
 
     // Create notifications for matches (limit to first 5 per rule per scan)
