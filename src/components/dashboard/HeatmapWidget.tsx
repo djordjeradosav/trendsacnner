@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { useScoreChange } from "@/hooks/useScoreChange";
 import { isLiveEligible } from "@/services/tickFeedService";
+import { useScanStore } from "@/store/scanStore";
 
 interface PairMap {
   [id: string]: { symbol: string; category: string };
