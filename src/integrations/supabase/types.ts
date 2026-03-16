@@ -822,6 +822,14 @@ export type Database = {
           total_pairs: number
         }[]
       }
+      get_sparkline_data: {
+        Args: { p_limit?: number; p_timeframe: string }
+        Returns: {
+          pair_id: string
+          score_change: number
+          scores: number[]
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
