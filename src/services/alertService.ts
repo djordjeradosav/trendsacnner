@@ -24,6 +24,10 @@ export async function checkAlertRules(scores: ScoreData[]): Promise<number> {
 
   if (!rules || rules.length === 0) return 0;
 
+  // Also check MTF alignment alerts
+  const { data: mtfAlignments } = await supabase.from("mtf_alignments").select("*");
+  const mtfMap = new Map<string, any>();
+  mtfAlignments?.forEach((a: any) => mtfMap.set(a.pair_id, a));
   // Build lookup maps
   const scoreMap = new Map<string, ScoreData>();
   scores.forEach((s) => scoreMap.set(s.pair_id, s));
