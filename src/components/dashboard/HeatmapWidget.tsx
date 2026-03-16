@@ -44,6 +44,10 @@ function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe:
   const showLive = isLiveEligible(timeframe);
   const { price, direction } = useLivePrice(showLive ? cell.symbol : undefined);
   const { flash } = useScoreChange(cell.pairId, timeframe);
+  const isScanning = useScanStore((s) => s.isScanning);
+  const scannedPairIds = useScanStore((s) => s.scannedPairIds);
+  const isThisPairScanned = scannedPairIds.has(cell.pairId);
+  const showShimmer = isScanning && !isThisPairScanned;
 
   const flashBorder = flash === "up" ? "hsl(142 70% 50%)" : flash === "down" ? "hsl(0 70% 50%)" : scoreToBorder(cell.score);
   const scoreColor = flash === "up" ? "hsl(142 70% 60%)" : flash === "down" ? "hsl(0 70% 60%)" : undefined;
@@ -51,7 +55,7 @@ function HeatmapCell({ cell, timeframe, navigate }: { cell: CellData; timeframe:
   return (
     <button
       onClick={() => navigate(`/pair/${cell.symbol}`)}
-      className="rounded-md p-1.5 text-center hover:scale-105 hover:z-10 cursor-pointer"
+      className={`rounded-md p-1.5 text-center hover:scale-105 hover:z-10 cursor-pointer ${showShimmer ? "scan-shimmer" : ""}`}
       style={{
         background: scoreToColor(cell.score),
         border: `1px solid ${flashBorder}`,
