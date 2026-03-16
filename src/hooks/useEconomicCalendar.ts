@@ -210,6 +210,7 @@ export function useCalendarWeek() {
     weekStart,
     weekEnd,
     weekOffset,
+    onActualReleasedRef,
     goNextWeek: () => setWeekOffset((o) => o + 1),
     goPrevWeek: () => setWeekOffset((o) => o - 1),
     goThisWeek: () => setWeekOffset(0),
