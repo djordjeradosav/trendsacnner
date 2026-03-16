@@ -62,6 +62,7 @@ const Index = () => {
   const [lastScan, setLastScan] = useState<string | null>(null);
 
   const scan = useFastScan();
+  const wsFeed = useTickFeedStatus(selectedTimeframe);
   const { data: allScores } = useAllScores(selectedTimeframe);
 
   const stats = useMemo(() => {
