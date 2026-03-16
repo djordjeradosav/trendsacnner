@@ -202,11 +202,24 @@ function getTwelveDataSymbol(symbol: string): string {
   return symbol;
 }
 
+const CANDLE_LIMITS: Record<string, number> = {
+  "1min": 120, "3min": 120, "5min": 150,
+  "15min": 250, "30min": 250,
+  "1h": 300, "4h": 300, "1day": 365, "1week": 200,
+};
+
+const MINIMUM_CANDLES: Record<string, number> = {
+  "1min": 60, "3min": 60, "5min": 80,
+  "15min": 100, "30min": 100,
+  "1h": 100, "4h": 100, "1day": 100, "1week": 50,
+};
+
 function getCandleLimit(tf: string): number {
-  if (["1min","3min","5min"].includes(tf)) return 100;
-  if (["15min","30min"].includes(tf)) return 150;
-  if (["1h","4h"].includes(tf)) return 200;
-  return 250;
+  return CANDLE_LIMITS[tf] || 200;
+}
+
+function getMinimumCandles(tf: string): number {
+  return MINIMUM_CANDLES[tf] || 50;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
