@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { finnhubWS, type TickHandler } from "@/services/finnhubWebSocket";
 import { supabase } from "@/integrations/supabase/client";
 
