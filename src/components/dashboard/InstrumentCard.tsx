@@ -12,6 +12,21 @@ interface InstrumentCardProps {
   dataQuality?: "full" | "no-social" | "no-news" | "technical-only";
   scannedAt?: string | null;
   explanationLines?: string[];
+  rsi?: number | null;
+  adx?: number | null;
+  emaFast?: number | null;
+  emaMid?: number | null;
+}
+
+function formatTimeAgo(dateStr: string | null): string {
+  if (!dateStr) return "—";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 export function InstrumentCard({
@@ -25,6 +40,10 @@ export function InstrumentCard({
   dataQuality = "technical-only",
   scannedAt,
   explanationLines = [],
+  rsi,
+  adx,
+  emaFast,
+  emaMid,
 }: InstrumentCardProps) {
   const changeColor =
     percentChange === null
@@ -78,8 +97,8 @@ export function InstrumentCard({
           <span className="font-display font-bold" style={{ fontSize: "15px", color: "hsl(var(--foreground))" }}>
             {symbol}
           </span>
-          <span className="font-display" style={{ fontSize: "13px", color: changeColor }}>
-            {changeStr}
+          <span className="font-display font-bold" style={{ fontSize: "15px", color: changeColor }}>
+            {confidence}/100
           </span>
           {explanationLines.length > 0 && (
             <ScoreExplanation symbol={symbol} score={confidence} explanationLines={explanationLines} scannedAt={scannedAt} />
@@ -102,11 +121,32 @@ export function InstrumentCard({
         <span className="font-display" style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}>{confidence}%</span>
       </div>
       <div className="mt-1 w-full rounded-full overflow-hidden" style={{ height: "3px", background: "hsl(var(--border))" }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(confidence, 100)}%`, background: barColor }} />
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(confidence, 100)}%`, background: barColor }} />
       </div>
 
+      {/* Indicator values from scan */}
+      {(rsi != null || adx != null) && (
+        <div className="mt-2 flex items-center gap-3">
+          {rsi != null && (
+            <span className="text-[9px] font-mono" style={{ color: rsi > 60 ? "hsl(var(--bullish))" : rsi < 40 ? "hsl(var(--destructive))" : "hsl(var(--muted-foreground))" }}>
+              RSI {rsi.toFixed(0)}
+            </span>
+          )}
+          {adx != null && (
+            <span className="text-[9px] font-mono" style={{ color: adx >= 25 ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }}>
+              ADX {adx.toFixed(0)}
+            </span>
+          )}
+          {emaFast != null && emaMid != null && (
+            <span className="text-[9px] font-mono" style={{ color: emaFast > emaMid ? "hsl(var(--bullish))" : "hsl(var(--destructive))" }}>
+              EMA {emaFast > emaMid ? "↑" : "↓"}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* News sentiment indicator */}
-      <div className="mt-1.5 flex items-center gap-1.5">
+      <div className="mt-1.5 flex items-center justify-between">
         <span style={{
           fontSize: "9px",
           color: newsScore != null && newsScore >= 7
@@ -117,6 +157,9 @@ export function InstrumentCard({
         }}>
           {newsScore != null && newsScore >= 7 ? "🟢 News positive" : newsScore != null && newsScore <= 4 ? "🔴 News negative" : "⚪ News neutral"}
         </span>
+        {scannedAt && (
+          <span className="text-[8px] font-mono text-muted-foreground/60">{formatTimeAgo(scannedAt)}</span>
+        )}
       </div>
 
       {/* AI Analysis */}
