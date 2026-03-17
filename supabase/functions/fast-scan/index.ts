@@ -118,7 +118,7 @@ function latest(arr: number[]): number {
 interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
 function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
-  const isShortTF = ["1min","3min","5min","15min","30min"].includes(timeframe || "");
+  const isShortTF = ["15min","30min"].includes(timeframe || "");
   if (isShortTF) {
     if (price > e20 && e20 > e50 && e50 > e200) return 22;
     if (price < e20 && e20 < e50 && e50 < e200) return 0;
@@ -150,15 +150,11 @@ function scoreMACD(hist: number, histPrev: number): number {
 }
 
 const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
-  "1min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "3min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "5min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "15min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "30min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "1h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "4h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "1day":  { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "1week": { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
 };
 
 function getConfig(tf: string) {
@@ -239,8 +235,8 @@ const SYMBOL_MAP: Record<string, string> = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "1min": "1", "3min": "3", "5min": "5", "15min": "15", "30min": "30",
-  "1h": "60", "4h": "240", "1day": "D", "1week": "W",
+  "15min": "15", "30min": "30",
+  "1h": "60", "4h": "240", "1day": "D",
 };
 
 // Finnhub free tier only supports resolution "60" and above for forex candles.
@@ -256,8 +252,8 @@ function getEffectiveResolution(resolution: string): string {
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "1min": 60, "3min": 180, "5min": 300, "15min": 900, "30min": 1800,
-    "1h": 3600, "4h": 14400, "1day": 86400, "1week": 604800,
+    "15min": 900, "30min": 1800,
+    "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
 }
@@ -276,15 +272,13 @@ type FinnhubCandleResponse = {
 };
 
 const CANDLE_LIMITS: Record<string, number> = {
-  "1min": 120, "3min": 120, "5min": 150,
   "15min": 250, "30min": 250,
-  "1h": 300, "4h": 300, "1day": 365, "1week": 200,
+  "1h": 300, "4h": 300, "1day": 365,
 };
 
 const MINIMUM_CANDLES: Record<string, number> = {
-  "1min": 30, "3min": 30, "5min": 40,
   "15min": 55, "30min": 55,
-  "1h": 60, "4h": 60, "1day": 100, "1week": 50,
+  "1h": 60, "4h": 60, "1day": 100,
 };
 
 function getCandleLimit(tf: string): number { return CANDLE_LIMITS[tf] || 200; }
@@ -355,7 +349,7 @@ Deno.serve(async (req) => {
   const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
   const intervalSec = getIntervalSeconds(effectiveTF);
-  const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
+  const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
   const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
   
   if (usedFallback) {

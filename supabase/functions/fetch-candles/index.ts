@@ -33,8 +33,8 @@ const SYMBOL_MAP: Record<string, string> = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "1min": "1", "3min": "3", "5min": "5", "15min": "15", "30min": "30",
-  "1h": "60", "4h": "240", "1day": "D", "1week": "W",
+  "15min": "15", "30min": "30",
+  "1h": "60", "4h": "240", "1day": "D",
 };
 
 // Finnhub free tier only supports resolution "60" and above for forex
@@ -42,8 +42,8 @@ const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "1min": 60, "3min": 180, "5min": 300, "15min": 900, "30min": 1800,
-    "1h": 3600, "4h": 14400, "1day": 86400, "1week": 604800,
+    "15min": 900, "30min": 1800,
+    "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
 }
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     // Calculate from/to timestamps
     const to = Math.floor(Date.now() / 1000);
     const intervalSec = getIntervalSeconds(effectiveTF);
-    const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
+    const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
     const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
 
     const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
