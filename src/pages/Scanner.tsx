@@ -18,9 +18,10 @@ import { TimeframeSelector } from "@/components/scanner/TimeframeSelector";
 import { MarketSentimentBar, SectorCards } from "@/components/scanner/MarketSectors";
 import { useSectorStats } from "@/hooks/useSectorStats";
 import { useWatchlists } from "@/hooks/useWatchlists";
-import { useAllScores, type ScoreRow } from "@/hooks/useScores";
+import { useScoresStore, loadAllTimeframeScores, type ScoreEntry } from "@/stores/useScoresStore";
+import { useEnsureFreshData } from "@/hooks/useEnsureFreshData";
 import { timeframeOptions } from "@/hooks/useTimeframe";
-import { Grid, type CellComponentProps } from "react-window";
+import { timeAgo } from "@/lib/display";
 
 interface PairInfo {
   id: string;
@@ -65,6 +66,8 @@ function TrendArrow({ trend }: { trend: string }) {
 const CATEGORIES = ["All", "Forex", "Futures", "Commodity"];
 
 export default function ScannerPage() {
+  useEnsureFreshData();
+
   const [pairsInfo, setPairsInfo] = useState<PairInfo[]>([]);
   const [pairsLoading, setPairsLoading] = useState(true);
   const [filter, setFilter] = useState("All");
@@ -79,22 +82,31 @@ export default function ScannerPage() {
 
   const scan = useFastScan();
 
+  // Read from Zustand store
+  const allStoreScores = useScoresStore((s) => s.getAll(selectedTimeframe));
+  const storeScoreMap = useMemo(() => {
+    const m = new Map<string, ScoreEntry>();
+    allStoreScores.forEach((s) => m.set(s.symbol, s));
+    return m;
+  }, [allStoreScores]);
+
+  // Sync timeframe to store
+  useEffect(() => {
+    useScoresStore.getState().setActiveTimeframe(selectedTimeframe);
+  }, [selectedTimeframe]);
+
   // Track recently updated pair_ids for flash animation
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const prevScoresRef = useRef<ScoreEntry[]>();
 
-  // Use React Query + realtime for scores
-  const { data: allScores, isLoading: scoresLoading } = useAllScores(selectedTimeframe);
-
-  // Track when scores update for "Updated X ago" indicator
-  const prevScoresRef = useRef<ScoreRow[] | undefined>();
   useEffect(() => {
-    if (allScores && prevScoresRef.current && allScores !== prevScoresRef.current) {
-      // Find changed pair_ids
-      const prevMap = new Map(prevScoresRef.current.map((s) => [s.pair_id, s.score]));
+    if (allStoreScores.length > 0 && prevScoresRef.current && prevScoresRef.current !== allStoreScores) {
+      const prevMap = new Map(prevScoresRef.current.map((s) => [s.symbol, s.score]));
       const changed = new Set<string>();
-      allScores.forEach((s) => {
-        if (prevMap.get(s.pair_id) !== s.score) changed.add(s.pair_id);
+      allStoreScores.forEach((s) => {
+        const pairInfo = pairsInfo.find((p) => p.symbol === s.symbol);
+        if (pairInfo && prevMap.get(s.symbol) !== s.score) changed.add(pairInfo.id);
       });
       if (changed.size > 0) {
         setFlashIds(changed);
@@ -102,21 +114,20 @@ export default function ScannerPage() {
         setTimeout(() => setFlashIds(new Set()), 1500);
       }
     }
-    prevScoresRef.current = allScores;
-  }, [allScores]);
+    prevScoresRef.current = allStoreScores;
+  }, [allStoreScores, pairsInfo]);
 
-  // Merge pairs info with scores
+  // Merge pairs info with store scores
   const pairs: PairScore[] = useMemo(() => {
-    if (!pairsInfo.length || !allScores) return [];
-    const scoreMap = new Map(allScores.map((s) => [s.pair_id, s]));
+    if (!pairsInfo.length) return [];
     return pairsInfo.map((p) => {
-      const s = scoreMap.get(p.id);
+      const s = storeScoreMap.get(p.symbol);
       return {
         pairId: p.id,
         symbol: p.symbol,
         name: p.name,
         category: p.category,
-        score: s ? Number(s.score) : 50,
+        score: s ? s.score : 50,
         trend: s?.trend ?? "neutral",
         emaScore: s?.ema_score ?? null,
         adxScore: s?.adx_score ?? null,
@@ -124,14 +135,15 @@ export default function ScannerPage() {
         macdScore: s?.macd_score ?? null,
       };
     });
-  }, [pairsInfo, allScores]);
+  }, [pairsInfo, storeScoreMap]);
 
   const executeScan = useCallback(async () => {
     if (scan.isScanning) return;
     await scan.runScan(selectedTimeframe);
+    // Reload store after scan
+    await loadAllTimeframeScores();
   }, [scan.isScanning, selectedTimeframe, scan.runScan]);
 
-  // Show toast on completion
   useEffect(() => {
     if (scan.result && !scan.isScanning) {
       setLastScan(new Date().toLocaleString());
@@ -144,7 +156,6 @@ export default function ScannerPage() {
 
   const { timeUntilNextScan, isAutoScanEnabled, autoScanAgo } = useAutoScan(executeScan);
 
-  // Fetch pairs info once
   useEffect(() => {
     const fetchPairs = async () => {
       setPairsLoading(true);
@@ -197,10 +208,9 @@ export default function ScannerPage() {
     currentSymbol: scan.currentSymbol,
   };
 
-  const loading = pairsLoading || scoresLoading;
-  const hasScores = !!allScores && allScores.length > 0;
+  const loading = pairsLoading;
+  const hasScores = allStoreScores.length > 0;
 
-  // Updated ago text
   const updatedAgoText = useMemo(() => {
     if (!lastUpdated) return null;
     const diffSec = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
@@ -209,7 +219,6 @@ export default function ScannerPage() {
     return `Updated ${Math.floor(diffSec / 60)}m ago`;
   }, [lastUpdated]);
 
-  // Re-render the ago text every 5s
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!lastUpdated) return;
@@ -217,52 +226,10 @@ export default function ScannerPage() {
     return () => clearInterval(interval);
   }, [lastUpdated]);
 
-  // Virtualised heatmap
-  const CELL_W = 160;
-  const CELL_H = 94;
-  const GAP = 8;
-  const gridContainerRef = useRef<HTMLDivElement>(null);
-  const [gridWidth, setGridWidth] = useState(960);
-  useEffect(() => {
-    const el = gridContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setGridWidth(entry.contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const colCount = Math.max(1, Math.floor((gridWidth + GAP) / (CELL_W + GAP)));
-  const rowCount = Math.ceil(filtered.length / colCount);
-  const useVirtualisation = filtered.length > 60;
-
-  const HeatmapCell = useCallback(({ columnIndex, rowIndex, style }: CellComponentProps) => {
-    const idx = rowIndex * colCount + columnIndex;
-    if (idx >= filtered.length) return <div style={style} />;
-    const p = filtered[idx];
-    const isFlashing = flashIds.has(p.pairId);
-
-    return (
-      <div style={{ ...style, padding: GAP / 2 }}>
-        <button
-          onClick={() => navigate(`/pair/${p.symbol}`)}
-          className={`relative w-full h-full flex flex-col items-center justify-center rounded-lg border p-3 transition-all duration-150 hover:scale-[1.04] hover:brightness-125 hover:z-10 cursor-pointer ${getScoreBg(p.score)} ${isFlashing ? "ring-2 ring-primary animate-pulse" : ""}`}
-        >
-          <span className="text-[13px] font-display font-bold text-foreground leading-none">{p.symbol}</span>
-          <span className={`text-2xl font-display font-bold leading-tight ${getScoreColor(p.score)}`}>{Math.round(p.score)}</span>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <TrendArrow trend={p.trend} />
-            <span className="text-[10px] font-body px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{p.category}</span>
-          </div>
-        </button>
-      </div>
-    );
-  }, [filtered, colCount, flashIds, navigate]);
-
   if (loading) {
     return (
       <AppLayout {...layoutProps}>
         <div className="space-y-4">
-          {/* Skeleton stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-2">
@@ -271,21 +238,9 @@ export default function ScannerPage() {
               </div>
             ))}
           </div>
-          {/* Skeleton heatmap cells */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
             {Array.from({ length: 18 }).map((_, i) => (
               <Skeleton key={i} className="h-[90px] rounded-lg" />
-            ))}
-          </div>
-          {/* Skeleton leaderboards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[0, 1].map((i) => (
-              <div key={i} className="rounded-lg border border-border bg-card p-4 space-y-3">
-                <Skeleton className="h-4 w-32" />
-                {Array.from({ length: 5 }).map((_, j) => (
-                  <Skeleton key={j} className="h-6 w-full" />
-                ))}
-              </div>
             ))}
           </div>
         </div>
@@ -354,7 +309,6 @@ export default function ScannerPage() {
         <StatCard label="Avg Score" value={avgScore} color={getScoreColor(avgScore)} />
       </div>
 
-      {/* Market Sectors */}
       {sentiment && <MarketSentimentBar sentiment={sentiment} />}
       {sectors.length > 0 && <SectorCards sectors={sectors} />}
 
@@ -393,25 +347,13 @@ export default function ScannerPage() {
         </div>
       )}
 
-      {/* Heatmap Grid — Virtualised for large sets */}
+      {/* Heatmap Grid */}
       <ErrorBoundary name="Heatmap">
-      <div ref={gridContainerRef} className="mb-10">
-        {useVirtualisation ? (
-          <Grid
-            cellComponent={HeatmapCell}
-            cellProps={{}}
-            columnCount={colCount}
-            columnWidth={CELL_W + GAP}
-            rowCount={rowCount}
-            rowHeight={CELL_H + GAP}
-            defaultHeight={Math.min(rowCount * (CELL_H + GAP), 600)}
-            defaultWidth={gridWidth}
-            overscanCount={3}
-          />
-        ) : (
+        <div className="mb-10">
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
             {filtered.map((p) => {
               const isFlashing = flashIds.has(p.pairId);
+              const storeScore = storeScoreMap.get(p.symbol);
               return (
                 <Tooltip key={p.pairId}>
                   <TooltipTrigger asChild>
@@ -425,18 +367,21 @@ export default function ScannerPage() {
                         <TrendArrow trend={p.trend} />
                         <span className="text-[10px] font-body px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{p.category}</span>
                       </div>
+                      {storeScore && (
+                        <span className="text-[8px] text-muted-foreground mt-0.5">{timeAgo(storeScore.scanned_at)}</span>
+                      )}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="text-xs font-body">
                     <p className="font-semibold">{p.name}</p>
                     <p>Score: {p.score} · {p.trend}</p>
+                    {storeScore?.rsi != null && <p>RSI: {storeScore.rsi.toFixed(1)} · ADX: {storeScore.adx?.toFixed(1) ?? "—"}</p>}
                   </TooltipContent>
                 </Tooltip>
               );
             })}
           </div>
-        )}
-      </div>
+        </div>
       </ErrorBoundary>
 
       {/* Leaderboards */}
