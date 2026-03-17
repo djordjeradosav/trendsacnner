@@ -142,7 +142,7 @@ export default function PairDetail() {
     fetchCandles();
   }, [pair, timeframe]);
 
-  // Fetch score history
+  // Fetch score history filtered by timeframe
   useEffect(() => {
     if (!pair) return;
     const fetchHistory = async () => {
@@ -150,6 +150,7 @@ export default function PairDetail() {
         .from("scores")
         .select("score, scanned_at")
         .eq("pair_id", pair.id)
+        .eq("timeframe", timeframe)
         .order("scanned_at", { ascending: true })
         .limit(48);
 
@@ -160,7 +161,10 @@ export default function PairDetail() {
       }
     };
     fetchHistory();
-  }, [pair]);
+  }, [pair, timeframe]);
+
+  // Live score from DB for this pair + timeframe
+  const { data: liveScore } = usePairScore(pair?.id, timeframe);
 
   // Computed indicators
   const indicators = useMemo(() => {
