@@ -35,13 +35,23 @@ import {
   type Time,
 } from "lightweight-charts";
 
-const TIMEFRAMES = ["15min", "1h", "4h", "1day", "1week"];
+const TIMEFRAMES = ["15min", "30min", "1h", "4h", "1day", "1week"];
 const TF_LABELS: Record<string, string> = {
   "15min": "15M",
+  "30min": "30M",
   "1h": "1H",
   "4h": "4H",
   "1day": "1D",
   "1week": "1W",
+};
+
+const TF_COLORS: Record<string, string> = {
+  "15min": "#a78bfa",
+  "30min": "#22d3ee",
+  "1h": "#3b82f6",
+  "4h": "#f59e0b",
+  "1day": "#22c55e",
+  "1week": "#ef4444",
 };
 
 interface Candle {

@@ -45,16 +45,19 @@ export function useAllScores(timeframe: string) {
     staleTime: 60_000,
   });
 
-  // Realtime subscription
+  // Realtime subscription — re-subscribe when timeframe changes
   useEffect(() => {
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+    }
+
     const channel = supabase
-      .channel("scores-realtime")
+      .channel(`scores-realtime-${timeframe}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "scores" },
+        { event: "INSERT", schema: "public", table: "scores", filter: `timeframe=eq.${timeframe}` },
         (payload) => {
           const newScore = payload.new as ScoreRow;
-          // Update the "all scores" cache in place
           queryClient.setQueryData<ScoreRow[]>(
             ["scores", "all", newScore.timeframe],
             (old) => {
@@ -68,8 +71,6 @@ export function useAllScores(timeframe: string) {
               return [newScore, ...old];
             }
           );
-
-          // Also invalidate pair-specific queries
           queryClient.invalidateQueries({
             queryKey: ["scores", "pair", newScore.pair_id],
           });
@@ -81,7 +82,7 @@ export function useAllScores(timeframe: string) {
     return () => {
       channel.unsubscribe();
     };
-  }, [queryClient]);
+  }, [queryClient, timeframe]);
 
   return query;
 }
