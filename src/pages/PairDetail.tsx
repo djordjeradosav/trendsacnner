@@ -13,9 +13,6 @@ import { PairNewsSection } from "@/components/news/PairNewsSection";
 import { SocialBuzzCard } from "@/components/social/SocialBuzzCard";
 import { MultiTFStrip } from "@/components/pair/MultiTFStrip";
 import { usePairScore } from "@/hooks/useScores";
-import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
-import { PairNewsSection } from "@/components/news/PairNewsSection";
-import { SocialBuzzCard } from "@/components/social/SocialBuzzCard";
 import {
   calcEMA,
   calcRSI,
