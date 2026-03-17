@@ -235,8 +235,8 @@ const SYMBOL_MAP: Record<string, string> = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "1min": "1", "3min": "3", "5min": "5", "15min": "15", "30min": "30",
-  "1h": "60", "4h": "240", "1day": "D", "1week": "W",
+  "15min": "15", "30min": "30",
+  "1h": "60", "4h": "240", "1day": "D",
 };
 
 // Finnhub free tier only supports resolution "60" and above for forex candles.
