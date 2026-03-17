@@ -252,8 +252,8 @@ function getEffectiveResolution(resolution: string): string {
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "1min": 60, "3min": 180, "5min": 300, "15min": 900, "30min": 1800,
-    "1h": 3600, "4h": 14400, "1day": 86400, "1week": 604800,
+    "15min": 900, "30min": 1800,
+    "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
 }
