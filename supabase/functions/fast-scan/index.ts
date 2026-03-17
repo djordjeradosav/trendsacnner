@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
   const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
   const intervalSec = getIntervalSeconds(effectiveTF);
-  const bufferMultiplier = ["1min","3min","5min","15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
+  const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
   const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
   
   if (usedFallback) {
