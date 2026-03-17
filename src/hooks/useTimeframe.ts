@@ -7,7 +7,6 @@ export interface TimeframeOption {
 
 export const timeframeOptions: TimeframeOption[] = [
   { value: "15min", label: "15M" },
-  { value: "30min", label: "30M" },
   { value: "1h", label: "1H" },
   { value: "4h", label: "4H" },
   { value: "1day", label: "1D" },

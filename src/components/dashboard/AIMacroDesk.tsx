@@ -158,10 +158,6 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
                 aiAnalysis={analysis?.summary ?? null}
                 loading={isLoading}
                 newsScore={score?.news_score ?? null}
-                rsi={score ? Number(score.rsi_score) : null}
-                adx={score ? Number(score.adx_score) : null}
-                emaFast={score ? Number(score.ema_score) : null}
-                emaMid={null}
                 dataQuality={
                   score?.news_score != null && score?.social_score != null ? "full"
                   : score?.social_score == null && score?.news_score != null ? "no-social"
