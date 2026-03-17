@@ -14,6 +14,7 @@ import { MarketBriefCard } from "@/components/dashboard/MarketBriefCard";
 import { PriceTicker } from "@/components/dashboard/PriceTicker";
 import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
 import { ScanButton } from "@/components/scanner/ScanButton";
+import { ScanAllButton } from "@/components/scanner/ScanAllButton";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
 import { useAllScores } from "@/hooks/useScores";
