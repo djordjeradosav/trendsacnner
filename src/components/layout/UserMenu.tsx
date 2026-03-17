@@ -28,12 +28,14 @@ export function UserMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="w-8 h-8 rounded-full bg-accent flex items-center justify-center overflow-hidden hover:ring-1 hover:ring-ring transition-all outline-none">
+      <DropdownMenuTrigger asChild>
+        <button className="w-8 h-8 rounded-full bg-accent flex items-center justify-center overflow-hidden hover:ring-1 hover:ring-ring transition-all">
           {avatarUrl ? (
             <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
           ) : (
             <span className="text-xs font-display font-bold text-muted-foreground">{initials}</span>
           )}
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
