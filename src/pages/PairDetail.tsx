@@ -395,10 +395,27 @@ export default function PairDetail() {
     );
   }
 
+  // Use live score from DB if available, fall back to local calc
+  const displayScore = liveScore ? {
+    score: Math.round(liveScore.score),
+    trend: liveScore.trend as "bullish" | "neutral" | "bearish",
+  } : scoreResult ? {
+    score: scoreResult.score,
+    trend: scoreResult.trend,
+  } : null;
+
+  const displayTrendBg = displayScore
+    ? displayScore.trend === "bullish"
+      ? "bg-bullish/15 text-bullish border-bullish/30"
+      : displayScore.trend === "bearish"
+        ? "bg-bearish/15 text-bearish border-bearish/30"
+        : "bg-muted text-neutral-tone border-border"
+    : "";
+
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5 self-start">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
@@ -408,22 +425,25 @@ export default function PairDetail() {
           <span className="text-[10px] font-display px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
             {pair.category}
           </span>
-          {scoreResult && (
+          {displayScore && (
             <>
-              <span className={`text-sm font-display font-bold px-2.5 py-1 rounded-md border ${trendBg}`}>
-                {scoreResult.score}
+              <span className={`text-sm font-display font-bold px-2.5 py-1 rounded-md border ${displayTrendBg}`}>
+                {displayScore.score}
               </span>
-              <span className={`flex items-center gap-1 text-xs font-display font-semibold px-2 py-1 rounded-md border ${trendBg}`}>
-                {scoreResult.trend === "bullish" && <TrendingUp className="w-3 h-3" />}
-                {scoreResult.trend === "bearish" && <TrendingDown className="w-3 h-3" />}
-                {scoreResult.trend === "neutral" && <Minus className="w-3 h-3" />}
-                {scoreResult.trend.toUpperCase()}
+              <span className={`flex items-center gap-1 text-xs font-display font-semibold px-2 py-1 rounded-md border ${displayTrendBg}`}>
+                {displayScore.trend === "bullish" && <TrendingUp className="w-3 h-3" />}
+                {displayScore.trend === "bearish" && <TrendingDown className="w-3 h-3" />}
+                {displayScore.trend === "neutral" && <Minus className="w-3 h-3" />}
+                {displayScore.trend.toUpperCase()}
               </span>
             </>
           )}
           <AddToWatchlist pairId={pair.id} />
         </div>
       </div>
+
+      {/* Multi-TF Summary Strip */}
+      <MultiTFStrip pairId={pair.id} selectedTF={timeframe} onSelect={setTimeframe} />
 
       {/* Timeframe switcher */}
       <div className="flex flex-wrap items-center gap-2 mb-4">

@@ -149,8 +149,9 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Scan Button — replaces old ScanProgress */}
-        <div className="flex justify-end shrink-0">
+        {/* Scan Buttons */}
+        <div className="flex justify-end gap-2 shrink-0">
+          <ScanAllButton />
           <ScanButton
             isScanning={scan.isScanning}
             progress={scan.progress}
