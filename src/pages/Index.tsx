@@ -16,8 +16,9 @@ import { HeatmapWidget } from "@/components/dashboard/HeatmapWidget";
 import { ScanButton } from "@/components/scanner/ScanButton";
 import { useTimeframe, timeframeOptions } from "@/hooks/useTimeframe";
 import { useAutoScan } from "@/hooks/useAutoScan";
-import { useAllScores } from "@/hooks/useScores";
 import { useFastScan } from "@/hooks/useFastScan";
+import { useScoresStore, loadAllTimeframeScores, loadPairs, subscribeToRealtimeScores } from "@/stores/useScoresStore";
+import { useEnsureFreshData } from "@/hooks/useEnsureFreshData";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -56,15 +57,31 @@ function StatCard({ label, value, icon, color, sub }: { label: string; value: st
 }
 
 const Index = () => {
+  useEnsureFreshData();
+
   const { selectedTimeframe, setTimeframe } = useTimeframe();
   const { toast } = useToast();
   const [lastScan, setLastScan] = useState<string | null>(null);
 
   const scan = useFastScan();
-  const { data: allScores } = useAllScores(selectedTimeframe);
+
+  // Sync timeframe to store
+  useEffect(() => {
+    useScoresStore.getState().setActiveTimeframe(selectedTimeframe);
+  }, [selectedTimeframe]);
+
+  // Read from Zustand store
+  const allScores = useScoresStore((s) => s.getAll(selectedTimeframe));
+
+  // Boot: load pairs + scores + subscribe
+  useEffect(() => {
+    loadPairs().then(() => loadAllTimeframeScores());
+    const unsub = subscribeToRealtimeScores();
+    return unsub;
+  }, []);
 
   const stats = useMemo(() => {
-    if (!allScores || allScores.length === 0) return { total: 0, bullish: 0, bearish: 0, neutral: 0, avg: 0, strongBull: 0, strongBear: 0 };
+    if (allScores.length === 0) return { total: 0, bullish: 0, bearish: 0, neutral: 0, avg: 0, strongBull: 0, strongBear: 0 };
     let bullish = 0, bearish = 0, neutral = 0, totalScore = 0, strongBull = 0, strongBear = 0;
     allScores.forEach((s) => {
       totalScore += s.score;
@@ -78,9 +95,9 @@ const Index = () => {
   const executeScan = async () => {
     if (scan.isScanning) return;
     await scan.runScan(selectedTimeframe);
+    await loadAllTimeframeScores();
   };
 
-  // Show toast on completion
   useEffect(() => {
     if (scan.result && !scan.isScanning) {
       setLastScan(new Date().toLocaleString());
@@ -144,11 +161,11 @@ const Index = () => {
                 {stats.avg || "—"}
               </span>
             </div>
-            <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scan.isScanning} />
+            <TimeframeSelector selected={selectedTimeframe} onChange={(tf) => { setTimeframe(tf); useScoresStore.getState().setActiveTimeframe(tf); }} disabled={scan.isScanning} />
           </div>
         </div>
 
-        {/* Scan Button — replaces old ScanProgress */}
+        {/* Scan Button */}
         <div className="flex justify-end shrink-0">
           <ScanButton
             isScanning={scan.isScanning}
