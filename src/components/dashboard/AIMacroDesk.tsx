@@ -1,45 +1,78 @@
-import { useEffect, useMemo } from "react";
-import { Sparkles, Zap } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useScoresStore, loadAllTimeframeScores, type ScoreEntry } from "@/stores/useScoresStore";
-import { trendColor, trendBadgeStyle, trendArrow, timeAgo, TIMEFRAME_CONFIG } from "@/lib/display";
-import { Button } from "@/components/ui/button";
+import { InstrumentCard } from "./InstrumentCard";
+import { useAllScores, ScoreRow } from "@/hooks/useScores";
+import { supabase } from "@/integrations/supabase/client";
+
+const DESK_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "US30", "US100", "USOIL", "AUDUSD"];
+
+interface PairInfo {
+  id: string;
+  symbol: string;
+}
+
+interface AnalysisCache {
+  summary: string;
+  cached: boolean;
+}
 
 export function AIMacroDesk({ timeframe }: { timeframe: string }) {
   const navigate = useNavigate();
-  const allScores = useScoresStore((s) => s.getAll(timeframe));
+  const { data: allScores } = useAllScores(timeframe);
+  const [pairs, setPairs] = useState<PairInfo[]>([]);
+  const [analyses, setAnalyses] = useState<Record<string, AnalysisCache>>({});
+  const [loadingAnalysis, setLoadingAnalysis] = useState<Record<string, boolean>>({});
 
-  // Top 8 by absolute deviation from 50
-  const topPairs = useMemo(() => {
-    return [...allScores]
-      .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50))
-      .slice(0, 8);
+  useEffect(() => {
+    const fetchPairs = async () => {
+      const { data } = await supabase
+        .from("pairs")
+        .select("id, symbol")
+        .in("symbol", DESK_SYMBOLS);
+      if (data) setPairs(data);
+    };
+    fetchPairs();
+  }, []);
+
+  const scoreMap = useMemo(() => {
+    const m = new Map<string, ScoreRow>();
+    allScores?.forEach((s) => m.set(s.pair_id, s));
+    return m;
   }, [allScores]);
 
-  const hasScores = allScores.length > 0;
+  useEffect(() => {
+    if (pairs.length === 0) return;
 
-  if (!hasScores) {
-    return (
-      <div>
-        <div className="flex items-center gap-1.5 mb-3">
-          <Sparkles className="w-4 h-4" style={{ color: "hsl(var(--bullish))" }} />
-          <span className="font-semibold" style={{ fontSize: "14px", color: "hsl(var(--foreground))" }}>
-            AI Macro Desk
-          </span>
-        </div>
-        <div className="flex flex-col items-center justify-center py-8 gap-3">
-          <p className="text-sm text-muted-foreground text-center">No scan data — click Scan to load</p>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => loadAllTimeframeScores()}
-          >
-            <Zap className="w-3.5 h-3.5" /> Load Data
-          </Button>
-        </div>
-      </div>
-    );
-  }
+    pairs.forEach(async (pair) => {
+      if (analyses[pair.id] || loadingAnalysis[pair.id]) return;
+
+      setLoadingAnalysis((p) => ({ ...p, [pair.id]: true }));
+      try {
+        const { data, error } = await supabase.functions.invoke("analyze-pair", {
+          body: { pairId: pair.id, timeframe },
+        });
+
+        if (!error && data?.analysis) {
+          const summary =
+            typeof data.analysis === "string"
+              ? data.analysis
+              : data.analysis.summary || JSON.stringify(data.analysis);
+          setAnalyses((prev) => ({
+            ...prev,
+            [pair.id]: { summary, cached: data.cached },
+          }));
+        }
+      } catch {
+        // silently skip
+      } finally {
+        setLoadingAnalysis((p) => ({ ...p, [pair.id]: false }));
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pairs, timeframe]);
+
+  const hasScores = allScores && allScores.length > 0;
 
   return (
     <div>
@@ -47,13 +80,25 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <div className="flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" style={{ color: "hsl(var(--bullish))" }} />
-            <span className="font-semibold" style={{ fontSize: "14px", color: "hsl(var(--foreground))" }}>
+            <Sparkles
+              className="w-4 h-4"
+              style={{ color: "hsl(var(--bullish))" }}
+            />
+            <span
+              className="font-semibold"
+              style={{ fontSize: "14px", color: "hsl(var(--foreground))" }}
+            >
               AI Macro Desk
             </span>
           </div>
-          <p style={{ fontSize: "11px", color: "hsl(var(--muted-foreground))", marginTop: "2px" }}>
-            Top 8 trending · {TIMEFRAME_CONFIG[timeframe]?.label ?? timeframe}
+          <p
+            style={{
+              fontSize: "11px",
+              color: "hsl(var(--muted-foreground))",
+              marginTop: "2px",
+            }}
+          >
+            Market bias analysis
           </p>
         </div>
         <button
@@ -65,137 +110,65 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
         </button>
       </div>
 
-      {/* Grid */}
+      {/* Grid — staggered card entrance */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-2">
-        {topPairs.map((score, idx) => (
-          <div
-            key={score.symbol}
-            className="anim-fade-up cursor-pointer"
-            style={{ animationDelay: `${200 + idx * 50}ms` }}
-            onClick={() => navigate(`/pair/${score.symbol}`)}
-          >
-            <MacroDeskCard score={score} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+        {DESK_SYMBOLS.map((sym, idx) => {
+          const pair = pairs.find((p) => p.symbol === sym);
+          const score = pair ? scoreMap.get(pair.id) : undefined;
+          const analysis = pair ? analyses[pair.id] : undefined;
+          const isLoading = pair ? loadingAnalysis[pair.id] : false;
 
-function MacroDeskCard({ score }: { score: ScoreEntry }) {
-  const trend = score.trend;
-  const tc = trendColor(trend);
-  const badge = trendBadgeStyle(trend);
-  const confidence = Math.round(score.score);
-  const barColor = confidence > 65 ? "#00ff7f" : confidence >= 35 ? "#f59e0b" : "#ff3b3b";
+          const pctChange = score
+            ? parseFloat(((score.score - 50) * 0.1).toFixed(2))
+            : null;
 
-  // EMA alignment
-  const emaLabel =
-    score.ema20 != null && score.ema50 != null
-      ? score.ema20 > score.ema50
-        ? "↑ Aligned"
-        : score.ema20 < score.ema50
-        ? "↓ Inverse"
-        : "~ Mixed"
-      : "—";
-  const emaColor =
-    score.ema20 != null && score.ema50 != null
-      ? score.ema20 > score.ema50
-        ? "#00ff7f"
-        : "#ff3b3b"
-      : "#7a99b0";
+          const trend = score?.trend
+            ? score.trend.charAt(0).toUpperCase() + score.trend.slice(1)
+            : "Neutral";
 
-  // MACD
-  const macdLabel =
-    score.macd_hist != null
-      ? score.macd_hist > 0
-        ? "▲ Positive"
-        : "▼ Negative"
-      : "—";
-  const macdColor = score.macd_hist != null ? (score.macd_hist > 0 ? "#00ff7f" : "#ff3b3b") : "#7a99b0";
+          const confidence = score ? Math.round(score.score) : 50;
 
-  // RSI
-  const rsiVal = score.rsi;
-  const rsiColor =
-    rsiVal != null ? (rsiVal > 70 ? "#ff3b3b" : rsiVal < 30 ? "#00ff7f" : "#7a99b0") : "#7a99b0";
+          // If no scores yet, show shimmer skeleton
+          if (!hasScores) {
+            return (
+              <div
+                key={sym}
+                className="anim-fade-up rounded-lg overflow-hidden"
+                style={{
+                  animationDelay: `${200 + idx * 50}ms`,
+                  height: "160px",
+                }}
+              >
+                <div className="anim-shimmer w-full h-full rounded-lg" />
+              </div>
+            );
+          }
 
-  // ADX
-  const adxVal = score.adx;
-  const adxColor = adxVal != null && adxVal > 25 ? "#00ff7f" : "#7a99b0";
-
-  return (
-    <div
-      className="rounded-lg p-3.5 transition-colors hover:brightness-110"
-      style={{
-        background: "hsl(var(--secondary))",
-        border: "0.5px solid hsl(var(--border))",
-      }}
-    >
-      {/* Top row */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="font-display font-bold" style={{ fontSize: "15px", color: "hsl(var(--foreground))" }}>
-            {score.symbol}
-          </span>
-          <span className="font-display font-bold" style={{ fontSize: "13px", color: tc }}>
-            {confidence}/100
-          </span>
-        </div>
-        <span
-          className="font-display text-[10px] px-2 py-0.5 rounded"
-          style={{ background: badge.background, color: badge.color }}
-        >
-          {trend.charAt(0).toUpperCase() + trend.slice(1)}
-        </span>
-      </div>
-
-      {/* Confidence bar */}
-      <div className="mt-2.5 flex items-center justify-between">
-        <span className="text-[10px]" style={{ color: "#7a99b0" }}>Confidence</span>
-        <span className="text-[10px] font-display" style={{ color: "#7a99b0" }}>{confidence}%</span>
-      </div>
-      <div className="mt-1 w-full rounded-full overflow-hidden" style={{ height: "3px", background: "hsl(var(--border))" }}>
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${Math.min(confidence, 100)}%`,
-            background: barColor,
-            transition: "width 0.6s ease",
-          }}
-        />
-      </div>
-
-      {/* Indicator 2×2 grid */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[9px]" style={{ color: "#7a99b0" }}>RSI</span>
-          <span className="text-[10px] font-display font-semibold" style={{ color: rsiColor }}>
-            {rsiVal != null ? rsiVal.toFixed(1) : "—"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[9px]" style={{ color: "#7a99b0" }}>ADX</span>
-          <span className="text-[10px] font-display font-semibold" style={{ color: adxColor }}>
-            {adxVal != null ? adxVal.toFixed(1) : "—"}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[9px]" style={{ color: "#7a99b0" }}>EMA</span>
-          <span className="text-[10px] font-display font-semibold" style={{ color: emaColor }}>
-            {emaLabel}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-[9px]" style={{ color: "#7a99b0" }}>MACD</span>
-          <span className="text-[10px] font-display font-semibold" style={{ color: macdColor }}>
-            {macdLabel}
-          </span>
-        </div>
-      </div>
-
-      {/* Timestamp */}
-      <div className="mt-2" style={{ fontSize: "10px", color: "#3d5a70" }}>
-        Scanned {timeAgo(score.scanned_at)}
+          return (
+            <div
+              key={sym}
+              className="anim-fade-up"
+              style={{ animationDelay: `${200 + idx * 50}ms` }}
+            >
+              <InstrumentCard
+                symbol={sym}
+                percentChange={pctChange}
+                trendLabel={trend}
+                confidence={confidence}
+                aiAnalysis={analysis?.summary ?? null}
+                loading={isLoading}
+                newsScore={score?.news_score ?? null}
+                dataQuality={
+                  score?.news_score != null && score?.social_score != null ? "full"
+                  : score?.social_score == null && score?.news_score != null ? "no-social"
+                  : score?.news_score == null && score?.social_score != null ? "no-news"
+                  : "technical-only"
+                }
+                scannedAt={score?.scanned_at ?? null}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

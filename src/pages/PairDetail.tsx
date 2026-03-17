@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -11,9 +11,6 @@ import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import { PairNewsSection } from "@/components/news/PairNewsSection";
 import { SocialBuzzCard } from "@/components/social/SocialBuzzCard";
-import { useScoresStore } from "@/stores/useScoresStore";
-import { useEnsureFreshData } from "@/hooks/useEnsureFreshData";
-import { trendColor as getTrendColorHex, trendBadgeStyle, timeAgo, PAIR_NAMES, TIMEFRAME_CONFIG } from "@/lib/display";
 import {
   calcEMA,
   calcRSI,
@@ -39,6 +36,13 @@ import {
 } from "lightweight-charts";
 
 const TIMEFRAMES = ["15min", "30min", "1h", "4h", "1day"];
+const TF_LABELS: Record<string, string> = {
+  "15min": "15M",
+  "30min": "30M",
+  "1h": "1H",
+  "4h": "4H",
+  "1day": "1D",
+};
 
 interface Candle {
   open: number;
@@ -63,8 +67,6 @@ function toChartTime(ts: string): Time {
 }
 
 export default function PairDetail() {
-  useEnsureFreshData();
-
   const { symbol } = useParams<{ symbol: string }>();
   const navigate = useNavigate();
   const [pair, setPair] = useState<PairInfo | null>(null);
@@ -75,9 +77,6 @@ export default function PairDetail() {
   const [loading, setLoading] = useState(true);
   const [overlays, setOverlays] = useState({ ema20: true, ema50: true, ema200: false, bb: false });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Read from Zustand store for all TFs
-  const storeScore = useScoresStore((s) => symbol ? s.getScore(symbol, timeframe) : null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setIsAuthenticated(!!data.user));
@@ -136,9 +135,8 @@ export default function PairDetail() {
         .from("scores")
         .select("score, scanned_at")
         .eq("pair_id", pair.id)
-        .eq("timeframe", timeframe)
         .order("scanned_at", { ascending: true })
-        .limit(200);
+        .limit(48);
 
       if (data) {
         setScoreHistory(
@@ -147,7 +145,7 @@ export default function PairDetail() {
       }
     };
     fetchHistory();
-  }, [pair, timeframe]);
+  }, [pair]);
 
   // Computed indicators
   const indicators = useMemo(() => {
@@ -157,10 +155,9 @@ export default function PairDetail() {
     const highs = sorted.map((c) => c.high);
     const lows = sorted.map((c) => c.low);
 
-    const cfg = TIMEFRAME_CONFIG[timeframe] || TIMEFRAME_CONFIG["1h"];
-    const ema20 = calcEMA(closes, cfg.emaFast);
-    const ema50 = calcEMA(closes, cfg.emaMid);
-    const ema200 = calcEMA(closes, cfg.emaSlow);
+    const ema20 = calcEMA(closes, 20);
+    const ema50 = calcEMA(closes, 50);
+    const ema200 = calcEMA(closes, 200);
     const rsi = calcRSI(closes, 14);
     const adx = calcADX(highs, lows, closes, 14);
     const atr = calcATR(highs, lows, closes, 14);
@@ -181,11 +178,13 @@ export default function PairDetail() {
       },
       timestamps: sorted.map((c) => c.ts),
     };
-  }, [candles, timeframe]);
+  }, [candles]);
 
   // Main candlestick chart
   useEffect(() => {
     if (!chartRef.current || candles.length === 0 || !indicators) return;
+
+    // Cleanup previous
     if (chartApiRef.current) {
       chartApiRef.current.remove();
       chartApiRef.current = null;
@@ -220,6 +219,7 @@ export default function PairDetail() {
 
     const sorted = [...candles].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
 
+    // Candlestick
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "hsl(142, 60%, 50%)",
       downColor: "hsl(0, 72%, 51%)",
@@ -238,6 +238,7 @@ export default function PairDetail() {
       }))
     );
 
+    // Overlay: EMA lines
     if (overlays.ema20) {
       const s = chart.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
       const d: LineData[] = [];
@@ -330,6 +331,7 @@ export default function PairDetail() {
     });
     series.setData(scoreHistory as any);
 
+    // Dashed lines at 35 and 65
     series.createPriceLine({ price: 65, color: "hsla(142, 60%, 50%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bull" });
     series.createPriceLine({ price: 35, color: "hsla(0, 72%, 51%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bear" });
 
@@ -350,7 +352,7 @@ export default function PairDetail() {
     setOverlays((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const trendColorClass = scoreResult
+  const trendColor = scoreResult
     ? scoreResult.trend === "bullish"
       ? "text-bullish"
       : scoreResult.trend === "bearish"
@@ -366,8 +368,6 @@ export default function PairDetail() {
         : "bg-muted text-neutral-tone border-border"
     : "";
 
-  const isShortTF = ["15min", "30min"].includes(timeframe);
-
   if (!pair) {
     return (
       <AppLayout>
@@ -382,38 +382,17 @@ export default function PairDetail() {
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5 self-start">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
         <div className="flex flex-wrap items-center gap-2 flex-1">
           <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">{pair.symbol}</h1>
-          <span className="text-sm text-muted-foreground font-body">{PAIR_NAMES[pair.symbol] || pair.name}</span>
+          <span className="text-sm text-muted-foreground font-body">{pair.name}</span>
           <span className="text-[10px] font-display px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
             {pair.category}
           </span>
-          {storeScore && (
-            <>
-              <span className="text-sm font-display font-bold px-2.5 py-1 rounded-md border" style={{
-                background: trendBadgeStyle(storeScore.trend).background,
-                color: trendBadgeStyle(storeScore.trend).color,
-                borderColor: trendBadgeStyle(storeScore.trend).color + "40",
-              }}>
-                {Math.round(storeScore.score)}/100
-              </span>
-              <span className="flex items-center gap-1 text-xs font-display font-semibold px-2 py-1 rounded-md border" style={{
-                background: trendBadgeStyle(storeScore.trend).background,
-                color: trendBadgeStyle(storeScore.trend).color,
-                borderColor: trendBadgeStyle(storeScore.trend).color + "40",
-              }}>
-                {storeScore.trend === "bullish" && <TrendingUp className="w-3 h-3" />}
-                {storeScore.trend === "bearish" && <TrendingDown className="w-3 h-3" />}
-                {storeScore.trend === "neutral" && <Minus className="w-3 h-3" />}
-                {storeScore.trend.toUpperCase()}
-              </span>
-            </>
-          )}
-          {!storeScore && scoreResult && (
+          {scoreResult && (
             <>
               <span className={`text-sm font-display font-bold px-2.5 py-1 rounded-md border ${trendBg}`}>
                 {scoreResult.score}
@@ -430,80 +409,41 @@ export default function PairDetail() {
         </div>
       </div>
 
-      {/* Multi-TF Summary Strip */}
-      {symbol && (
-        <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-          {TIMEFRAMES.map((tf) => {
-            const s = useScoresStore.getState().getScore(symbol, tf);
-            const cfg = TIMEFRAME_CONFIG[tf];
-            const isActive = timeframe === tf;
+      {/* Timeframe switcher */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {TIMEFRAMES.map((tf) => (
+          <button
+            key={tf}
+            onClick={() => setTimeframe(tf)}
+            className={`px-3 py-1.5 rounded-md text-xs font-display font-semibold transition-colors ${
+              timeframe === tf
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {TF_LABELS[tf]}
+          </button>
+        ))}
+        <div className="hidden sm:flex ml-auto items-center gap-2">
+          {(["ema20", "ema50", "ema200", "bb"] as const).map((key) => {
+            const labels: Record<string, string> = { ema20: "EMA 20", ema50: "EMA 50", ema200: "EMA 200", bb: "BB" };
+            const colors: Record<string, string> = { ema20: "bg-blue-500", ema50: "bg-amber-500", ema200: "bg-red-500", bb: "bg-gray-400" };
             return (
               <button
-                key={tf}
-                onClick={() => setTimeframe(tf)}
-                className={`flex flex-col items-center min-w-[60px] px-3 py-2 rounded-lg border transition-all ${
-                  isActive ? "border-primary bg-primary/10" : "border-border bg-card hover:bg-accent/50"
+                key={key}
+                onClick={() => toggleOverlay(key)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-display font-medium border transition-colors ${
+                  overlays[key]
+                    ? "bg-accent border-border text-foreground"
+                    : "bg-transparent border-transparent text-muted-foreground hover:text-foreground"
                 }`}
-                style={isActive ? { borderColor: cfg.color } : {}}
               >
-                <span className="text-[10px] font-display font-semibold" style={{ color: isActive ? cfg.color : "hsl(var(--muted-foreground))" }}>
-                  {cfg.label}
-                </span>
-                <span className="text-lg font-display font-bold" style={{ color: s ? getTrendColorHex(s.trend) : "#3d5a70" }}>
-                  {s ? Math.round(s.score) : "—"}
-                </span>
-                <span className="text-[10px]" style={{ color: s ? getTrendColorHex(s.trend) : "#3d5a70" }}>
-                  {!s ? "?" : s.trend === "bullish" ? "↑" : s.trend === "bearish" ? "↓" : "→"}
-                </span>
+                <span className={`w-2 h-2 rounded-full ${colors[key]} ${overlays[key] ? "" : "opacity-30"}`} />
+                {labels[key]}
               </button>
             );
           })}
         </div>
-      )}
-
-      {/* MTF Alignment */}
-      {symbol && (() => {
-        const tfs = TIMEFRAMES;
-        const scores = tfs.map((tf) => useScoresStore.getState().getScore(symbol, tf)).filter(Boolean);
-        if (scores.length === 0) return null;
-        const bullCount = scores.filter((s) => s!.trend === "bullish").length;
-        const bearCount = scores.filter((s) => s!.trend === "bearish").length;
-        const total = scores.length;
-        let label = "";
-        let cls = "text-neutral-tone";
-        if (bullCount === total) { label = `⭐ Perfect Bullish Alignment — all ${total} timeframes agree`; cls = "text-bullish"; }
-        else if (bearCount === total) { label = `⭐ Perfect Bearish Alignment — all ${total} timeframes agree`; cls = "text-bearish"; }
-        else if (bullCount >= total * 0.8) { label = `${bullCount}/${total} timeframes Bullish — strong alignment`; cls = "text-bullish"; }
-        else if (bearCount >= total * 0.8) { label = `${bearCount}/${total} timeframes Bearish — strong alignment`; cls = "text-bearish"; }
-        else { label = `Mixed signals — ${bullCount}↑ ${bearCount}↓ across ${total} timeframes`; }
-        return <p className={`text-xs font-display mb-4 ${cls}`}>{label}</p>;
-      })()}
-
-      {/* Overlay toggles */}
-      <div className="hidden sm:flex items-center gap-2 mb-4">
-        {(["ema20", "ema50", "ema200", "bb"] as const).map((key) => {
-          const labels: Record<string, string> = {
-            ema20: `EMA ${TIMEFRAME_CONFIG[timeframe]?.emaFast ?? 9}`,
-            ema50: `EMA ${TIMEFRAME_CONFIG[timeframe]?.emaMid ?? 21}`,
-            ema200: isShortTF ? "EMA50 (slow)" : `EMA ${TIMEFRAME_CONFIG[timeframe]?.emaSlow ?? 200}`,
-            bb: "BB",
-          };
-          const colors: Record<string, string> = { ema20: "bg-blue-500", ema50: "bg-amber-500", ema200: "bg-red-500", bb: "bg-gray-400" };
-          return (
-            <button
-              key={key}
-              onClick={() => toggleOverlay(key)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-display font-medium border transition-colors ${
-                overlays[key]
-                  ? "bg-accent border-border text-foreground"
-                  : "bg-transparent border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${colors[key]} ${overlays[key] ? "" : "opacity-30"}`} />
-              {labels[key]}
-            </button>
-          );
-        })}
       </div>
 
       {/* Chart */}
@@ -520,76 +460,69 @@ export default function PairDetail() {
       </ErrorBoundary>
 
       {/* Score Breakdown + Indicator Values */}
-      {(scoreResult || storeScore) && indicators && (
+      {scoreResult && indicators && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           {/* Score Breakdown */}
           <div className="rounded-lg border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-display font-semibold text-foreground">Composite Score</h3>
-                {scoreResult && <ScoreExplanation symbol={pair.symbol} score={scoreResult.score} explanationLines={scoreResult.explanationLines} />}
+                <ScoreExplanation symbol={pair.symbol} score={scoreResult.score} explanationLines={scoreResult.explanationLines} />
               </div>
               <div className="flex items-center gap-2">
-                {scoreResult && <ScoreFreshnessBadge dataQuality={scoreResult.dataQuality} />}
-                <span className={`text-3xl font-display font-bold ${trendColorClass}`}>
-                  {storeScore ? Math.round(storeScore.score) : scoreResult?.score ?? "—"}
-                </span>
+                <ScoreFreshnessBadge dataQuality={scoreResult.dataQuality} />
+                <span className={`text-3xl font-display font-bold ${trendColor}`}>{scoreResult.score}</span>
               </div>
             </div>
 
-            {scoreResult && (
-              <>
-                <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-3">TECHNICAL ({scoreResult.breakdown.technicalTotal}/55)</p>
-                <div className="space-y-2">
-                  <GaugeBar label="EMA Alignment" value={scoreResult.breakdown.emaScore} max={22} raw={`EMA stack → +${scoreResult.breakdown.emaScore}pts`} color="bg-blue-500" />
-                  <GaugeBar label="ADX Strength" value={scoreResult.breakdown.adxScore} max={11} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.breakdown.adxScore}pts`} color="bg-amber-500" />
-                  <GaugeBar label="RSI Bias" value={scoreResult.breakdown.rsiScore} max={11} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.breakdown.rsiScore}pts`} color="bg-purple-500" />
-                  <GaugeBar label="MACD Momentum" value={scoreResult.breakdown.macdScore} max={11} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.breakdown.macdScore}pts`} color="bg-emerald-500" />
-                </div>
+            {/* Technical Layer */}
+            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-3">TECHNICAL ({scoreResult.breakdown.technicalTotal}/55)</p>
+            <div className="space-y-2">
+              <GaugeBar label="EMA Alignment" value={scoreResult.breakdown.emaScore} max={22} raw={`EMA stack → +${scoreResult.breakdown.emaScore}pts`} color="bg-blue-500" />
+              <GaugeBar label="ADX Strength" value={scoreResult.breakdown.adxScore} max={11} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.breakdown.adxScore}pts`} color="bg-amber-500" />
+              <GaugeBar label="RSI Bias" value={scoreResult.breakdown.rsiScore} max={11} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.breakdown.rsiScore}pts`} color="bg-purple-500" />
+              <GaugeBar label="MACD Momentum" value={scoreResult.breakdown.macdScore} max={11} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.breakdown.macdScore}pts`} color="bg-emerald-500" />
+            </div>
 
-                <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL ({scoreResult.breakdown.fundamentalTotal}/25)</p>
-                <div className="space-y-2">
-                  <GaugeBar label="News Sentiment" value={scoreResult.breakdown.newsScore} max={13} raw={`News → +${scoreResult.breakdown.newsScore}pts`} color="bg-cyan-500" />
-                  <GaugeBar label="Event Risk" value={scoreResult.breakdown.eventRiskScore} max={12} raw={scoreResult.upcomingEvent ? `⚠ ${scoreResult.upcomingEvent}` : "No upcoming events → +12pts"} color="bg-orange-500" />
-                </div>
+            {/* Fundamental Layer */}
+            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL ({scoreResult.breakdown.fundamentalTotal}/25)</p>
+            <div className="space-y-2">
+              <GaugeBar label="News Sentiment" value={scoreResult.breakdown.newsScore} max={13} raw={`News → +${scoreResult.breakdown.newsScore}pts`} color="bg-cyan-500" />
+              <GaugeBar label="Event Risk" value={scoreResult.breakdown.eventRiskScore} max={12} raw={scoreResult.upcomingEvent ? `⚠ ${scoreResult.upcomingEvent}` : "No upcoming events → +12pts"} color="bg-orange-500" />
+            </div>
 
-                <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL ({scoreResult.breakdown.socialTotal}/20)</p>
-                <div className="space-y-2">
-                  <GaugeBar label="StockTwits" value={scoreResult.breakdown.stocktwitsScore} max={10} raw={`StockTwits → +${scoreResult.breakdown.stocktwitsScore}pts`} color="bg-green-500" />
-                  <GaugeBar label="Reddit/Social" value={scoreResult.breakdown.redditScore} max={10} raw={`Reddit → +${scoreResult.breakdown.redditScore}pts`} color="bg-red-500" />
-                </div>
+            {/* Social Layer */}
+            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL ({scoreResult.breakdown.socialTotal}/20)</p>
+            <div className="space-y-2">
+              <GaugeBar label="StockTwits" value={scoreResult.breakdown.stocktwitsScore} max={10} raw={`StockTwits → +${scoreResult.breakdown.stocktwitsScore}pts`} color="bg-green-500" />
+              <GaugeBar label="Reddit/Social" value={scoreResult.breakdown.redditScore} max={10} raw={`Reddit → +${scoreResult.breakdown.redditScore}pts`} color="bg-red-500" />
+            </div>
 
-                <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
-                  <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
-                    {scoreResult.trend === "bullish" && <TrendingUp className="w-3.5 h-3.5" />}
-                    {scoreResult.trend === "bearish" && <TrendingDown className="w-3.5 h-3.5" />}
-                    {scoreResult.trend === "neutral" && <Minus className="w-3.5 h-3.5" />}
-                    {scoreResult.trend.toUpperCase()}
-                  </span>
-                  {scoreResult.eventRiskFlag && (
-                    <EventRiskFlag eventName={scoreResult.upcomingEvent} eventTime={scoreResult.upcomingEventTime} />
-                  )}
-                </div>
-              </>
-            )}
+            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
+                {scoreResult.trend === "bullish" && <TrendingUp className="w-3.5 h-3.5" />}
+                {scoreResult.trend === "bearish" && <TrendingDown className="w-3.5 h-3.5" />}
+                {scoreResult.trend === "neutral" && <Minus className="w-3.5 h-3.5" />}
+                {scoreResult.trend.toUpperCase()}
+              </span>
+              {scoreResult.eventRiskFlag && (
+                <EventRiskFlag eventName={scoreResult.upcomingEvent} eventTime={scoreResult.upcomingEventTime} />
+              )}
+            </div>
           </div>
 
           {/* Indicator Values */}
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values</h3>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <IndicatorCell label={`EMA ${TIMEFRAME_CONFIG[timeframe]?.emaFast ?? 9}`} value={storeScore?.ema20 ?? indicators.latest.ema20} />
-              <IndicatorCell label={`EMA ${TIMEFRAME_CONFIG[timeframe]?.emaMid ?? 21}`} value={storeScore?.ema50 ?? indicators.latest.ema50} />
-              <IndicatorCell
-                label={isShortTF ? "EMA50 (slow)" : `EMA ${TIMEFRAME_CONFIG[timeframe]?.emaSlow ?? 200}`}
-                value={isShortTF ? NaN : (storeScore?.ema200 ?? indicators.latest.ema200)}
-                color={isShortTF ? "text-muted-foreground" : undefined}
-              />
-              <IndicatorCell label="RSI" value={storeScore?.rsi ?? indicators.latest.rsi} color={rsiColor(storeScore?.rsi ?? indicators.latest.rsi)} />
-              <IndicatorCell label="ADX" value={storeScore?.adx ?? indicators.latest.adx} color={adxColor(storeScore?.adx ?? indicators.latest.adx)} />
-              <IndicatorCell label="MACD Hist" value={storeScore?.macd_hist ?? indicators.latest.macdHist} decimals={5} color={(storeScore?.macd_hist ?? indicators.latest.macdHist) >= 0 ? "text-bullish" : "text-bearish"} />
-              <IndicatorCell label="Scanned" value={NaN} textValue={storeScore ? timeAgo(storeScore.scanned_at) : "—"} color="text-muted-foreground" />
-              <IndicatorCell label="Timeframe" value={NaN} textValue={TIMEFRAME_CONFIG[timeframe]?.label ?? timeframe} color="text-primary" />
+              <IndicatorCell label="EMA 20" value={indicators.latest.ema20} />
+              <IndicatorCell label="EMA 50" value={indicators.latest.ema50} />
+              <IndicatorCell label="EMA 200" value={indicators.latest.ema200} />
+              <IndicatorCell label="RSI" value={indicators.latest.rsi} color={rsiColor(indicators.latest.rsi)} />
+              <IndicatorCell label="ADX" value={indicators.latest.adx} color={adxColor(indicators.latest.adx)} />
+              <IndicatorCell label="MACD Hist" value={indicators.latest.macdHist} decimals={5} color={indicators.latest.macdHist >= 0 ? "text-bullish" : "text-bearish"} />
+              <IndicatorCell label="ATR" value={indicators.latest.atr} decimals={5} />
+              <IndicatorCell label="BB Width" value={indicators.latest.bbWidth} decimals={2} suffix="%" />
             </div>
           </div>
         </div>
@@ -607,13 +540,15 @@ export default function PairDetail() {
       {/* Score History */}
       {scoreHistory.length >= 2 && (
         <div className="rounded-lg border border-border bg-card p-5 mb-6">
-          <h3 className="text-sm font-display font-semibold text-foreground mb-3">Score History — {TIMEFRAME_CONFIG[timeframe]?.label ?? timeframe}</h3>
+          <h3 className="text-sm font-display font-semibold text-foreground mb-3">Score History</h3>
           <div ref={scoreChartRef} className="rounded overflow-hidden" />
         </div>
       )}
 
+      {/* Latest News for this pair */}
       {pair && <PairNewsSection symbol={pair.symbol} />}
 
+      {/* Social Buzz */}
       {pair && (
         <div className="mb-6">
           <SocialBuzzCard pairSymbol={pair.symbol} />
@@ -639,12 +574,12 @@ function GaugeBar({ label, value, max, raw, color }: { label: string; value: num
   );
 }
 
-function IndicatorCell({ label, value, decimals = 4, color, suffix = "", textValue }: { label: string; value: number; decimals?: number; color?: string; suffix?: string; textValue?: string }) {
+function IndicatorCell({ label, value, decimals = 4, color, suffix = "" }: { label: string; value: number; decimals?: number; color?: string; suffix?: string }) {
   return (
     <div className="rounded-md bg-muted/50 p-3">
       <p className="text-[10px] text-muted-foreground mb-1 font-body">{label}</p>
       <p className={`text-sm font-display font-bold ${color || "text-foreground"}`}>
-        {textValue ? textValue : isNaN(value) ? "N/A" : value.toFixed(decimals)}{suffix}
+        {isNaN(value) ? "—" : value.toFixed(decimals)}{suffix}
       </p>
     </div>
   );
