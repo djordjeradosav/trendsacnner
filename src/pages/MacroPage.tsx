@@ -481,8 +481,8 @@ export default function MacroPage() {
         {/* Debug Panel — admin only */}
         {isAdmin && <MacroDebugPanel />}
 
-        {/* Load Button — admin only */}
-        {isAdmin && <MacroLoadButton />}
+        {/* Load Button */}
+        <MacroLoadButton />
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
