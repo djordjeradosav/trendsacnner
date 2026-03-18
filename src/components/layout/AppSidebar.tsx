@@ -30,7 +30,6 @@ const mainNav = [
 
 const macroNav = [
   { label: "Macro", icon: BarChart3, path: "/macro" },
-  { label: "NFP", icon: TrendingUp, path: "/macro/nfp" },
   { label: "Seasonality", icon: Calendar, path: "/seasonality" },
 ];
 
