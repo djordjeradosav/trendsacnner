@@ -38,6 +38,34 @@ const futureNav = [
   { label: "Community", icon: Users, path: null, soon: true },
 ];
 
+function renderNavItems(
+  items: { label: string; icon: any; path: string }[],
+  navigate: (p: string) => void,
+  location: { pathname: string }
+) {
+  return items.map((item) => {
+    const isActive = location.pathname === item.path ||
+      (item.path !== "/dashboard" && location.pathname.startsWith(item.path));
+    return (
+      <button
+        key={item.label}
+        onClick={() => navigate(item.path)}
+        className="relative w-full flex items-center gap-3 h-[44px] px-4 text-[13px] transition-colors group"
+        style={{
+          color: isActive ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))",
+          background: isActive ? "linear-gradient(90deg, rgba(0,255,127,0.06) 0%, transparent 100%)" : "transparent",
+          borderLeft: isActive ? "3px solid hsl(var(--bullish))" : "3px solid transparent",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+        onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+      >
+        <item.icon className="w-[18px] h-[18px] shrink-0" />
+        <span className="hidden md:inline">{item.label}</span>
+      </button>
+    );
+  });
+}
 
 export function AppSidebar() {
   const navigate = useNavigate();
