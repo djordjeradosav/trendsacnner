@@ -8,6 +8,7 @@ import { useMacroData, MacroIndicator } from "@/hooks/useMacroData";
 import { CpiTab } from "@/components/macro/CpiTab";
 import { PceTab } from "@/components/macro/PceTab";
 import { UnemploymentTab } from "@/components/macro/UnemploymentTab";
+import { InterestRateTab } from "@/components/macro/InterestRateTab";
 import { StatCards } from "@/components/macro/StatCards";
 import { BeatRateBanner } from "@/components/macro/BeatRateBanner";
 import { ReleaseHistoryTable } from "@/components/macro/ReleaseHistoryTable";
@@ -372,6 +373,8 @@ export default function MacroPage() {
           <PceTab />
         ) : currentTab.id === "unemployment" ? (
           <UnemploymentTab />
+        ) : currentTab.id === "interest-rate" ? (
+          <InterestRateTab />
         ) : (
           <MacroTabContent key={currentTab.id} tab={currentTab} />
         )}
