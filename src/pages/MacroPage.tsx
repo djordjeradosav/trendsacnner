@@ -17,12 +17,42 @@ import {
 } from "recharts";
 
 const TABS = [
-  { id: "nfp", indicator: "NFP", label: "NFP", color: "#3b82f6", unit: "k", lowerIsBetter: false, description: "Monthly US employment change, excluding farm workers" },
-  { id: "cpi", indicator: "CPI", label: "CPI", color: "#f59e0b", unit: "%", lowerIsBetter: true, description: "Consumer Price Index — measures inflation from consumer goods" },
-  { id: "core-cpi", indicator: "CORE_CPI", label: "Core CPI", color: "#f97316", unit: "%", lowerIsBetter: true, description: "CPI excluding food & energy — Fed's preferred inflation gauge" },
-  { id: "pce", indicator: "PCE", label: "PCE", color: "#a78bfa", unit: "%", lowerIsBetter: true, description: "Personal Consumption Expenditures — alternative inflation measure" },
-  { id: "unemployment", indicator: "UNEMPLOYMENT", label: "Unemployment", color: "#22d3ee", unit: "%", lowerIsBetter: true, description: "US unemployment rate — percentage of labor force without work" },
-  { id: "interest-rate", indicator: "INTEREST_RATE", label: "Interest Rate", color: "#60a5fa", unit: "%", lowerIsBetter: false, description: "Federal Funds Rate — benchmark interest rate set by the Fed" },
+  { id: "nfp", indicator: "NFP", label: "NFP", color: "#3b82f6", unit: "k", lowerIsBetter: false,
+    title: "Non-Farm Payroll — USA",
+    subtitle: "Monthly employment change excluding farm workers · Released first Friday of each month",
+    description: "Note: The reported value represents the prior month's employment data. Positive = jobs added. Negative = jobs lost.",
+    deviationLabel: "How much NFP beat or missed expectations (Actual − Forecast)",
+  },
+  { id: "cpi", indicator: "CPI", label: "CPI", color: "#f59e0b", unit: "%", lowerIsBetter: true,
+    title: "Consumer Price Index",
+    subtitle: "Measures inflation from consumer goods & services",
+    description: "CPI tracks changes in the price level of a basket of consumer goods. Lower than forecast = bullish for USD (less inflation pressure).",
+    deviationLabel: "How much CPI came in below or above expectations",
+  },
+  { id: "core-cpi", indicator: "CORE_CPI", label: "Core CPI", color: "#f97316", unit: "%", lowerIsBetter: true,
+    title: "Core CPI",
+    subtitle: "CPI excluding food & energy — Fed's preferred inflation gauge",
+    description: "Core CPI strips out volatile food and energy prices for a cleaner inflation signal. Lower = less inflationary pressure.",
+    deviationLabel: "How much Core CPI came in below or above expectations",
+  },
+  { id: "pce", indicator: "PCE", label: "PCE", color: "#a78bfa", unit: "%", lowerIsBetter: true,
+    title: "Personal Consumption Expenditures",
+    subtitle: "Alternative inflation measure used by the Federal Reserve",
+    description: "PCE is the Fed's preferred inflation gauge. Lower readings suggest inflation is cooling, which may ease rate hike pressure.",
+    deviationLabel: "How much PCE came in below or above expectations",
+  },
+  { id: "unemployment", indicator: "UNEMPLOYMENT", label: "Unemployment", color: "#22d3ee", unit: "%", lowerIsBetter: true,
+    title: "Unemployment Rate",
+    subtitle: "Percentage of US labor force without work",
+    description: "Lower unemployment signals a strong labor market. Very low readings can be inflationary, prompting Fed tightening.",
+    deviationLabel: "How much Unemployment came in below or above expectations",
+  },
+  { id: "interest-rate", indicator: "INTEREST_RATE", label: "Interest Rate", color: "#60a5fa", unit: "%", lowerIsBetter: false,
+    title: "Federal Funds Rate",
+    subtitle: "Benchmark interest rate set by the Federal Reserve",
+    description: "The Fed Funds Rate influences borrowing costs across the economy. Higher rates strengthen USD but can slow growth.",
+    deviationLabel: "How much the rate deviated from expectations",
+  },
 ];
 
 const RANGE_MAP: Record<string, number> = { "6m": 6, "1y": 12, "2y": 24, all: 999 };
@@ -57,6 +87,9 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
     if (tab.unit === "k") return (v >= 0 ? "+" : "") + v.toFixed(0) + "k";
     return v.toFixed(2) + "%";
   };
+
+  const formatSurpriseColor = (bm?: string | null) =>
+    bm === "beat" ? "hsl(var(--bullish))" : bm === "miss" ? "hsl(var(--bearish))" : undefined;
 
   const cutoff = useMemo(() => {
     const d = new Date();
@@ -109,14 +142,22 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
       label: "Latest Release",
       value: formatValue(latest?.actual),
       subLabel: latest ? formatDate(latest.release_date) : "",
-      color: latest?.beat_miss === "beat" ? "hsl(var(--bullish))" : latest?.beat_miss === "miss" ? "hsl(var(--bearish))" : undefined,
+      color: formatSurpriseColor(latest?.beat_miss),
     },
-    { label: "Forecast", value: latest?.forecast != null ? formatValue(latest.forecast) : "N/A" },
-    { label: "Previous", value: previous ? formatValue(previous.actual) : "—" },
+    {
+      label: "Forecast",
+      value: latest?.forecast != null ? formatValue(latest.forecast) : "N/A",
+      subLabel: "Analyst consensus",
+    },
+    {
+      label: "Previous",
+      value: previous ? formatValue(previous.actual) : "—",
+      subLabel: previous ? formatDate(previous.release_date) : "",
+    },
     {
       label: "Surprise",
       value: latest?.surprise != null ? formatValue(latest.surprise) : "—",
-      color: latest?.beat_miss === "beat" ? "hsl(var(--bullish))" : latest?.beat_miss === "miss" ? "hsl(var(--bearish))" : undefined,
+      color: formatSurpriseColor(latest?.beat_miss),
       badge: (latest?.beat_miss === "beat" || latest?.beat_miss === "miss") ? (
         <span
           className="inline-block text-[9px] font-semibold rounded px-2 py-0.5"
@@ -133,7 +174,13 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
 
   return (
     <div className="space-y-5">
-      {/* Context */}
+      {/* Tab-specific header */}
+      <div>
+        <h2 className="text-lg font-bold text-foreground">{tab.title}</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">{tab.subtitle}</p>
+      </div>
+
+      {/* Context note */}
       <div className="rounded-lg px-4 py-3 text-xs bg-background border border-border text-muted-foreground">
         {tab.description}
       </div>
@@ -184,7 +231,7 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
       {deviationData.length > 0 && (
         <div className="rounded-lg p-4 bg-card border border-border">
           <p className="text-xs text-muted-foreground mb-3">
-            How much {tab.label} {tab.lowerIsBetter ? "came in below or above" : "beat or missed"} expectations
+            {tab.deviationLabel}
           </p>
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={deviationData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
