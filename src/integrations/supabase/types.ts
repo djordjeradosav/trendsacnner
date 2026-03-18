@@ -407,6 +407,51 @@ export type Database = {
           },
         ]
       }
+      macro_indicators: {
+        Row: {
+          actual: number | null
+          beat_miss: string | null
+          country: string
+          created_at: string | null
+          forecast: number | null
+          id: string
+          indicator: string
+          previous: number | null
+          release_date: string
+          source: string | null
+          surprise: number | null
+          unit: string | null
+        }
+        Insert: {
+          actual?: number | null
+          beat_miss?: string | null
+          country?: string
+          created_at?: string | null
+          forecast?: number | null
+          id?: string
+          indicator: string
+          previous?: number | null
+          release_date: string
+          source?: string | null
+          surprise?: number | null
+          unit?: string | null
+        }
+        Update: {
+          actual?: number | null
+          beat_miss?: string | null
+          country?: string
+          created_at?: string | null
+          forecast?: number | null
+          id?: string
+          indicator?: string
+          previous?: number | null
+          release_date?: string
+          source?: string | null
+          surprise?: number | null
+          unit?: string | null
+        }
+        Relationships: []
+      }
       market_briefs: {
         Row: {
           brief: Json
