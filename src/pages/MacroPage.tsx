@@ -478,11 +478,11 @@ export default function MacroPage() {
   return (
     <AppLayout>
       <div className="p-4 md:p-6 space-y-5 max-w-[1200px] mx-auto">
-        {/* Debug Panel */}
-        <MacroDebugPanel />
+        {/* Debug Panel — admin only */}
+        {isAdmin && <MacroDebugPanel />}
 
-        {/* Load Button */}
-        <MacroLoadButton />
+        {/* Load Button — admin only */}
+        {isAdmin && <MacroLoadButton />}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
