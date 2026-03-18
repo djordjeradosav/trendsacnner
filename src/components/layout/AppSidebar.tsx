@@ -30,6 +30,7 @@ const mainNav = [
 
 const macroNav = [
   { label: "NFP", icon: TrendingUp, path: "/macro/nfp" },
+  { label: "Seasonality", icon: Calendar, path: "/seasonality" },
 ];
 
 const futureNav = [
