@@ -731,6 +731,99 @@ export type Database = {
           },
         ]
       }
+      seasonality: {
+        Row: {
+          close: number | null
+          created_at: string | null
+          direction: string | null
+          id: string
+          month_number: number
+          open: number | null
+          return_pct: number | null
+          symbol: string
+          year: number
+        }
+        Insert: {
+          close?: number | null
+          created_at?: string | null
+          direction?: string | null
+          id?: string
+          month_number: number
+          open?: number | null
+          return_pct?: number | null
+          symbol: string
+          year: number
+        }
+        Update: {
+          close?: number | null
+          created_at?: string | null
+          direction?: string | null
+          id?: string
+          month_number?: number
+          open?: number | null
+          return_pct?: number | null
+          symbol?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      seasonality_stats: {
+        Row: {
+          avg_return: number | null
+          best_return: number | null
+          best_year: number | null
+          bias: string | null
+          down_count: number
+          down_pct: number | null
+          flat_count: number | null
+          id: string
+          month_number: number
+          symbol: string
+          total_years: number
+          up_count: number
+          up_pct: number | null
+          updated_at: string | null
+          worst_return: number | null
+          worst_year: number | null
+        }
+        Insert: {
+          avg_return?: number | null
+          best_return?: number | null
+          best_year?: number | null
+          bias?: string | null
+          down_count?: number
+          down_pct?: number | null
+          flat_count?: number | null
+          id?: string
+          month_number: number
+          symbol: string
+          total_years?: number
+          up_count?: number
+          up_pct?: number | null
+          updated_at?: string | null
+          worst_return?: number | null
+          worst_year?: number | null
+        }
+        Update: {
+          avg_return?: number | null
+          best_return?: number | null
+          best_year?: number | null
+          bias?: string | null
+          down_count?: number
+          down_pct?: number | null
+          flat_count?: number | null
+          id?: string
+          month_number?: number
+          symbol?: string
+          total_years?: number
+          up_count?: number
+          up_pct?: number | null
+          updated_at?: string | null
+          worst_return?: number | null
+          worst_year?: number | null
+        }
+        Relationships: []
+      }
       social_sentiment: {
         Row: {
           confidence: number | null
