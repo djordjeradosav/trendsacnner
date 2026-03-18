@@ -12,22 +12,31 @@ import {
   Bell,
   LogOut,
   History,
-  Clock } from
-"lucide-react";
+  Clock,
+  TrendingUp,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const mainNav = [
-{ label: "Dashboard", icon: Home, path: "/dashboard" },
-{ label: "Reports", icon: BarChart3, path: "/alerts" },
-{ label: "News", icon: Newspaper, path: "/news" },
-{ label: "Calendar", icon: Calendar, path: "/calendar" },
-{ label: "Macro Desk", icon: Globe, path: "/scanner" },
-{ label: "History", icon: Clock, path: "/history" },
-{ label: "Scan History", icon: History, path: "/scan-history" },
-{ label: "Psychology", icon: Brain, path: null, soon: true },
-{ label: "Journal", icon: BookOpen, path: null, soon: true },
-{ label: "Community", icon: Users, path: null, soon: true }];
+  { label: "Dashboard", icon: Home, path: "/dashboard" },
+  { label: "Reports", icon: BarChart3, path: "/alerts" },
+  { label: "News", icon: Newspaper, path: "/news" },
+  { label: "Calendar", icon: Calendar, path: "/calendar" },
+  { label: "Macro Desk", icon: Globe, path: "/scanner" },
+  { label: "History", icon: Clock, path: "/history" },
+  { label: "Scan History", icon: History, path: "/scan-history" },
+];
+
+const macroNav = [
+  { label: "NFP", icon: TrendingUp, path: "/macro/nfp" },
+];
+
+const futureNav = [
+  { label: "Psychology", icon: Brain, path: null, soon: true },
+  { label: "Journal", icon: BookOpen, path: null, soon: true },
+  { label: "Community", icon: Users, path: null, soon: true },
+];
 
 
 export function AppSidebar() {
