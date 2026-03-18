@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { useMacroData, MacroIndicator } from "@/hooks/useMacroData";
 import { CpiTab } from "@/components/macro/CpiTab";
 import { PceTab } from "@/components/macro/PceTab";
+import { UnemploymentTab } from "@/components/macro/UnemploymentTab";
 import { StatCards } from "@/components/macro/StatCards";
 import { BeatRateBanner } from "@/components/macro/BeatRateBanner";
 import { ReleaseHistoryTable } from "@/components/macro/ReleaseHistoryTable";
@@ -369,6 +370,8 @@ export default function MacroPage() {
           <CpiTab indicator="CORE_CPI" title="Core CPI — Excludes Food & Energy MoM" />
         ) : currentTab.id === "pce" ? (
           <PceTab />
+        ) : currentTab.id === "unemployment" ? (
+          <UnemploymentTab />
         ) : (
           <MacroTabContent key={currentTab.id} tab={currentTab} />
         )}
