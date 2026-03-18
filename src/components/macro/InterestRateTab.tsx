@@ -10,11 +10,23 @@ import {
 } from "recharts";
 
 export function InterestRateTab() {
-  const { data, sorted, latest, previous, isLoading } = useMacroData("INTEREST_RATE");
+  const { data, sorted, latest, previous, isLoading, hasData } = useMacroData("INTEREST_RATE");
   const [range, setRange] = useState("all");
   const filtered = useMemo(() => filterByRange(sorted, range), [sorted, range]);
 
   if (isLoading) return <MacroSkeleton message="Loading Interest Rate data..." />;
+
+  if (!hasData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+        <p className="text-3xl">📊</p>
+        <p className="text-sm font-medium text-foreground">No data loaded yet</p>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          Click "⚡ Load all macro data" above to fetch from FRED API.
+        </p>
+      </div>
+    );
+  }
 
   const rateChange = latest && previous ? latest.actual! - previous.actual! : 0;
   const direction = rateChange > 0.01 ? "hike" : rateChange < -0.01 ? "cut" : "hold";

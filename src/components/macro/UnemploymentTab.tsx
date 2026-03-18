@@ -28,11 +28,23 @@ const CustomDot = (props: any) => {
 export function UnemploymentTab() {
   const {
     data, sorted, latest, previous, beatCount, totalCount,
-    beatRate, biggestBeat, biggestMiss, isLoading,
+    beatRate, biggestBeat, biggestMiss, isLoading, hasData,
   } = useMacroData("UNEMPLOYMENT");
   const [range, setRange] = useState("2y");
 
   if (isLoading) return <MacroSkeleton message="Loading Unemployment data..." />;
+
+  if (!hasData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+        <p className="text-3xl">📊</p>
+        <p className="text-sm font-medium text-foreground">No data loaded yet</p>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          Click "⚡ Load all macro data" above to fetch from FRED API.
+        </p>
+      </div>
+    );
+  }
 
   const filtered = filterByRange(sorted, range);
   const streak = computeStreak(data ?? []);

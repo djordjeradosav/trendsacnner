@@ -27,6 +27,18 @@ export function PceTab() {
   if (pceData.isLoading || coreData.isLoading)
     return <MacroSkeleton message="Loading PCE data..." />;
 
+  if (!pceData.hasData) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+        <p className="text-3xl">📊</p>
+        <p className="text-sm font-medium text-foreground">No data loaded yet</p>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          Click "⚡ Load all macro data" above to fetch from FRED API.
+        </p>
+      </div>
+    );
+  }
+
   const filtered = filterByRange(pceData.sorted, range);
   const coreFiltered = filterByRange(coreData.sorted, range);
 
