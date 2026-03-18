@@ -3,12 +3,20 @@ import { MacroIndicator } from "@/hooks/useMacroData";
 const formatDate = (d: string) =>
   new Date(d).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 
-const beatMissConfig: Record<string, { bg: string; color: string; label: string }> = {
-  beat: { bg: "hsl(155 100% 10%)", color: "hsl(var(--bullish))", label: "BEAT" },
-  miss: { bg: "hsl(0 60% 10%)", color: "hsl(var(--bearish))", label: "MISS" },
+const beatMissConfig = (lowerIsBetter: boolean): Record<string, { bg: string; color: string; label: string }> => ({
+  beat: {
+    bg: lowerIsBetter ? "rgba(59,130,246,0.15)" : "hsl(155 100% 10%)",
+    color: lowerIsBetter ? "#3b82f6" : "hsl(var(--bullish))",
+    label: lowerIsBetter ? "LOWER ✓" : "BEAT",
+  },
+  miss: {
+    bg: lowerIsBetter ? "rgba(239,68,68,0.15)" : "hsl(0 60% 10%)",
+    color: lowerIsBetter ? "#ef4444" : "hsl(var(--bearish))",
+    label: lowerIsBetter ? "HIGHER ✗" : "MISS",
+  },
   inline: { bg: "hsl(var(--secondary))", color: "hsl(var(--muted-foreground))", label: "IN-LINE" },
   pending: { bg: "hsl(var(--secondary))", color: "#3d5a70", label: "PENDING" },
-};
+});
 
 interface Props {
   data: MacroIndicator[];
