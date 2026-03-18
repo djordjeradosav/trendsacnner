@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    const NEEDS_MOM = new Set(["CPI", "CORE_CPI", "PCE", "CORE_PCE"]);
     const rows: any[] = [];
     const errors: string[] = [];
 
@@ -85,24 +86,42 @@ Deno.serve(async (req) => {
       try {
         const obs = await fetchFRED(config.id, FRED_API_KEY);
 
-        for (let i = 0; i < obs.length; i++) {
-          const current = obs[i];
-          const previous = obs[i + 1];
-          const actual = parseFloat(current.value);
-          const prev = previous ? parseFloat(previous.value) : null;
+        // obs is sorted DESC from FRED — reverse to ASC for MoM computation
+        const asc = [...obs].reverse();
 
-          if (isNaN(actual)) continue;
+        for (let i = 0; i < asc.length; i++) {
+          const current = asc[i];
+          const actualRaw = parseFloat(current.value);
+          if (isNaN(actualRaw)) continue;
+
+          let actualDisplay = actualRaw;
+          let previousDisplay: number | null = null;
+
+          if (NEEDS_MOM.has(key)) {
+            // Compute MoM % change
+            const prevVal = i > 0 ? parseFloat(asc[i - 1].value) : null;
+            if (prevVal == null || isNaN(prevVal)) continue;
+            actualDisplay = parseFloat((((actualRaw - prevVal) / prevVal) * 100).toFixed(4));
+
+            const prevPrevVal = i > 1 ? parseFloat(asc[i - 2].value) : null;
+            previousDisplay = (prevPrevVal != null && !isNaN(prevPrevVal))
+              ? parseFloat((((prevVal - prevPrevVal) / prevPrevVal) * 100).toFixed(4))
+              : null;
+          } else {
+            const prevObs = i > 0 ? parseFloat(asc[i - 1].value) : null;
+            previousDisplay = (prevObs != null && !isNaN(prevObs)) ? prevObs : null;
+          }
 
           rows.push({
             indicator: key,
             country: "US",
-            actual,
-            previous: prev,
+            actual: actualDisplay,
+            previous: previousDisplay,
             forecast: null,
             surprise: null,
             beat_miss: "pending",
             release_date: current.date,
-            unit: config.unit,
+            unit: NEEDS_MOM.has(key) ? "%MoM" : config.unit,
             source: "FRED",
           });
         }
