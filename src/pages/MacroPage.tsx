@@ -88,6 +88,9 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
     return v.toFixed(2) + "%";
   };
 
+  const formatSurpriseColor = (bm?: string | null) =>
+    bm === "beat" ? "hsl(var(--bullish))" : bm === "miss" ? "hsl(var(--bearish))" : undefined;
+
   const cutoff = useMemo(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - (RANGE_MAP[range] ?? 999));
