@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { transformToMom } from "@/lib/macroTransform";
 
 export interface MacroIndicator {
   id: string;
@@ -37,7 +38,8 @@ export function useMacroData(indicator: string, limit = 60) {
       }
 
       console.log("useMacroData:", indicator, "returned", data?.length, "rows");
-      return (data ?? []) as MacroIndicator[];
+      const raw = (data ?? []) as MacroIndicator[];
+      return transformToMom(indicator, raw);
     },
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
