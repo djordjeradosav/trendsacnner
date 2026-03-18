@@ -373,6 +373,8 @@ export default function MacroPage() {
           <PceTab />
         ) : currentTab.id === "unemployment" ? (
           <UnemploymentTab />
+        ) : currentTab.id === "interest-rate" ? (
+          <InterestRateTab />
         ) : (
           <MacroTabContent key={currentTab.id} tab={currentTab} />
         )}
