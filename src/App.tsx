@@ -19,6 +19,7 @@ import WatchlistPage from "./pages/Watchlist";
 import AlertsPage from "./pages/Alerts";
 import NewsPage from "./pages/News";
 import CalendarPage from "./pages/CalendarPage";
+import MacroNFP from "./pages/MacroNFP";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/news" element={<RequireAuth><NewsPage /></RequireAuth>} />
             <Route path="/calendar" element={<RequireAuth><CalendarPage /></RequireAuth>} />
             <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
+            <Route path="/macro/nfp" element={<RequireAuth><MacroNFP /></RequireAuth>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
