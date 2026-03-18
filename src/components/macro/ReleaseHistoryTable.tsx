@@ -45,7 +45,8 @@ export function ReleaseHistoryTable({ data, formatValue, lowerIsBetter }: Props)
           <tbody>
             {data.map((row, i) => {
               const bm = row.beat_miss ?? "pending";
-              const cfg = beatMissConfig[bm] ?? beatMissConfig.pending;
+              const configs = beatMissConfig(lowerIsBetter);
+              const cfg = configs[bm] ?? configs.pending;
               const borderColor =
                 bm === "beat" ? "hsl(var(--bullish))" : bm === "miss" ? "hsl(var(--bearish))" : "transparent";
 
