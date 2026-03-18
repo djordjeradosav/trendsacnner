@@ -362,7 +362,13 @@ export default function MacroPage() {
         </div>
 
         {/* Tab Content */}
-        <MacroTabContent key={currentTab.id} tab={currentTab} />
+        {currentTab.id === "cpi" ? (
+          <CpiTab indicator="CPI" title="CPI — Consumer Price Index MoM" />
+        ) : currentTab.id === "core-cpi" ? (
+          <CpiTab indicator="CORE_CPI" title="Core CPI — Excludes Food & Energy MoM" />
+        ) : (
+          <MacroTabContent key={currentTab.id} tab={currentTab} />
+        )}
       </div>
     </AppLayout>
   );
