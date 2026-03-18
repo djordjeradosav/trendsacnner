@@ -231,7 +231,7 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
       {deviationData.length > 0 && (
         <div className="rounded-lg p-4 bg-card border border-border">
           <p className="text-xs text-muted-foreground mb-3">
-            How much {tab.label} {tab.lowerIsBetter ? "came in below or above" : "beat or missed"} expectations
+            {tab.deviationLabel}
           </p>
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={deviationData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
