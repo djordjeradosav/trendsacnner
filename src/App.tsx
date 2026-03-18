@@ -20,6 +20,7 @@ import AlertsPage from "./pages/Alerts";
 import NewsPage from "./pages/News";
 import CalendarPage from "./pages/CalendarPage";
 import MacroNFP from "./pages/MacroNFP";
+import MacroPage from "./pages/MacroPage";
 import SeasonalityPage from "./pages/Seasonality";
 import NotFound from "./pages/NotFound";
 
