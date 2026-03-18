@@ -43,7 +43,7 @@ interface CpiTabProps {
 export function CpiTab({ indicator, title, subtitle }: CpiTabProps) {
   const {
     sorted, latest, previous, beatCount, totalCount, beatRate,
-    biggestBeat, biggestMiss, isLoading, data,
+    biggestBeat, biggestMiss, isLoading, data, hasData,
   } = useMacroData(indicator);
 
   const [range, setRange] = useState("1y");
