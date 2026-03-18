@@ -370,6 +370,8 @@ export default function MacroPage() {
           <CpiTab indicator="CORE_CPI" title="Core CPI — Excludes Food & Energy MoM" />
         ) : currentTab.id === "pce" ? (
           <PceTab />
+        ) : currentTab.id === "unemployment" ? (
+          <UnemploymentTab />
         ) : (
           <MacroTabContent key={currentTab.id} tab={currentTab} />
         )}
