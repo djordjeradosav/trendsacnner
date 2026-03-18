@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { useMacroData, MacroIndicator } from "@/hooks/useMacroData";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import AppLayout from "@/components/layout/AppLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import {
   ComposedChart, Bar, Line, Scatter, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ReferenceLine,
