@@ -142,14 +142,22 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
       label: "Latest Release",
       value: formatValue(latest?.actual),
       subLabel: latest ? formatDate(latest.release_date) : "",
-      color: latest?.beat_miss === "beat" ? "hsl(var(--bullish))" : latest?.beat_miss === "miss" ? "hsl(var(--bearish))" : undefined,
+      color: formatSurpriseColor(latest?.beat_miss),
     },
-    { label: "Forecast", value: latest?.forecast != null ? formatValue(latest.forecast) : "N/A" },
-    { label: "Previous", value: previous ? formatValue(previous.actual) : "—" },
+    {
+      label: "Forecast",
+      value: latest?.forecast != null ? formatValue(latest.forecast) : "N/A",
+      subLabel: "Analyst consensus",
+    },
+    {
+      label: "Previous",
+      value: previous ? formatValue(previous.actual) : "—",
+      subLabel: previous ? formatDate(previous.release_date) : "",
+    },
     {
       label: "Surprise",
       value: latest?.surprise != null ? formatValue(latest.surprise) : "—",
-      color: latest?.beat_miss === "beat" ? "hsl(var(--bullish))" : latest?.beat_miss === "miss" ? "hsl(var(--bearish))" : undefined,
+      color: formatSurpriseColor(latest?.beat_miss),
       badge: (latest?.beat_miss === "beat" || latest?.beat_miss === "miss") ? (
         <span
           className="inline-block text-[9px] font-semibold rounded px-2 py-0.5"
@@ -166,7 +174,13 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
 
   return (
     <div className="space-y-5">
-      {/* Context */}
+      {/* Tab-specific header */}
+      <div>
+        <h2 className="text-lg font-bold text-foreground">{tab.title}</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">{tab.subtitle}</p>
+      </div>
+
+      {/* Context note */}
       <div className="rounded-lg px-4 py-3 text-xs bg-background border border-border text-muted-foreground">
         {tab.description}
       </div>
