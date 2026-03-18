@@ -433,6 +433,8 @@ export default function MacroPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [dotStatuses, setDotStatuses] = useState<Record<string, string | null>>({});
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = ADMIN_EMAILS.includes(user?.email ?? "");
 
   useEffect(() => {
     async function loadDots() {
