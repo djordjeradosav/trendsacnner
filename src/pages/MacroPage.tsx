@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useMacroData, MacroIndicator } from "@/hooks/useMacroData";
 import { CpiTab } from "@/components/macro/CpiTab";
+import { PceTab } from "@/components/macro/PceTab";
 import { StatCards } from "@/components/macro/StatCards";
 import { BeatRateBanner } from "@/components/macro/BeatRateBanner";
 import { ReleaseHistoryTable } from "@/components/macro/ReleaseHistoryTable";
@@ -366,6 +367,8 @@ export default function MacroPage() {
           <CpiTab indicator="CPI" title="CPI — Consumer Price Index MoM" />
         ) : currentTab.id === "core-cpi" ? (
           <CpiTab indicator="CORE_CPI" title="Core CPI — Excludes Food & Energy MoM" />
+        ) : currentTab.id === "pce" ? (
+          <PceTab />
         ) : (
           <MacroTabContent key={currentTab.id} tab={currentTab} />
         )}
