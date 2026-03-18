@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useMacroData, MacroIndicator } from "@/hooks/useMacroData";
+import { CpiTab } from "@/components/macro/CpiTab";
 import { StatCards } from "@/components/macro/StatCards";
 import { BeatRateBanner } from "@/components/macro/BeatRateBanner";
 import { ReleaseHistoryTable } from "@/components/macro/ReleaseHistoryTable";
@@ -361,7 +362,13 @@ export default function MacroPage() {
         </div>
 
         {/* Tab Content */}
-        <MacroTabContent key={currentTab.id} tab={currentTab} />
+        {currentTab.id === "cpi" ? (
+          <CpiTab indicator="CPI" title="CPI — Consumer Price Index MoM" />
+        ) : currentTab.id === "core-cpi" ? (
+          <CpiTab indicator="CORE_CPI" title="Core CPI — Excludes Food & Energy MoM" />
+        ) : (
+          <MacroTabContent key={currentTab.id} tab={currentTab} />
+        )}
       </div>
     </AppLayout>
   );
