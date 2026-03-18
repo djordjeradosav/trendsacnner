@@ -31,7 +31,7 @@ export function useMacroData(indicator: string, limit = 60) {
         return (retry.data ?? []) as unknown as MacroIndicator[];
       }
 
-      return data as MacroIndicator[];
+      return data as unknown as MacroIndicator[];
     },
     staleTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
