@@ -66,7 +66,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-3">
           <div className="flex items-center gap-2">
             <Radar className="w-8 h-8 text-primary" />
-            <span className="font-display font-bold text-2xl text-foreground">TrendScan</span>
+            <span className="font-display font-bold text-2xl text-foreground">TrendScanner</span>
             <span className="text-xs font-display font-semibold px-2 py-0.5 rounded bg-primary/20 text-primary">AI</span>
           </div>
           <p className="text-sm text-muted-foreground">
