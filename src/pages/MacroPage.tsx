@@ -367,6 +367,8 @@ export default function MacroPage() {
           <CpiTab indicator="CPI" title="CPI — Consumer Price Index MoM" />
         ) : currentTab.id === "core-cpi" ? (
           <CpiTab indicator="CORE_CPI" title="Core CPI — Excludes Food & Energy MoM" />
+        ) : currentTab.id === "pce" ? (
+          <PceTab />
         ) : (
           <MacroTabContent key={currentTab.id} tab={currentTab} />
         )}
