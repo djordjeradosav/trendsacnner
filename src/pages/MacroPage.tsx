@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Loader2, Database, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+
+const ADMIN_EMAILS = [
+  "radosavljevicdjordje01@gmail.com",
+  "djolenosmile@gmail.com",
+];
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
