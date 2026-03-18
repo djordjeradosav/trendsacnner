@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Loader2, Database, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+
+const ADMIN_EMAILS = [
+  "radosavljevicdjordje01@gmail.com",
+  "djolenosmile@gmail.com",
+];
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -427,6 +433,8 @@ export default function MacroPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [dotStatuses, setDotStatuses] = useState<Record<string, string | null>>({});
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = ADMIN_EMAILS.includes(user?.email ?? "");
 
   useEffect(() => {
     async function loadDots() {
@@ -470,11 +478,11 @@ export default function MacroPage() {
   return (
     <AppLayout>
       <div className="p-4 md:p-6 space-y-5 max-w-[1200px] mx-auto">
-        {/* Debug Panel */}
-        <MacroDebugPanel />
+        {/* Debug Panel — admin only */}
+        {isAdmin && <MacroDebugPanel />}
 
-        {/* Load Button */}
-        <MacroLoadButton />
+        {/* Load Button — admin only */}
+        {isAdmin && <MacroLoadButton />}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
