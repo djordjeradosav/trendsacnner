@@ -28,7 +28,7 @@ export function useMacroData(indicator: string, limit = 60) {
           .eq("indicator", indicator)
           .order("release_date", { ascending: false })
           .limit(limit);
-        return (retry.data ?? []) as MacroIndicator[];
+        return (retry.data ?? []) as unknown as MacroIndicator[];
       }
 
       return data as MacroIndicator[];
