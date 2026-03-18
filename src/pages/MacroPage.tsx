@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Loader2, Database, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useMacroData, MacroIndicator } from "@/hooks/useMacroData";
 import { CpiTab } from "@/components/macro/CpiTab";
@@ -78,10 +79,168 @@ const formatDate = (d: string) =>
 const formatShortDate = (d: string) =>
   new Date(d).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 
+/* ─── Debug Panel ─── */
+function MacroDebugPanel() {
+  const [results, setResults] = useState<any>(null);
+
+  useEffect(() => {
+    async function check() {
+      const { data: rows, error: tableError } = await supabase
+        .from("macro_indicators")
+        .select("indicator, release_date, actual")
+        .limit(5);
+
+      const { data: counts } = await supabase
+        .from("macro_indicators")
+        .select("indicator");
+
+      const countMap: Record<string, number> = {};
+      counts?.forEach((r: any) => {
+        countMap[r.indicator] = (countMap[r.indicator] ?? 0) + 1;
+      });
+
+      const { data: fnResult, error: fnError } = await supabase.functions.invoke(
+        "fetch-fred-data",
+        { body: { indicator: "NFP" } }
+      );
+
+      setResults({
+        tableError: tableError?.message ?? null,
+        sampleRows: rows ?? [],
+        countMap,
+        fnResult,
+        fnError: fnError?.message ?? null,
+      });
+    }
+    check();
+  }, []);
+
+  if (!results)
+    return (
+      <div className="rounded-lg border border-border bg-card p-4 text-sm text-muted-foreground flex items-center gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Running diagnostics...
+      </div>
+    );
+
+  const hasIssue = results.tableError || results.fnError || Object.keys(results.countMap).length === 0;
+
+  return (
+    <div
+      className="rounded-lg border p-4 text-xs space-y-1.5"
+      style={{
+        borderColor: hasIssue ? "rgba(239,68,68,0.4)" : "rgba(34,197,94,0.4)",
+        background: hasIssue ? "rgba(239,68,68,0.05)" : "rgba(34,197,94,0.05)",
+      }}
+    >
+      <p className="text-sm font-medium text-foreground flex items-center gap-1.5">
+        {hasIssue ? <AlertTriangle className="w-4 h-4 text-amber-500" /> : <Database className="w-4 h-4 text-emerald-500" />}
+        Macro Data Diagnostics
+      </p>
+      <p className="text-muted-foreground">
+        Table read: <span className="text-foreground">{results.tableError ?? "OK"}</span>
+      </p>
+      <p className="text-muted-foreground">
+        Rows in DB: <span className="text-foreground font-mono">{JSON.stringify(results.countMap)}</span>
+      </p>
+      <p className="text-muted-foreground">
+        Edge function: <span className="text-foreground">
+          {results.fnError
+            ? `Error: ${results.fnError}`
+            : results.fnResult?.error
+            ? `API Error: ${results.fnResult.error}`
+            : `OK — returned ${results.fnResult?.count ?? 0} rows`}
+        </span>
+      </p>
+      {results.fnResult?.keyMissing && (
+        <p className="text-amber-400 font-medium">
+          ⚠ FRED_API_KEY is not set. Go to Settings → Environment Variables to add it.
+        </p>
+      )}
+      {results.fnResult?.error?.includes("not registered") && (
+        <p className="text-amber-400 font-medium">
+          ⚠ FRED_API_KEY is invalid. Get a free key at fred.stlouisfed.org and update it.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Load Button ─── */
+function MacroLoadButton() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  async function loadAll() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-fred-data", {
+        body: {},
+      });
+      if (error) {
+        setResult("Error: " + error.message);
+      } else if (data?.error) {
+        setResult("API Error: " + data.error);
+      } else {
+        setResult("✓ Loaded " + (data?.count ?? 0) + " rows. Refreshing...");
+        queryClient.invalidateQueries({ queryKey: ["macro"] });
+        setTimeout(() => setResult(null), 8000);
+      }
+    } catch (e) {
+      setResult("Error: " + String(e));
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <button
+        onClick={loadAll}
+        disabled={loading}
+        className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+      >
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Database className="w-4 h-4" />
+        )}
+        {loading ? "Fetching all indicators from FRED..." : "⚡ Load all macro data"}
+      </button>
+      {result && (
+        <span
+          className="text-xs font-medium"
+          style={{
+            color: result.startsWith("✓") ? "#22c55e" : "#ef4444",
+          }}
+        >
+          {result}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ─── No Data State ─── */
+function NoDataState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+      <Database className="w-10 h-10 text-muted-foreground opacity-40" />
+      <p className="text-sm font-medium text-foreground">No data loaded yet</p>
+      <p className="text-xs text-muted-foreground max-w-sm">
+        Click "⚡ Load all macro data" above to fetch from the FRED API.
+        If the button shows an error, check that FRED_API_KEY is set in your environment variables.
+      </p>
+    </div>
+  );
+}
+
+/* ─── Generic Tab Content ─── */
 function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
   const {
     sorted, latest, previous, beatCount, totalCount, beatRate,
-    biggestBeat, biggestMiss, isLoading, data,
+    biggestBeat, biggestMiss, isLoading, data, hasData,
   } = useMacroData(tab.indicator);
 
   const [range, setRange] = useState("2y");
@@ -115,7 +274,7 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
         surprise: d.actual != null && d.forecast != null ? d.actual - d.forecast : null,
         beatMiss: d.beat_miss,
         color: d.beat_miss === "beat"
-          ? (tab.lowerIsBetter ? "#22c55e" : "#22c55e")
+          ? "#22c55e"
           : d.beat_miss === "miss"
           ? "#ef4444"
           : tab.color,
@@ -140,6 +299,7 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
   const streak = computeStreak(data ?? []);
 
   if (isLoading) return <MacroSkeleton message={`Loading ${tab.label} data...`} />;
+  if (!hasData) return <NoDataState />;
 
   const statCards = [
     {
@@ -178,13 +338,11 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
 
   return (
     <div className="space-y-5">
-      {/* Tab-specific header */}
       <div>
         <h2 className="text-lg font-bold text-foreground">{tab.title}</h2>
         <p className="text-xs text-muted-foreground mt-0.5">{tab.subtitle}</p>
       </div>
 
-      {/* Context note */}
       <div className="rounded-lg px-4 py-3 text-xs bg-background border border-border text-muted-foreground">
         {tab.description}
       </div>
@@ -205,7 +363,6 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
 
       <DateRangeFilter value={range} onChange={setRange} />
 
-      {/* Main Chart */}
       {chartData.length > 0 && (
         <div className="rounded-lg p-4 bg-card border border-border">
           <ResponsiveContainer width="100%" height={320}>
@@ -231,12 +388,9 @@ function MacroTabContent({ tab }: { tab: typeof TABS[number] }) {
         </div>
       )}
 
-      {/* Deviation Chart */}
       {deviationData.length > 0 && (
         <div className="rounded-lg p-4 bg-card border border-border">
-          <p className="text-xs text-muted-foreground mb-3">
-            {tab.deviationLabel}
-          </p>
+          <p className="text-xs text-muted-foreground mb-3">{tab.deviationLabel}</p>
           <ResponsiveContainer width="100%" height={200}>
             <ComposedChart data={deviationData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(207 35% 18%)" vertical={false} />
@@ -272,8 +426,8 @@ export default function MacroPage() {
   const activeTab = searchParams.get("tab") || "nfp";
   const [refreshing, setRefreshing] = useState(false);
   const [dotStatuses, setDotStatuses] = useState<Record<string, string | null>>({});
+  const queryClient = useQueryClient();
 
-  // Load dot statuses on mount
   useEffect(() => {
     async function loadDots() {
       const results = await Promise.all(
@@ -296,9 +450,15 @@ export default function MacroPage() {
   const handleRefreshAll = async () => {
     setRefreshing(true);
     try {
-      await supabase.functions.invoke("fetch-fred-data");
-      await new Promise((r) => setTimeout(r, 5000));
-      toast.success("All indicators updated");
+      const { data, error } = await supabase.functions.invoke("fetch-fred-data");
+      if (error) {
+        toast.error("Failed to refresh: " + error.message);
+      } else if (data?.error) {
+        toast.error("FRED API error: " + data.error);
+      } else {
+        toast.success(`Updated ${data?.count ?? 0} data points`);
+        queryClient.invalidateQueries({ queryKey: ["macro"] });
+      }
     } catch {
       toast.error("Failed to refresh");
     }
@@ -310,6 +470,12 @@ export default function MacroPage() {
   return (
     <AppLayout>
       <div className="p-4 md:p-6 space-y-5 max-w-[1200px] mx-auto">
+        {/* Debug Panel */}
+        <MacroDebugPanel />
+
+        {/* Load Button */}
+        <MacroLoadButton />
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
