@@ -453,7 +453,7 @@ Deno.serve(async (req) => {
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe: effectiveTF,
+                timeframe: normalisedTimeframe,
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),

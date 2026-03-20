@@ -191,26 +191,19 @@ export default function PairDetail() {
     if (!pair || scanning) return;
     setScanning(true);
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      const { data: { session } } = await supabase.auth.getSession();
-      const url = `https://${projectId}.supabase.co/functions/v1/fast-scan?timeframe=${encodeURIComponent(timeframe)}`;
-
-      const response = await fetch(url, {
-        headers: {
-          "apikey": anonKey,
-          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
-        },
+      // Use POST with body to pass pairIds for single-pair scan
+      const { data: scanResult, error: scanError } = await supabase.functions.invoke("fast-scan", {
+        body: { timeframe, pairIds: [pair.id] },
       });
 
-      if (response.body) {
-        const reader = response.body.getReader();
-        // Consume the stream to completion
-        while (true) {
-          const { done } = await reader.read();
-          if (done) break;
-        }
+      if (scanError) {
+        console.error("Scan error:", scanError);
+      } else {
+        console.log("Scan complete for", pair.symbol, timeframe, scanResult);
       }
+
+      // Wait briefly for DB writes to settle
+      await new Promise((r) => setTimeout(r, 1200));
 
       // Reload candles and score for this pair/TF
       const [candleRes, scoreRes] = await Promise.all([
@@ -238,7 +231,26 @@ export default function PairDetail() {
         setCandles(newCandles);
         setScoreResult(calcTrendScore(newCandles));
       } else {
-        setCandles([]);
+        // Fallback: try fetch-candles edge function directly
+        console.warn("No candles after scan, trying direct fetch");
+        const { data: directData } = await supabase.functions.invoke("fetch-candles", {
+          body: { pair_symbol: pair.symbol, timeframe, outputsize: 300 },
+        });
+        if (directData?.success) {
+          // Wait and retry loading from DB
+          await new Promise((r) => setTimeout(r, 1000));
+          const { data: retryCandles } = await supabase
+            .from("candles")
+            .select("open, high, low, close, volume, ts, pair_id, timeframe")
+            .eq("pair_id", pair.id)
+            .eq("timeframe", timeframe)
+            .order("ts", { ascending: true })
+            .limit(500);
+          if (retryCandles && retryCandles.length > 0) {
+            setCandles(retryCandles);
+            setScoreResult(calcTrendScore(retryCandles));
+          }
+        }
       }
     } catch (err) {
       console.error("Pair scan failed:", err);
