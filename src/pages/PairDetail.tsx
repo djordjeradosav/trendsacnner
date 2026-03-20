@@ -534,7 +534,7 @@ export default function PairDetail() {
         ))}
         <div className="hidden sm:flex ml-auto items-center gap-2">
           {(["ema20", "ema50", "ema200", "bb"] as const).map((key) => {
-            const labels: Record<string, string> = { ema20: "EMA 20", ema50: "EMA 50", ema200: "EMA 200", bb: "BB" };
+            const labels: Record<string, string> = { ema20: "EMA 9", ema50: "EMA 21", ema200: "EMA 50", bb: "BB" };
             const colors: Record<string, string> = { ema20: "bg-blue-500", ema50: "bg-amber-500", ema200: "bg-red-500", bb: "bg-gray-400" };
             return (
               <button
