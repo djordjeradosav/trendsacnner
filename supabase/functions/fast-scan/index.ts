@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ─── Indicator Math ─────────────────────────────────────────────────────────
+// ─── Indicator Math (self-contained, no imports from src/) ──────────────────
 
 function calcEMA(closes: number[], period: number): number[] {
   const result: number[] = new Array(closes.length).fill(NaN);
@@ -113,74 +113,52 @@ function latest(arr: number[]): number {
   return NaN;
 }
 
-// ─── New Score Engine (EMA 0-55, RSI 0-30, News 0-15) ──────────────────────
+// ─── Score Engine ───────────────────────────────────────────────────────────
 
 interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
-function scoreEMA(
-  price: number, emaFast: number, emaMid: number, emaSlow: number,
-  ema200: number | null, timeframe: string,
-  emaFastArr?: number[], emaMidArr?: number[], emaSlowArr?: number[]
-): number {
-  const isLongTF = timeframe === "4h" || timeframe === "1day";
-  let base: number;
-
-  if (isLongTF && ema200 != null && !isNaN(ema200)) {
-    if (price > emaFast && emaFast > emaMid && emaMid > emaSlow && emaSlow > ema200) base = 55;
-    else if (price < emaFast && emaFast < emaMid && emaMid < emaSlow && emaSlow < ema200) base = 0;
-    else if (price > emaFast && emaFast > emaMid && emaMid > emaSlow) base = 40;
-    else if (price > emaFast && emaFast > emaMid) base = 28;
-    else if (price > emaFast) base = 16;
-    else if (price < emaFast && emaFast < emaMid && emaMid < emaSlow) base = 14;
-    else if (price < emaFast && emaFast < emaMid) base = 8;
-    else if (price < emaFast) base = 4;
-    else base = 22;
-  } else {
-    if (price > emaFast && emaFast > emaMid && emaMid > emaSlow) base = 55;
-    else if (price < emaFast && emaFast < emaMid && emaMid < emaSlow) base = 0;
-    else if (price > emaFast && emaFast > emaMid) base = 40;
-    else if (price > emaFast && emaMid > emaSlow) base = 30;
-    else if (price > emaFast) base = 20;
-    else if (price < emaFast && emaFast < emaMid) base = 10;
-    else if (price < emaFast) base = 6;
-    else base = 22;
+function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
+  const isShortTF = ["15min","30min"].includes(timeframe || "");
+  if (isShortTF) {
+    if (price > e20 && e20 > e50 && e50 > e200) return 22;
+    if (price < e20 && e20 < e50 && e50 < e200) return 0;
+    if (price > e20 && e20 > e50) return 16;
+    if (price > e20) return 10;
+    if (price < e20 && e20 < e50) return 6;
+    return 11;
   }
-
-  // Slope bonus
-  let bonus = 0;
-  if (emaFastArr && emaMidArr && emaSlowArr) {
-    const len = emaFastArr.length;
-    if (len >= 4) {
-      const fR = emaFastArr[len-1] > emaFastArr[len-4];
-      const mR = emaMidArr[len-1] > emaMidArr[len-4];
-      const sR = emaSlowArr[len-1] > emaSlowArr[len-4];
-      if (fR && mR && sR) bonus = 5;
-      else if (!fR && !mR && !sR && emaFastArr[len-1] < emaFastArr[len-4]) bonus = -5;
-    }
-  }
-  return Math.max(0, Math.min(55, base + bonus));
+  if (price > e20 && e20 > e50 && e50 > e200) return 22;
+  if (price > e20 && e20 > e50) return 15;
+  if (price > e20) return 8;
+  if (price < e20 && e20 < e50 && e50 < e200) return 0;
+  return 11;
 }
 
-function scoreRSI(rsi: number, rsiArr?: number[]): number {
-  let base: number;
-  if (rsi >= 70) base = 24;
-  else if (rsi >= 60) base = 30;
-  else if (rsi >= 55) base = 26;
-  else if (rsi >= 50) base = 20;
-  else if (rsi >= 45) base = 12;
-  else if (rsi >= 40) base = 7;
-  else if (rsi >= 30) base = 3;
-  else base = 5;
+function scoreADX(adx: number): number {
+  if (adx >= 40) return 11; if (adx >= 25) return 8; if (adx >= 15) return 4; return 2;
+}
 
-  let bonus = 0;
-  if (rsiArr) {
-    const len = rsiArr.length;
-    if (len >= 4 && !isNaN(rsiArr[len-1]) && !isNaN(rsiArr[len-4])) {
-      if (rsi >= 50 && rsiArr[len-1] > rsiArr[len-4]) bonus = 3;
-      else if (rsi < 50 && rsiArr[len-1] < rsiArr[len-4]) bonus = -3;
-    }
-  }
-  return Math.max(0, Math.min(30, base + bonus));
+function scoreRSI(rsi: number): number {
+  return Math.max(0, Math.min(11, Math.round(((rsi - 50) / 50) * 11)));
+}
+
+function scoreMACD(hist: number, histPrev: number): number {
+  if (hist > 0 && hist > histPrev) return 11;
+  if (hist > 0) return 7;
+  if (hist <= 0 && hist > histPrev) return 4;
+  return 0;
+}
+
+const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
+  "15min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "30min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "4h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+  "1day":  { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
+};
+
+function getConfig(tf: string) {
+  return TF_CONFIGS[tf] || TF_CONFIGS["1h"];
 }
 
 function calcTrendScore(candles: CandleData[], timeframe = "1h") {
@@ -188,43 +166,43 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   const highs = candles.map(c => c.high);
   const lows = candles.map(c => c.low);
 
-  // EMA 9/21/50 + 200 for long TFs
-  const emaFastArr = calcEMA(closes, 9);
-  const emaMidArr = calcEMA(closes, 21);
-  const emaSlowArr = calcEMA(closes, 50);
-  const ema200Arr = calcEMA(closes, 200);
-  const rsiArr = calcRSI(closes, 14);
+  const cfg = getConfig(timeframe);
 
-  // Display-only indicators
-  const adxVal = latest(calcADX(highs, lows, closes, 14));
-  const { histogram } = calcMACD(closes, 12, 26, 9);
+  const emaFastArr = calcEMA(closes, cfg.emaFast);
+  const emaMidArr = calcEMA(closes, cfg.emaMid);
+  const emaSlowArr = calcEMA(closes, cfg.emaSlow);
+  const rsiVal = latest(calcRSI(closes, cfg.rsiPeriod));
+  const adxVal = latest(calcADX(highs, lows, closes, cfg.adxPeriod));
+  const { histogram } = calcMACD(closes, cfg.macdFast, cfg.macdSlow, cfg.macdSignal);
   const macdHist = latest(histogram);
+  let macdHistPrev = NaN;
+  for (let i = histogram.length - 2; i >= 0; i--) { if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; } }
 
   const price = closes[closes.length - 1];
   const emaFast = latest(emaFastArr);
   const emaMid = latest(emaMidArr);
   const emaSlow = latest(emaSlowArr);
-  const ema200Val = latest(ema200Arr);
-  const rsiVal = latest(rsiArr);
 
-  const isLongTF = timeframe === "4h" || timeframe === "1day";
-  const ema200ForScore = isLongTF ? ema200Val : null;
+  const emaS = !isNaN(emaFast) && !isNaN(emaMid) && !isNaN(emaSlow) ? scoreEMA(price, emaFast, emaMid, emaSlow, timeframe) : 11;
+  const adxS = !isNaN(adxVal) ? scoreADX(adxVal) : 2;
+  const rsiS = !isNaN(rsiVal) ? scoreRSI(rsiVal) : 6;
+  const macdS = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : 6;
 
-  const emaS = !isNaN(emaFast) && !isNaN(emaMid) && !isNaN(emaSlow)
-    ? scoreEMA(price, emaFast, emaMid, emaSlow, ema200ForScore, timeframe, emaFastArr, emaMidArr, emaSlowArr) : 22;
-  const rsiS = !isNaN(rsiVal) ? scoreRSI(rsiVal, rsiArr) : 15;
-  const newsDefault = 7; // neutral midpoint of 0-15
+  const technical = emaS + adxS + rsiS + macdS;
+  const newsDefault = 7;
+  const eventDefault = 12;
+  const stocktwitsDefault = 5;
+  const redditDefault = 5;
 
-  const rawScore = Math.max(0, Math.min(100, emaS + rsiS + newsDefault));
-  const trend = rawScore >= 62 ? "bullish" : rawScore <= 38 ? "bearish" : "neutral";
+  const rawScore = Math.max(0, Math.min(100, technical + newsDefault + eventDefault + stocktwitsDefault + redditDefault));
+  const trend = rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
 
   return {
     score: rawScore, trend,
-    emaScore: emaS, adxScore: 0, rsiScore: rsiS, macdScore: 0,
-    newsScore: newsDefault,
+    emaScore: emaS, adxScore: adxS, rsiScore: rsiS, macdScore: macdS,
     ema20: isNaN(emaFast) ? 0 : emaFast,
     ema50: isNaN(emaMid) ? 0 : emaMid,
-    ema200: isNaN(ema200Val) ? 0 : ema200Val,
+    ema200: isNaN(emaSlow) ? 0 : emaSlow,
     adx: isNaN(adxVal) ? 0 : adxVal,
     rsi: isNaN(rsiVal) ? 50 : rsiVal,
     macdHist: isNaN(macdHist) ? 0 : macdHist,
@@ -244,14 +222,16 @@ const SYMBOL_MAP: Record<string, string> = {
   "GBPCHF": "OANDA:GBP_CHF", "AUDCAD": "OANDA:AUD_CAD", "AUDNZD": "OANDA:AUD_NZD",
   "AUDCHF": "OANDA:AUD_CHF", "NZDCAD": "OANDA:NZD_CAD", "NZDCHF": "OANDA:NZD_CHF",
   "CADCHF": "OANDA:CAD_CHF",
+  // Metals
   "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
   "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
-  "USOIL": "OANDA:WTICO_USD", "CL1!": "OANDA:WTICO_USD",
-  "UKOIL": "OANDA:BCO_USD", "BZ1!": "OANDA:BCO_USD",
-  "NATGAS": "OANDA:NATGAS_USD", "NG1!": "OANDA:NATGAS_USD",
-  "US500": "OANDA:SPX500_USD", "ES1!": "OANDA:SPX500_USD",
-  "US100": "OANDA:NAS100_USD", "NQ1!": "OANDA:NAS100_USD",
-  "US30": "OANDA:US30_USD", "YM1!": "OANDA:US30_USD",
+  // Commodities & Futures — mapped from DB symbol names
+  "USOIL":  "OANDA:WTICO_USD",  "CL1!":  "OANDA:WTICO_USD",
+  "UKOIL":  "OANDA:BCO_USD",    "BZ1!":  "OANDA:BCO_USD",
+  "NATGAS": "OANDA:NATGAS_USD", "NG1!":  "OANDA:NATGAS_USD",
+  "US500":  "OANDA:SPX500_USD", "ES1!":  "OANDA:SPX500_USD",
+  "US100":  "OANDA:NAS100_USD", "NQ1!":  "OANDA:NAS100_USD",
+  "US30":   "OANDA:US30_USD",   "YM1!":  "OANDA:US30_USD",
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
@@ -259,10 +239,14 @@ const RESOLUTION_MAP: Record<string, string> = {
   "1h": "60", "4h": "240", "1day": "D",
 };
 
+// Finnhub free tier only supports resolution "60" and above for forex candles.
+// For sub-hourly timeframes, we fetch 1H candles and score with the requested
+// timeframe's indicator config (shorter EMA periods etc).
 const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getEffectiveResolution(resolution: string): string {
   if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
+  // Fallback: use 1H candles for sub-hourly timeframes
   return "60";
 }
 
@@ -342,6 +326,7 @@ Deno.serve(async (req) => {
     } catch { /* use defaults */ }
   }
 
+  // Load pairs
   let query = supabase.from("pairs").select("id, symbol, category, base_currency").eq("is_active", true);
   if (pairIds && pairIds.length > 0) {
     query = query.in("id", pairIds);
@@ -355,20 +340,24 @@ Deno.serve(async (req) => {
 
   const normalisedTimeframe = timeframe.toLowerCase().trim();
   const rawResolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
+  // Finnhub free tier: sub-hourly resolutions return 403 for forex.
+  // Fall back to 1H candles and score with the requested timeframe's indicator config.
   const resolution = getEffectiveResolution(rawResolution);
   const usedFallback = resolution !== rawResolution;
+  // When using fallback resolution, fetch candles based on the fallback (1H) timing
   const effectiveTF = usedFallback ? "1h" : normalisedTimeframe;
   const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
   const intervalSec = getIntervalSeconds(effectiveTF);
   const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
   const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
-
+  
   if (usedFallback) {
     console.log(`[SCAN] Finnhub free tier: resolution "${rawResolution}" not supported, falling back to "${resolution}" (1H candles) for scoring`);
   }
-  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} pairs=${pairs.length}`);
+  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
+  // Finnhub allows 60 calls/min — use chunks of 55 with 1.1s delay
   const CHUNK_SIZE = 55;
   const chunks = chunkArray(pairs, CHUNK_SIZE);
   const total = pairs.length;
@@ -394,18 +383,21 @@ Deno.serve(async (req) => {
         const results = await Promise.allSettled(
           chunk.map(async (pair) => {
             if (rateLimited) return null;
+
             const finnhubSymbol = getFinnhubSymbol(pair.symbol);
             if (!finnhubSymbol) {
               console.warn(`[SCAN] ${pair.symbol}: no Finnhub symbol mapping`);
               return null;
             }
+
             const abortCtl = new AbortController();
             const timeout = setTimeout(() => abortCtl.abort(), 8000);
             try {
               const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
               const res = await fetch(url, { signal: abortCtl.signal });
+
               if (res.status === 429) {
-                console.warn(`[SCAN] ${pair.symbol}: rate limited (429)`);
+                console.warn(`[SCAN] ${pair.symbol}: rate limited (429), waiting...`);
                 rateLimited = true;
                 return null;
               }
@@ -413,17 +405,23 @@ Deno.serve(async (req) => {
                 console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}`);
                 return null;
               }
+
               const data = (await res.json()) as FinnhubCandleResponse;
               if (data.s !== "ok" || !data.c?.length) {
                 console.warn(`[SCAN] ${pair.symbol}: status="${data.s}" candles=0`);
                 return null;
               }
+
               console.log(`[SCAN] ${pair.symbol}: ${data.c.length} candles fetched`);
+
               return {
                 pairId: pair.id,
                 symbol: pair.symbol,
                 candles: data.c.map((close, i) => ({
-                  open: data.o![i], high: data.h![i], low: data.l![i], close,
+                  open: data.o![i],
+                  high: data.h![i],
+                  low: data.l![i],
+                  close,
                   volume: data.v?.[i] ?? 0,
                   ts: new Date(data.t![i] * 1000).toISOString(),
                 })),
@@ -436,6 +434,7 @@ Deno.serve(async (req) => {
           })
         );
 
+        // Process results — fall back to cached DB candles when API fails
         for (let ri = 0; ri < results.length; ri++) {
           done++;
           const r = results[ri];
@@ -450,10 +449,11 @@ Deno.serve(async (req) => {
             if (r.value.candles.length < minCandles) {
               console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
             }
+            // Store candles with the effective timeframe used for fetching
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe: normalisedTimeframe,
+                timeframe: effectiveTF,
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),
@@ -463,7 +463,9 @@ Deno.serve(async (req) => {
             console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum 20 — skipping`);
           }
 
+          // Fallback: load cached candles from DB
           if (!pairCandles) {
+            // Try the requested timeframe first, then fall back to 1h
             for (const dbTf of [normalisedTimeframe, "1h"]) {
               const { data: dbCandles } = await supabase
                 .from("candles")
@@ -472,6 +474,7 @@ Deno.serve(async (req) => {
                 .eq("timeframe", dbTf)
                 .order("ts", { ascending: true })
                 .limit(candleLimit);
+
               if (dbCandles && dbCandles.length >= 20) {
                 pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
                   open: Number(c.open), high: Number(c.high), low: Number(c.low),
@@ -486,6 +489,7 @@ Deno.serve(async (req) => {
           }
 
           if (pairCandles && pairCandles.length >= 20) {
+            // Score with the REQUESTED timeframe's indicator config (shorter EMAs for 15min etc)
             const result = calcTrendScore(pairCandles, normalisedTimeframe);
 
             if (result.trend === "bullish") bullish++;
@@ -495,9 +499,8 @@ Deno.serve(async (req) => {
             scoreRows.push({
               pair_id: pairId, timeframe: normalisedTimeframe,
               score: result.score, trend: result.trend,
-              ema_score: result.emaScore, adx_score: 0,
-              rsi_score: result.rsiScore, macd_score: 0,
-              news_score: result.newsScore,
+              ema_score: result.emaScore, adx_score: result.adxScore,
+              rsi_score: result.rsiScore, macd_score: result.macdScore,
               ema20: result.ema20, ema50: result.ema50, ema200: result.ema200,
               adx: result.adx, rsi: result.rsi, macd_hist: result.macdHist,
               scanned_at: new Date().toISOString(),
@@ -509,12 +512,13 @@ Deno.serve(async (req) => {
           }
         }
 
+        // Delay between chunks — only 1.1s needed for Finnhub's 60/min limit
         if (ci < chunks.length - 1) {
           await sleep(1100);
         }
       }
 
-      // Bulk upsert candles
+      // Bulk upsert candles in batches of 1000
       for (let i = 0; i < candleRows.length; i += 1000) {
         const batch = candleRows.slice(i, i + 1000);
         await supabase.from("candles").upsert(batch as any, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
@@ -522,7 +526,7 @@ Deno.serve(async (req) => {
 
       // Bulk upsert scores
       if (scoreRows.length > 0) {
-        console.log(`[SCAN] Upserting ${scoreRows.length} scores with timeframe="${normalisedTimeframe}"`);
+        console.log(`[SCAN] Upserting ${scoreRows.length} scores with timeframe="${normalisedTimeframe}". Sample:`, JSON.stringify(scoreRows[0]));
         const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
         if (scoreError) console.error("Score upsert error:", scoreError);
         else console.log(`[SCAN] Successfully upserted ${scoreRows.length} scores`);

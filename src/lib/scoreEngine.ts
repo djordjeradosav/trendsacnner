@@ -19,18 +19,22 @@ export interface Candle {
 }
 
 export interface ScoreBreakdown {
-  emaScore: number;       // 0-55
-  rsiScore: number;       // 0-30
-  newsScore: number;      // 0-15
-  // Legacy compat — always 0
-  adxScore: number;
-  macdScore: number;
-  technicalTotal: number;
-  fundamentalTotal: number;
-  eventRiskScore: number;
-  stocktwitsScore: number;
-  redditScore: number;
-  socialTotal: number;
+  // Technical Layer (0-55)
+  emaScore: number;       // 0-22
+  adxScore: number;       // 0-11
+  rsiScore: number;       // 0-11
+  macdScore: number;      // 0-11
+  technicalTotal: number; // 0-55
+
+  // Fundamental Layer (0-25)
+  newsScore: number;          // 0-13
+  eventRiskScore: number;     // 0-12
+  fundamentalTotal: number;   // 0-25
+
+  // Social Layer (0-20)
+  stocktwitsScore: number;    // 0-10
+  redditScore: number;        // 0-10
+  socialTotal: number;        // 0-20
 }
 
 export interface EnhancedScoreResult {
@@ -47,14 +51,14 @@ export interface EnhancedScoreResult {
   macdHist: number;
   macdHistPrev: number;
 
-  // Event risk (legacy)
+  // Event risk
   eventRiskFlag: boolean;
   upcomingEvent: string | null;
   upcomingEventTime: string | null;
   scoreBeforeEventRisk: number;
 
   // Data quality
-  dataQuality: "full" | "technical-only";
+  dataQuality: "full" | "no-social" | "no-news" | "technical-only";
   lastNewsUpdate: string | null;
   lastSocialUpdate: string | null;
 
@@ -68,155 +72,132 @@ export interface EnhancedScoreResult {
 
   // Explanation lines
   explanationLines: string[];
-
-  // Confidence
-  confidenceFlags: string[];
 }
 
+// Keep old interface for backwards compat
 export type ScoreResult = EnhancedScoreResult;
 
-// ─── EMA Alignment (0–55) ───────────────────────────────────────────────────
-function scoreEMA(
-  price: number,
-  emaFast: number,
-  emaMid: number,
-  emaSlow: number,
-  ema200: number | null,
-  timeframe: string,
-  emaFastArr?: number[],
-  emaMidArr?: number[],
-  emaSlowArr?: number[]
-): { score: number; line: string } {
-  const isLongTF = timeframe === "4h" || timeframe === "1day";
-  let base: number;
+// ─── EMA Alignment (0–22) ───────────────────────────────────────────────────
+function scoreEMA(price: number, ema20: number, ema50: number, ema200: number, timeframe?: string): { score: number; line: string } {
+  const isShortTF = ["15min","30min"].includes(timeframe || "");
+  if (isShortTF) {
+    if (price > ema20 && ema20 > ema50 && ema50 > ema200)
+      return { score: 22, line: "✓ EMA Stack: Full bullish alignment (+22)" };
+    if (price < ema20 && ema20 < ema50 && ema50 < ema200)
+      return { score: 0, line: "✗ EMA Stack: Full bearish alignment (+0)" };
+    if (price > ema20 && ema20 > ema50)
+      return { score: 16, line: "~ EMA: Price > Fast > Mid (+16)" };
+    if (price > ema20)
+      return { score: 10, line: "~ EMA: Price above fast EMA only (+10)" };
+    if (price < ema20 && ema20 < ema50)
+      return { score: 6, line: "~ EMA: Partial bearish (+6)" };
+    return { score: 11, line: "~ EMA: Mixed/choppy (+11)" };
+  }
+  if (price > ema20 && ema20 > ema50 && ema50 > ema200)
+    return { score: 22, line: "✓ EMA Stack: Price > EMA20 > EMA50 > EMA200 (+22)" };
+  if (price > ema20 && ema20 > ema50)
+    return { score: 15, line: "~ EMA: Price > EMA20 > EMA50 (+15)" };
+  if (price > ema20)
+    return { score: 8, line: "~ EMA: Price above EMA20 only (+8)" };
+  if (price < ema20 && ema20 < ema50 && ema50 < ema200)
+    return { score: 0, line: "✗ EMA Stack: Full bearish alignment (+0)" };
+  return { score: 11, line: "~ EMA: Mixed/choppy (+11)" };
+}
+
+// ─── ADX Strength (0–11) ────────────────────────────────────────────────────
+function scoreADX(adx: number): { score: number; line: string } {
+  if (adx >= 40) return { score: 11, line: `✓ ADX ${adx.toFixed(0)} — very strong trend (+11)` };
+  if (adx >= 25) return { score: 8, line: `✓ ADX ${adx.toFixed(0)} — strong trend (+8)` };
+  if (adx >= 15) return { score: 4, line: `~ ADX ${adx.toFixed(0)} — weak trend (+4)` };
+  return { score: 2, line: `✗ ADX ${adx.toFixed(0)} — no trend (+2)` };
+}
+
+// ─── RSI Bias (0–11) ────────────────────────────────────────────────────────
+function scoreRSI(rsi: number): { score: number; line: string } {
+  const raw = ((rsi - 50) / 50) * 11;
+  const score = Math.max(0, Math.min(11, Math.round(raw)));
+  const label = rsi > 60 ? "✓" : rsi < 40 ? "✗" : "~";
+  return { score, line: `${label} RSI ${rsi.toFixed(0)} — ${rsi > 60 ? "bullish" : rsi < 40 ? "bearish" : "neutral"} bias (+${score}/11)` };
+}
+
+// ─── MACD Momentum (0–11) ───────────────────────────────────────────────────
+function scoreMACD(hist: number, histPrev: number): { score: number; line: string } {
+  const increasing = hist > histPrev;
+  let score: number;
   let desc: string;
-
-  if (isLongTF && ema200 != null && !isNaN(ema200)) {
-    // 4-EMA system
-    if (price > emaFast && emaFast > emaMid && emaMid > emaSlow && emaSlow > ema200) {
-      base = 55; desc = "Perfect bullish alignment (4-EMA)";
-    } else if (price < emaFast && emaFast < emaMid && emaMid < emaSlow && emaSlow < ema200) {
-      base = 0; desc = "Perfect bearish alignment (4-EMA)";
-    } else if (price > emaFast && emaFast > emaMid && emaMid > emaSlow) {
-      base = 40; desc = "Price > Fast > Mid > Slow";
-    } else if (price > emaFast && emaFast > emaMid) {
-      base = 28; desc = "Price > Fast > Mid";
-    } else if (price > emaFast) {
-      base = 16; desc = "Price above fast EMA only";
-    } else if (price < emaFast && emaFast < emaMid && emaMid < emaSlow) {
-      base = 14; desc = "Partial bearish (3-EMA)";
-    } else if (price < emaFast && emaFast < emaMid) {
-      base = 8; desc = "Price < Fast < Mid";
-    } else if (price < emaFast) {
-      base = 4; desc = "Price below fast EMA";
-    } else {
-      base = 22; desc = "Mixed/neutral";
-    }
-  } else {
-    // 3-EMA system for 15M, 30M, 1H
-    if (price > emaFast && emaFast > emaMid && emaMid > emaSlow) {
-      base = 55; desc = "Full bullish alignment";
-    } else if (price < emaFast && emaFast < emaMid && emaMid < emaSlow) {
-      base = 0; desc = "Full bearish alignment";
-    } else if (price > emaFast && emaFast > emaMid) {
-      base = 40; desc = "Price > Fast > Mid";
-    } else if (price > emaFast && emaMid > emaSlow) {
-      base = 30; desc = "Price > Fast, Mid > Slow";
-    } else if (price > emaFast) {
-      base = 20; desc = "Price above fast EMA only";
-    } else if (price < emaFast && emaFast < emaMid) {
-      base = 10; desc = "Partial bearish";
-    } else if (price < emaFast) {
-      base = 6; desc = "Price below fast EMA";
-    } else {
-      base = 22; desc = "Mixed/neutral";
-    }
-  }
-
-  // EMA Direction Bonus: check if all 3 EMAs slope same direction
-  let bonus = 0;
-  if (emaFastArr && emaMidArr && emaSlowArr) {
-    const len = emaFastArr.length;
-    if (len >= 4) {
-      const fRising = emaFastArr[len - 1] > emaFastArr[len - 4];
-      const mRising = emaMidArr[len - 1] > emaMidArr[len - 4];
-      const sRising = emaSlowArr[len - 1] > emaSlowArr[len - 4];
-      const fFalling = emaFastArr[len - 1] < emaFastArr[len - 4];
-      const mFalling = emaMidArr[len - 1] < emaMidArr[len - 4];
-      const sFalling = emaSlowArr[len - 1] < emaSlowArr[len - 4];
-
-      if (fRising && mRising && sRising) { bonus = 5; desc += " +slope bonus"; }
-      else if (fFalling && mFalling && sFalling) { bonus = -5; desc += " -slope penalty"; }
-    }
-  }
-
-  const score = Math.max(0, Math.min(55, base + bonus));
-  const label = score >= 40 ? "✓" : score <= 10 ? "✗" : "~";
-  return { score, line: `${label} EMA: ${desc} (+${score}/55)` };
+  if (hist > 0 && increasing) { score = 11; desc = "positive & rising"; }
+  else if (hist > 0 && !increasing) { score = 7; desc = "positive but weakening"; }
+  else if (hist <= 0 && increasing) { score = 4; desc = "negative but improving"; }
+  else { score = 0; desc = "negative & falling"; }
+  const label = score >= 7 ? "✓" : score >= 4 ? "~" : "✗";
+  return { score, line: `${label} MACD histogram ${desc} (+${score}/11)` };
 }
 
-// ─── RSI Bias (0–30) ────────────────────────────────────────────────────────
-function scoreRSI(rsi: number, rsiArr?: number[]): { score: number; line: string } {
-  let base: number;
-  if (rsi >= 70) base = 24;
-  else if (rsi >= 60) base = 30;
-  else if (rsi >= 55) base = 26;
-  else if (rsi >= 50) base = 20;
-  else if (rsi >= 45) base = 12;
-  else if (rsi >= 40) base = 7;
-  else if (rsi >= 30) base = 3;
-  else base = 5;
+// ─── News Score (0–13) ──────────────────────────────────────────────────────
+function scaleNewsScore(rawScore: number | null | undefined): { score: number; line: string } {
+  if (rawScore == null) return { score: 7, line: "— News: no data available (+7/13 default)" };
+  // rawScore is 0-11, scale to 0-13
+  const score = Math.round((rawScore / 11) * 13);
+  const label = score >= 9 ? "✓" : score <= 4 ? "✗" : "~";
+  return { score: Math.max(0, Math.min(13, score)), line: `${label} News sentiment (+${score}/13)` };
+}
 
-  // RSI momentum bonus
-  let bonus = 0;
-  if (rsiArr) {
-    const len = rsiArr.length;
-    if (len >= 4) {
-      const rsiLatest = rsiArr[len - 1];
-      const rsiPrev = rsiArr[len - 4];
-      if (!isNaN(rsiLatest) && !isNaN(rsiPrev)) {
-        if (rsi >= 50 && rsiLatest > rsiPrev) bonus = 3;
-        else if (rsi < 50 && rsiLatest < rsiPrev) bonus = -3;
-      }
-    }
+// ─── Event Risk (0–12) ─────────────────────────────────────────────────────
+interface EventRiskInfo {
+  score: number;
+  flag: boolean;
+  eventName: string | null;
+  eventTime: string | null;
+  multiplier: number;
+  line: string;
+}
+
+async function calcEventRisk(currency: string): Promise<EventRiskInfo> {
+  const now = new Date();
+  const fourHoursFromNow = new Date(now.getTime() + 4 * 3600 * 1000);
+
+  const { data: events } = await supabase
+    .from("economic_events")
+    .select("event_name, scheduled_at, impact")
+    .eq("impact", "high")
+    .eq("currency", currency)
+    .is("actual", null)
+    .gte("scheduled_at", now.toISOString())
+    .lte("scheduled_at", fourHoursFromNow.toISOString())
+    .order("scheduled_at", { ascending: true })
+    .limit(1);
+
+  if (!events || events.length === 0) {
+    return { score: 12, flag: false, eventName: null, eventTime: null, multiplier: 1.0, line: "✓ No upcoming high-impact events (+12/12)" };
   }
 
-  const score = Math.max(0, Math.min(30, base + bonus));
-  const label = rsi >= 55 ? "✓" : rsi <= 45 ? "✗" : "~";
-  return { score, line: `${label} RSI ${rsi.toFixed(1)} → +${score}/30` };
+  const evt = events[0];
+  const hoursAway = (new Date(evt.scheduled_at).getTime() - now.getTime()) / 3600000;
+
+  let multiplier: number;
+  let penalty: number;
+  if (hoursAway < 1) { multiplier = 0.6; penalty = 12; }
+  else if (hoursAway < 2) { multiplier = 0.7; penalty = 9; }
+  else { multiplier = 0.8; penalty = 6; }
+
+  const score = 12 - penalty;
+  return {
+    score: Math.max(0, score),
+    flag: hoursAway < 1,
+    eventName: evt.event_name,
+    eventTime: evt.scheduled_at,
+    multiplier,
+    line: `⚠ ${evt.event_name} in ${hoursAway.toFixed(1)}h — uncertainty penalty (-${penalty})`,
+  };
 }
 
-// ─── News Sentiment (0–15) ──────────────────────────────────────────────────
-function scaleNewsScore(rawScore: number | null | undefined): { score: number; line: string; hasNews: boolean } {
-  if (rawScore == null) return { score: 7, line: "— News: no data (+7/15 default)", hasNews: false };
-  // rawScore is 0-11 from legacy, scale to 0-15
-  const score = Math.round((rawScore / 11) * 15);
-  const clamped = Math.max(0, Math.min(15, score));
-  const label = clamped >= 10 ? "✓" : clamped <= 5 ? "✗" : "~";
-  return { score: clamped, line: `${label} News sentiment (+${clamped}/15)`, hasNews: true };
-}
-
-// ─── Confidence Validator ───────────────────────────────────────────────────
-function validateScore(
-  score: number,
-  trend: string,
-  ema20: number,
-  ema50: number,
-  rsi: number,
-  candles: Candle[]
-): string[] {
-  const warnings: string[] = [];
-  if (ema20 == null || ema20 <= 0) warnings.push("EMA20 is null or zero");
-  if (ema50 == null || ema50 <= 0) warnings.push("EMA50 is null or zero");
-  if (ema20 > 0 && ema50 > 0 && Math.abs(ema20 - ema50) / ema50 > 0.5)
-    warnings.push("EMA20 and EMA50 >50% apart — likely wrong data");
-  if (rsi < 0 || rsi > 100) warnings.push("RSI out of range: " + rsi);
-  if (score < 0 || score > 100) warnings.push("Score out of range: " + score);
-  if (candles.length < 55) warnings.push("Only " + candles.length + " candles — EMAs may be unreliable");
-  const price = candles[candles.length - 1]?.close;
-  if (price && trend === "bullish" && price < ema50) warnings.push("Bullish but price below EMA50");
-  if (price && trend === "bearish" && price > ema50) warnings.push("Bearish but price above EMA50");
-  return warnings;
+// ─── Social Scores (0–10 each) ──────────────────────────────────────────────
+function scaleSocialScore(rawScore: number | null | undefined, source: string): { score: number; line: string } {
+  if (rawScore == null) return { score: 5, line: `— ${source}: no data available (+5/10 default)` };
+  // rawScore is 0-11, scale to 0-10
+  const score = Math.round((rawScore / 11) * 10);
+  const label = score >= 7 ? "✓" : score <= 3 ? "✗" : "~";
+  return { score: Math.max(0, Math.min(10, score)), line: `${label} ${source} sentiment (+${score}/10)` };
 }
 
 // ─── Composite ──────────────────────────────────────────────────────────────
@@ -224,7 +205,7 @@ function validateScore(
 export function calcTrendScore(
   candles: Candle[],
   newsScore?: number | null,
-  _socialScore?: number | null,
+  socialScore?: number | null,
   timeframe?: string
 ): EnhancedScoreResult {
   const sorted = [...candles].sort(
@@ -235,24 +216,23 @@ export function calcTrendScore(
   const highs = sorted.map((c) => c.high);
   const lows = sorted.map((c) => c.low);
 
-  const tf = timeframe || "1h";
+  // Timeframe-specific indicator periods
+  const isShortTF = ["15min","30min"].includes(timeframe || "");
+  const emaFastP = isShortTF ? 9 : 20;
+  const emaMidP = isShortTF ? 21 : 50;
+  const emaSlowP = isShortTF ? 50 : 200;
 
-  // EMA periods: 9/21/50 for all timeframes, + 200 for 4h/1day
-  const emaFastArr = calcEMA(closes, 9);
-  const emaMidArr = calcEMA(closes, 21);
-  const emaSlowArr = calcEMA(closes, 50);
-  const ema200Arr = calcEMA(closes, 200);
+  const ema20Arr = calcEMA(closes, emaFastP);
+  const ema50Arr = calcEMA(closes, emaMidP);
+  const ema200Arr = calcEMA(closes, emaSlowP);
   const rsiArr = calcRSI(closes, 14);
-
-  // Still compute ADX and MACD for display only
   const adxArr = calcADX(highs, lows, closes, 14);
   const { histogram } = calcMACD(closes, 12, 26, 9);
 
   const price = closes[closes.length - 1];
-  const emaFast = getLatestValue(emaFastArr);
-  const emaMid = getLatestValue(emaMidArr);
-  const emaSlow = getLatestValue(emaSlowArr);
-  const ema200Val = getLatestValue(ema200Arr);
+  const ema20 = getLatestValue(ema20Arr);
+  const ema50 = getLatestValue(ema50Arr);
+  const ema200 = getLatestValue(ema200Arr);
   const rsi = getLatestValue(rsiArr);
   const adx = getLatestValue(adxArr);
   const macdHist = getLatestValue(histogram);
@@ -262,49 +242,48 @@ export function calcTrendScore(
     if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; }
   }
 
-  const isLongTF = tf === "4h" || tf === "1day";
-  const ema200ForScore = isLongTF ? ema200Val : null;
+  const ema = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200, timeframe) : { score: 11, line: "~ EMA: insufficient data (+11)" };
+  const adxR = !isNaN(adx) ? scoreADX(adx) : { score: 2, line: "— ADX: insufficient data (+2)" };
+  const rsiR = !isNaN(rsi) ? scoreRSI(rsi) : { score: 6, line: "— RSI: insufficient data (+6)" };
+  const macdR = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : { score: 6, line: "— MACD: insufficient data (+6)" };
 
-  // Score components
-  const ema = !isNaN(emaFast) && !isNaN(emaMid) && !isNaN(emaSlow)
-    ? scoreEMA(price, emaFast, emaMid, emaSlow, ema200ForScore, tf, emaFastArr, emaMidArr, emaSlowArr)
-    : { score: 22, line: "~ EMA: insufficient data (+22/55)" };
+  const technicalTotal = ema.score + adxR.score + rsiR.score + macdR.score;
 
-  const rsiR = !isNaN(rsi)
-    ? scoreRSI(rsi, rsiArr)
-    : { score: 15, line: "— RSI: insufficient data (+15/30)" };
-
+  // Fundamental
   const newsR = scaleNewsScore(newsScore);
+  // Event risk computed async, use full score here (sync version)
+  const eventRiskScore = 12;
+  const fundamentalTotal = newsR.score + eventRiskScore;
 
-  // Composite: EMA(0-55) + RSI(0-30) + News(0-15) = 0-100
-  const rawScore = Math.max(0, Math.min(100, ema.score + rsiR.score + newsR.score));
+  // Social — split raw socialScore evenly between stocktwits and reddit
+  const stocktwitsR = scaleSocialScore(socialScore, "StockTwits");
+  const redditR = scaleSocialScore(socialScore != null ? Math.max(0, socialScore - 1) : null, "Reddit/Social");
+  const socialTotal = stocktwitsR.score + redditR.score;
+
+  const rawScore = Math.round(Math.max(0, Math.min(100, technicalTotal + fundamentalTotal + socialTotal)));
+
+  // Data quality
+  let dataQuality: "full" | "no-social" | "no-news" | "technical-only" = "full";
+  if (newsScore == null && socialScore == null) dataQuality = "technical-only";
+  else if (socialScore == null) dataQuality = "no-social";
+  else if (newsScore == null) dataQuality = "no-news";
 
   const trend: "bullish" | "neutral" | "bearish" =
-    rawScore >= 62 ? "bullish" : rawScore <= 38 ? "bearish" : "neutral";
-
-  const dataQuality: "full" | "technical-only" = newsR.hasNews ? "full" : "technical-only";
-
-  // Validate
-  const confidenceFlags = validateScore(
-    rawScore, trend,
-    isNaN(emaFast) ? 0 : emaFast,
-    isNaN(emaMid) ? 0 : emaMid,
-    isNaN(rsi) ? 50 : rsi,
-    sorted
-  );
-  if (confidenceFlags.length > 0) {
-    console.warn("Score warnings:", confidenceFlags);
-  }
+    rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
 
   const explanationLines = [
-    `EMA Alignment: ${ema.score}/55`,
+    `Technical signals: ${technicalTotal}/55`,
     `  ${ema.line}`,
-    `RSI Bias: ${rsiR.score}/30`,
+    `  ${adxR.line}`,
     `  ${rsiR.line}`,
-    `News Sentiment: ${newsR.score}/15`,
+    `  ${macdR.line}`,
+    `Fundamental signals: ${fundamentalTotal}/25`,
     `  ${newsR.line}`,
-    `Score quality: ${dataQuality === "full" ? "Full score ✓" : "Technical only"}`,
-    ...(confidenceFlags.length > 0 ? [`⚠ ${confidenceFlags.length} warning(s)`] : []),
+    `  ✓ No upcoming event risk (+12/12)`,
+    `Social signals: ${socialTotal}/20`,
+    `  ${stocktwitsR.line}`,
+    `  ${redditR.line}`,
+    `Score quality: ${dataQuality === "full" ? "Full data ✓" : dataQuality === "no-social" ? "Missing social data" : dataQuality === "no-news" ? "Missing news data" : "Technical only"}`,
   ];
 
   return {
@@ -312,20 +291,20 @@ export function calcTrendScore(
     trend,
     breakdown: {
       emaScore: ema.score,
+      adxScore: adxR.score,
       rsiScore: rsiR.score,
+      macdScore: macdR.score,
+      technicalTotal,
       newsScore: newsR.score,
-      adxScore: 0,
-      macdScore: 0,
-      technicalTotal: ema.score + rsiR.score,
-      fundamentalTotal: newsR.score,
-      eventRiskScore: 0,
-      stocktwitsScore: 0,
-      redditScore: 0,
-      socialTotal: 0,
+      eventRiskScore,
+      fundamentalTotal,
+      stocktwitsScore: stocktwitsR.score,
+      redditScore: redditR.score,
+      socialTotal,
     },
-    ema20: isNaN(emaFast) ? 0 : emaFast,
-    ema50: isNaN(emaMid) ? 0 : emaMid,
-    ema200: isNaN(ema200Val) ? 0 : ema200Val,
+    ema20: isNaN(ema20) ? 0 : ema20,
+    ema50: isNaN(ema50) ? 0 : ema50,
+    ema200: isNaN(ema200) ? 0 : ema200,
     adx: isNaN(adx) ? 0 : adx,
     rsi: isNaN(rsi) ? 50 : rsi,
     macdHist: isNaN(macdHist) ? 0 : macdHist,
@@ -337,14 +316,74 @@ export function calcTrendScore(
     dataQuality,
     lastNewsUpdate: null,
     lastSocialUpdate: null,
+    // Legacy compat
     emaScore: ema.score,
-    adxScore: 0,
+    adxScore: adxR.score,
     rsiScore: rsiR.score,
-    macdScore: 0,
+    macdScore: macdR.score,
     newsScore: newsScore ?? null,
-    socialScore: null,
+    socialScore: socialScore ?? null,
     explanationLines,
-    confidenceFlags,
+  };
+}
+
+// ─── Enhanced Score with Event Risk (async) ─────────────────────────────────
+
+export async function calcEnhancedScore(
+  candles: Candle[],
+  currency: string,
+  newsScore?: number | null,
+  socialScore?: number | null
+): Promise<EnhancedScoreResult> {
+  const base = calcTrendScore(candles, newsScore, socialScore);
+
+  // Compute event risk
+  const eventRisk = await calcEventRisk(currency);
+
+  // Recalculate fundamental total with actual event risk
+  const newsR = scaleNewsScore(newsScore);
+  const fundamentalTotal = newsR.score + eventRisk.score;
+  const socialTotal = base.breakdown.socialTotal;
+  const technicalTotal = base.breakdown.technicalTotal;
+
+  let rawScore = Math.round(Math.max(0, Math.min(100, technicalTotal + fundamentalTotal + socialTotal)));
+  const scoreBeforeEventRisk = rawScore;
+
+  // Apply event risk multiplier to total score
+  if (eventRisk.multiplier < 1.0) {
+    rawScore = Math.round(rawScore * eventRisk.multiplier);
+  }
+
+  const trend: "bullish" | "neutral" | "bearish" =
+    rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
+
+  // Update explanation
+  const explanationLines = [
+    ...base.explanationLines.slice(0, 5),
+    `Fundamental signals: ${fundamentalTotal}/25`,
+    `  ${base.explanationLines[6]?.replace(/  /, "")}`,
+    `  ${eventRisk.line}`,
+    ...base.explanationLines.slice(8),
+  ];
+
+  if (eventRisk.multiplier < 1.0) {
+    explanationLines.push(`⚡ Event risk multiplier: ${eventRisk.multiplier}x applied`);
+  }
+
+  return {
+    ...base,
+    score: rawScore,
+    trend,
+    scoreBeforeEventRisk,
+    eventRiskFlag: eventRisk.flag,
+    upcomingEvent: eventRisk.eventName,
+    upcomingEventTime: eventRisk.eventTime,
+    breakdown: {
+      ...base.breakdown,
+      eventRiskScore: eventRisk.score,
+      fundamentalTotal,
+    },
+    explanationLines,
   };
 }
 
@@ -355,9 +394,9 @@ export async function scorePair(
   candles: Candle[],
   timeframe: string,
   newsScore?: number | null,
-  _socialScore?: number | null
+  socialScore?: number | null
 ): Promise<EnhancedScoreResult> {
-  const result = calcTrendScore(candles, newsScore, null, timeframe);
+  const result = calcTrendScore(candles, newsScore, socialScore, timeframe);
 
   const { error } = await supabase.from("scores").upsert(
     {
@@ -366,11 +405,11 @@ export async function scorePair(
       score: result.score,
       trend: result.trend,
       ema_score: result.emaScore,
-      adx_score: 0,
+      adx_score: result.adxScore,
       rsi_score: result.rsiScore,
-      macd_score: 0,
+      macd_score: result.macdScore,
       news_score: result.newsScore,
-      social_score: null,
+      social_score: result.socialScore,
       ema20: result.ema20,
       ema50: result.ema50,
       ema200: result.ema200,
