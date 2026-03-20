@@ -494,7 +494,7 @@ export default function PairDetail() {
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5 self-start">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
@@ -518,6 +518,8 @@ export default function PairDetail() {
             </>
           )}
           <AddToWatchlist pairId={pair.id} />
+        </div>
+        <MarketSessionPills symbol={pair.symbol} />
         </div>
       </div>
 
