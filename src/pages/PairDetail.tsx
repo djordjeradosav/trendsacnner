@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Zap, Loader2 } from "lucide-react";
-import { ScoreExplanation, ScoreFreshnessBadge, EventRiskFlag } from "@/components/score/ScoreExplanation";
+import { ScoreExplanation, ScoreFreshnessBadge } from "@/components/score/ScoreExplanation";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import { PairNewsSection } from "@/components/news/PairNewsSection";
@@ -255,9 +255,9 @@ export default function PairDetail() {
     const highs = sorted.map((c) => c.high);
     const lows = sorted.map((c) => c.low);
 
-    const ema20 = calcEMA(closes, 20);
-    const ema50 = calcEMA(closes, 50);
-    const ema200 = calcEMA(closes, 200);
+    const ema20 = calcEMA(closes, 9);
+    const ema50 = calcEMA(closes, 21);
+    const ema200 = calcEMA(closes, 50);
     const rsi = calcRSI(closes, 14);
     const adx = calcADX(highs, lows, closes, 14);
     const atr = calcATR(highs, lows, closes, 14);
@@ -432,8 +432,8 @@ export default function PairDetail() {
     series.setData(scoreHistory as any);
 
     // Dashed lines at 35 and 65
-    series.createPriceLine({ price: 65, color: "hsla(142, 60%, 50%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bull" });
-    series.createPriceLine({ price: 35, color: "hsla(0, 72%, 51%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bear" });
+    series.createPriceLine({ price: 62, color: "hsla(142, 60%, 50%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bull" });
+    series.createPriceLine({ price: 38, color: "hsla(0, 72%, 51%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bear" });
 
     chart.timeScale().fitContent();
 
@@ -534,7 +534,7 @@ export default function PairDetail() {
         ))}
         <div className="hidden sm:flex ml-auto items-center gap-2">
           {(["ema20", "ema50", "ema200", "bb"] as const).map((key) => {
-            const labels: Record<string, string> = { ema20: "EMA 20", ema50: "EMA 50", ema200: "EMA 200", bb: "BB" };
+            const labels: Record<string, string> = { ema20: "EMA 9", ema50: "EMA 21", ema200: "EMA 50", bb: "BB" };
             const colors: Record<string, string> = { ema20: "bg-blue-500", ema50: "bg-amber-500", ema200: "bg-red-500", bb: "bg-gray-400" };
             return (
               <button
@@ -582,33 +582,29 @@ export default function PairDetail() {
                 <ScoreExplanation symbol={pair.symbol} score={scoreResult.score} explanationLines={scoreResult.explanationLines} />
               </div>
               <div className="flex items-center gap-2">
-                <ScoreFreshnessBadge dataQuality={scoreResult.dataQuality} />
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  {scoreResult.dataQuality === "full" ? "Full score" : "Technical only"}
+                </span>
                 <span className={`text-3xl font-display font-bold ${trendColor}`}>{scoreResult.score}</span>
               </div>
             </div>
 
-            {/* Technical Layer */}
-            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-3">TECHNICAL ({scoreResult.breakdown.technicalTotal}/55)</p>
-            <div className="space-y-2">
-              <GaugeBar label="EMA Alignment" value={scoreResult.breakdown.emaScore} max={22} raw={`EMA stack → +${scoreResult.breakdown.emaScore}pts`} color="bg-blue-500" />
-              <GaugeBar label="ADX Strength" value={scoreResult.breakdown.adxScore} max={11} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.breakdown.adxScore}pts`} color="bg-amber-500" />
-              <GaugeBar label="RSI Bias" value={scoreResult.breakdown.rsiScore} max={11} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.breakdown.rsiScore}pts`} color="bg-purple-500" />
-              <GaugeBar label="MACD Momentum" value={scoreResult.breakdown.macdScore} max={11} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.breakdown.macdScore}pts`} color="bg-emerald-500" />
+            {/* 3 Score Components */}
+            <div className="space-y-3">
+              <GaugeBar label="EMA Alignment" value={scoreResult.breakdown.emaScore} max={55} raw={`EMA 9/21/50 stack → +${scoreResult.breakdown.emaScore}pts`} color="bg-blue-500" />
+              <GaugeBar label="RSI Bias" value={scoreResult.breakdown.rsiScore} max={30} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.breakdown.rsiScore}pts`} color="bg-cyan-500" />
+              <GaugeBar label="News Sentiment" value={scoreResult.breakdown.newsScore} max={15} raw={`News → +${scoreResult.breakdown.newsScore}pts`} color="bg-violet-500" />
             </div>
 
-            {/* Fundamental Layer */}
-            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL ({scoreResult.breakdown.fundamentalTotal}/25)</p>
-            <div className="space-y-2">
-              <GaugeBar label="News Sentiment" value={scoreResult.breakdown.newsScore} max={13} raw={`News → +${scoreResult.breakdown.newsScore}pts`} color="bg-cyan-500" />
-              <GaugeBar label="Event Risk" value={scoreResult.breakdown.eventRiskScore} max={12} raw={scoreResult.upcomingEvent ? `⚠ ${scoreResult.upcomingEvent}` : "No upcoming events → +12pts"} color="bg-orange-500" />
-            </div>
-
-            {/* Social Layer */}
-            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL ({scoreResult.breakdown.socialTotal}/20)</p>
-            <div className="space-y-2">
-              <GaugeBar label="StockTwits" value={scoreResult.breakdown.stocktwitsScore} max={10} raw={`StockTwits → +${scoreResult.breakdown.stocktwitsScore}pts`} color="bg-green-500" />
-              <GaugeBar label="Reddit/Social" value={scoreResult.breakdown.redditScore} max={10} raw={`Reddit → +${scoreResult.breakdown.redditScore}pts`} color="bg-red-500" />
-            </div>
+            {/* Confidence warnings */}
+            {scoreResult.confidenceFlags && scoreResult.confidenceFlags.length > 0 && (
+              <div className="mt-3 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30">
+                <p className="text-[10px] font-mono text-amber-400">⚠ Low confidence ({scoreResult.confidenceFlags.length} warning{scoreResult.confidenceFlags.length > 1 ? "s" : ""})</p>
+                {scoreResult.confidenceFlags.map((f, i) => (
+                  <p key={i} className="text-[10px] text-amber-400/70 mt-0.5">· {f}</p>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
               <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
@@ -617,9 +613,9 @@ export default function PairDetail() {
                 {scoreResult.trend === "neutral" && <Minus className="w-3.5 h-3.5" />}
                 {scoreResult.trend.toUpperCase()}
               </span>
-              {scoreResult.eventRiskFlag && (
-                <EventRiskFlag eventName={scoreResult.upcomingEvent} eventTime={scoreResult.upcomingEventTime} />
-              )}
+              <span className="text-[10px] font-mono text-muted-foreground">
+                Bull ≥62 · Bear ≤38
+              </span>
             </div>
           </div>
 
@@ -627,19 +623,21 @@ export default function PairDetail() {
           <div className="rounded-lg border border-border bg-card p-5">
             <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values</h3>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <IndicatorCell label="EMA 20" value={indicators.latest.ema20} />
-              <IndicatorCell label="EMA 50" value={indicators.latest.ema50} />
-              <IndicatorCell label="EMA 200" value={indicators.latest.ema200} />
-              <IndicatorCell label="RSI" value={indicators.latest.rsi} color={rsiColor(indicators.latest.rsi)} />
-              <IndicatorCell label="ADX" value={indicators.latest.adx} color={adxColor(indicators.latest.adx)} />
-              <IndicatorCell label="MACD Hist" value={indicators.latest.macdHist} decimals={5} color={indicators.latest.macdHist >= 0 ? "text-bullish" : "text-bearish"} />
+              <IndicatorCell label="EMA 9" value={indicators.latest.ema20} />
+              <IndicatorCell label="EMA 21" value={indicators.latest.ema50} />
+              <IndicatorCell label="EMA 50" value={indicators.latest.ema200} />
+              <IndicatorCell label="RSI (14)" value={indicators.latest.rsi} color={rsiColor(indicators.latest.rsi)} />
               <IndicatorCell label="ATR" value={indicators.latest.atr} decimals={5} />
               <IndicatorCell label="BB Width" value={indicators.latest.bbWidth} decimals={2} suffix="%" />
+            </div>
+            <p className="text-[9px] font-mono text-muted-foreground mt-4 mb-2">DISPLAY ONLY · NOT SCORED</p>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <IndicatorCell label="ADX" value={indicators.latest.adx} color={adxColor(indicators.latest.adx)} />
+              <IndicatorCell label="MACD Hist" value={indicators.latest.macdHist} decimals={5} color={indicators.latest.macdHist >= 0 ? "text-bullish" : "text-bearish"} />
             </div>
           </div>
         </div>
       ) : hasDbScoreOnly && dbScore ? (
-        /* Fallback: show DB score breakdown when no candles */
         <DbScoreBreakdown dbScore={dbScore} trendColor={trendColor} trendBg={trendBg} />
       ) : !loading ? (
         <NoDataPanel
@@ -691,22 +689,10 @@ function DbScoreBreakdown({ dbScore, trendColor, trendBg }: { dbScore: DbScore; 
           <span className={`text-3xl font-display font-bold ${trendColor}`}>{dbScore.score}</span>
         </div>
 
-        <p className="text-[9px] font-mono text-muted-foreground mb-1.5">TECHNICAL BREAKDOWN</p>
-        <div className="space-y-2">
-          <GaugeBar label="EMA Alignment" value={dbScore.ema_score ?? 0} max={22} raw={`EMA → +${dbScore.ema_score ?? 0}pts`} color="bg-blue-500" />
-          <GaugeBar label="ADX Strength" value={dbScore.adx_score ?? 0} max={11} raw={`ADX: ${dbScore.adx?.toFixed(1) ?? "—"} → +${dbScore.adx_score ?? 0}pts`} color="bg-amber-500" />
-          <GaugeBar label="RSI Bias" value={dbScore.rsi_score ?? 0} max={11} raw={`RSI: ${dbScore.rsi?.toFixed(1) ?? "—"} → +${dbScore.rsi_score ?? 0}pts`} color="bg-purple-500" />
-          <GaugeBar label="MACD Momentum" value={dbScore.macd_score ?? 0} max={11} raw={`Hist: ${dbScore.macd_hist?.toFixed(4) ?? "—"} → +${dbScore.macd_score ?? 0}pts`} color="bg-emerald-500" />
-        </div>
-
-        <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL</p>
-        <div className="space-y-2">
-          <GaugeBar label="News Sentiment" value={dbScore.news_score ?? 0} max={13} raw={`News → +${dbScore.news_score ?? 0}pts`} color="bg-cyan-500" />
-        </div>
-
-        <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL</p>
-        <div className="space-y-2">
-          <GaugeBar label="Social Score" value={dbScore.social_score ?? 0} max={20} raw={`Social → +${dbScore.social_score ?? 0}pts`} color="bg-green-500" />
+        <div className="space-y-3">
+          <GaugeBar label="EMA Alignment" value={dbScore.ema_score ?? 0} max={55} raw={`EMA → +${dbScore.ema_score ?? 0}pts`} color="bg-blue-500" />
+          <GaugeBar label="RSI Bias" value={dbScore.rsi_score ?? 0} max={30} raw={`RSI: ${dbScore.rsi?.toFixed(1) ?? "—"} → +${dbScore.rsi_score ?? 0}pts`} color="bg-cyan-500" />
+          <GaugeBar label="News Sentiment" value={dbScore.news_score ?? 7} max={15} raw={`News → +${dbScore.news_score ?? 7}pts`} color="bg-violet-500" />
         </div>
 
         <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
@@ -726,10 +712,13 @@ function DbScoreBreakdown({ dbScore, trendColor, trendBg }: { dbScore: DbScore; 
       <div className="rounded-lg border border-border bg-card p-5">
         <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values (last scan)</h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <IndicatorCell label="EMA 20" value={dbScore.ema20 ?? NaN} />
-          <IndicatorCell label="EMA 50" value={dbScore.ema50 ?? NaN} />
-          <IndicatorCell label="EMA 200" value={dbScore.ema200 ?? NaN} />
+          <IndicatorCell label="EMA 9" value={dbScore.ema20 ?? NaN} />
+          <IndicatorCell label="EMA 21" value={dbScore.ema50 ?? NaN} />
+          <IndicatorCell label="EMA 50" value={dbScore.ema200 ?? NaN} />
           <IndicatorCell label="RSI" value={dbScore.rsi ?? NaN} color={rsiColor(dbScore.rsi ?? NaN)} />
+        </div>
+        <p className="text-[9px] font-mono text-muted-foreground mt-4 mb-2">DISPLAY ONLY · NOT SCORED</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <IndicatorCell label="ADX" value={dbScore.adx ?? NaN} color={adxColor(dbScore.adx ?? NaN)} />
           <IndicatorCell label="MACD Hist" value={dbScore.macd_hist ?? NaN} decimals={5} color={(dbScore.macd_hist ?? 0) >= 0 ? "text-bullish" : "text-bearish"} />
         </div>
