@@ -11,6 +11,10 @@ import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import { PairNewsSection } from "@/components/news/PairNewsSection";
 import { SocialBuzzCard } from "@/components/social/SocialBuzzCard";
+import { MTFScoreStrip } from "@/components/pair/MTFScoreStrip";
+import { MarketSessionPills } from "@/components/pair/MarketSessionPills";
+import { SeasonalityCard } from "@/components/pair/SeasonalityCard";
+import { RelatedPairsCard } from "@/components/pair/RelatedPairsCard";
 import {
   calcEMA,
   calcRSI,
