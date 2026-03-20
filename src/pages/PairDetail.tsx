@@ -5,7 +5,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Zap, Loader2 } from "lucide-react";
 import { ScoreExplanation, ScoreFreshnessBadge, EventRiskFlag } from "@/components/score/ScoreExplanation";
 import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
@@ -62,6 +62,24 @@ interface PairInfo {
   category: string;
 }
 
+interface DbScore {
+  score: number;
+  trend: string;
+  ema_score: number | null;
+  adx_score: number | null;
+  rsi_score: number | null;
+  macd_score: number | null;
+  news_score: number | null;
+  social_score: number | null;
+  scanned_at: string;
+  ema20: number | null;
+  ema50: number | null;
+  ema200: number | null;
+  adx: number | null;
+  rsi: number | null;
+  macd_hist: number | null;
+}
+
 function toChartTime(ts: string): Time {
   return Math.floor(new Date(ts).getTime() / 1000) as Time;
 }
@@ -73,8 +91,10 @@ export default function PairDetail() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [timeframe, setTimeframe] = useState("1h");
   const [scoreResult, setScoreResult] = useState<EnhancedScoreResult | null>(null);
+  const [dbScore, setDbScore] = useState<DbScore | null>(null);
   const [scoreHistory, setScoreHistory] = useState<{ time: Time; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const [overlays, setOverlays] = useState({ ema20: true, ema50: true, ema200: false, bb: false });
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -101,33 +121,49 @@ export default function PairDetail() {
     fetchPair();
   }, [symbol]);
 
-  // Fetch candles when pair or timeframe changes
+  // Fetch candles + DB score when pair or timeframe changes
   useEffect(() => {
     if (!pair) return;
-    const fetchCandles = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("candles")
-        .select("open, high, low, close, volume, ts, pair_id, timeframe")
-        .eq("pair_id", pair.id)
-        .eq("timeframe", timeframe)
-        .order("ts", { ascending: true })
-        .limit(500);
+      setDbScore(null);
+      setScoreResult(null);
 
-      if (data && data.length > 0) {
-        setCandles(data);
-        const result = calcTrendScore(data);
+      // Fetch candles and DB score in parallel
+      const [candleRes, scoreRes] = await Promise.all([
+        supabase
+          .from("candles")
+          .select("open, high, low, close, volume, ts, pair_id, timeframe")
+          .eq("pair_id", pair.id)
+          .eq("timeframe", timeframe)
+          .order("ts", { ascending: true })
+          .limit(500),
+        supabase
+          .from("scores")
+          .select("score, trend, ema_score, adx_score, rsi_score, macd_score, news_score, social_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist")
+          .eq("pair_id", pair.id)
+          .eq("timeframe", timeframe)
+          .order("scanned_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      const candleData = candleRes.data ?? [];
+      const latestScore = scoreRes.data?.[0] ?? null;
+      setDbScore(latestScore);
+
+      if (candleData.length > 0) {
+        setCandles(candleData);
+        const result = calcTrendScore(candleData);
         setScoreResult(result);
       } else {
         setCandles([]);
-        setScoreResult(null);
       }
       setLoading(false);
     };
-    fetchCandles();
+    fetchData();
   }, [pair, timeframe]);
 
-  // Fetch score history
+  // Fetch score history (filtered by timeframe)
   useEffect(() => {
     if (!pair) return;
     const fetchHistory = async () => {
@@ -135,6 +171,7 @@ export default function PairDetail() {
         .from("scores")
         .select("score, scanned_at")
         .eq("pair_id", pair.id)
+        .eq("timeframe", timeframe)
         .order("scanned_at", { ascending: true })
         .limit(48);
 
@@ -142,10 +179,73 @@ export default function PairDetail() {
         setScoreHistory(
           data.map((d) => ({ time: toChartTime(d.scanned_at), value: Number(d.score) }))
         );
+      } else {
+        setScoreHistory([]);
       }
     };
     fetchHistory();
-  }, [pair]);
+  }, [pair, timeframe]);
+
+  // Trigger scan for a single pair/timeframe
+  const triggerPairScan = useCallback(async () => {
+    if (!pair || scanning) return;
+    setScanning(true);
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+      const url = `https://${projectId}.supabase.co/functions/v1/fast-scan?timeframe=${encodeURIComponent(timeframe)}`;
+
+      const response = await fetch(url, {
+        headers: {
+          "apikey": anonKey,
+          ...(session?.access_token ? { "Authorization": `Bearer ${session.access_token}` } : {}),
+        },
+      });
+
+      if (response.body) {
+        const reader = response.body.getReader();
+        // Consume the stream to completion
+        while (true) {
+          const { done } = await reader.read();
+          if (done) break;
+        }
+      }
+
+      // Reload candles and score for this pair/TF
+      const [candleRes, scoreRes] = await Promise.all([
+        supabase
+          .from("candles")
+          .select("open, high, low, close, volume, ts, pair_id, timeframe")
+          .eq("pair_id", pair.id)
+          .eq("timeframe", timeframe)
+          .order("ts", { ascending: true })
+          .limit(500),
+        supabase
+          .from("scores")
+          .select("score, trend, ema_score, adx_score, rsi_score, macd_score, news_score, social_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist")
+          .eq("pair_id", pair.id)
+          .eq("timeframe", timeframe)
+          .order("scanned_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      const newCandles = candleRes.data ?? [];
+      const newScore = scoreRes.data?.[0] ?? null;
+      setDbScore(newScore);
+
+      if (newCandles.length > 0) {
+        setCandles(newCandles);
+        setScoreResult(calcTrendScore(newCandles));
+      } else {
+        setCandles([]);
+      }
+    } catch (err) {
+      console.error("Pair scan failed:", err);
+    } finally {
+      setScanning(false);
+    }
+  }, [pair, timeframe, scanning]);
 
   // Computed indicators
   const indicators = useMemo(() => {
@@ -352,18 +452,22 @@ export default function PairDetail() {
     setOverlays((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const trendColor = scoreResult
-    ? scoreResult.trend === "bullish"
+  // Use scoreResult (from candles) if available, otherwise fall back to dbScore
+  const displayScore = scoreResult?.score ?? dbScore?.score ?? null;
+  const displayTrend = scoreResult?.trend ?? dbScore?.trend ?? null;
+
+  const trendColor = displayTrend
+    ? displayTrend === "bullish"
       ? "text-bullish"
-      : scoreResult.trend === "bearish"
+      : displayTrend === "bearish"
         ? "text-bearish"
         : "text-neutral-tone"
     : "";
 
-  const trendBg = scoreResult
-    ? scoreResult.trend === "bullish"
+  const trendBg = displayTrend
+    ? displayTrend === "bullish"
       ? "bg-bullish/15 text-bullish border-bullish/30"
-      : scoreResult.trend === "bearish"
+      : displayTrend === "bearish"
         ? "bg-bearish/15 text-bearish border-bearish/30"
         : "bg-muted text-neutral-tone border-border"
     : "";
@@ -379,6 +483,10 @@ export default function PairDetail() {
     );
   }
 
+  // Whether we have full candle-based breakdown or only DB score
+  const hasCandles = candles.length > 0 && scoreResult && indicators;
+  const hasDbScoreOnly = !hasCandles && dbScore !== null;
+
   return (
     <AppLayout>
       {/* Header */}
@@ -392,16 +500,16 @@ export default function PairDetail() {
           <span className="text-[10px] font-display px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
             {pair.category}
           </span>
-          {scoreResult && (
+          {displayScore !== null && displayTrend && (
             <>
               <span className={`text-sm font-display font-bold px-2.5 py-1 rounded-md border ${trendBg}`}>
-                {scoreResult.score}
+                {displayScore}
               </span>
               <span className={`flex items-center gap-1 text-xs font-display font-semibold px-2 py-1 rounded-md border ${trendBg}`}>
-                {scoreResult.trend === "bullish" && <TrendingUp className="w-3 h-3" />}
-                {scoreResult.trend === "bearish" && <TrendingDown className="w-3 h-3" />}
-                {scoreResult.trend === "neutral" && <Minus className="w-3 h-3" />}
-                {scoreResult.trend.toUpperCase()}
+                {displayTrend === "bullish" && <TrendingUp className="w-3 h-3" />}
+                {displayTrend === "bearish" && <TrendingDown className="w-3 h-3" />}
+                {displayTrend === "neutral" && <Minus className="w-3 h-3" />}
+                {displayTrend.toUpperCase()}
               </span>
             </>
           )}
@@ -451,16 +559,20 @@ export default function PairDetail() {
       {loading ? (
         <Skeleton className="h-[280px] sm:h-[420px] rounded-lg mb-6" />
       ) : candles.length === 0 ? (
-        <div className="h-[280px] sm:h-[420px] rounded-lg border border-border bg-card flex items-center justify-center mb-6">
-          <p className="text-sm text-muted-foreground">No candle data for this timeframe. Run a scan first.</p>
-        </div>
+        <NoDataPanel
+          symbol={pair.symbol}
+          timeframe={TF_LABELS[timeframe] || timeframe}
+          onScan={triggerPairScan}
+          isScanning={scanning}
+          type="chart"
+        />
       ) : (
         <div ref={chartRef} className="rounded-lg border border-border overflow-hidden mb-6" />
       )}
       </ErrorBoundary>
 
       {/* Score Breakdown + Indicator Values */}
-      {scoreResult && indicators && (
+      {hasCandles && scoreResult && indicators ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           {/* Score Breakdown */}
           <div className="rounded-lg border border-border bg-card p-5">
@@ -526,7 +638,18 @@ export default function PairDetail() {
             </div>
           </div>
         </div>
-      )}
+      ) : hasDbScoreOnly && dbScore ? (
+        /* Fallback: show DB score breakdown when no candles */
+        <DbScoreBreakdown dbScore={dbScore} trendColor={trendColor} trendBg={trendBg} />
+      ) : !loading ? (
+        <NoDataPanel
+          symbol={pair.symbol}
+          timeframe={TF_LABELS[timeframe] || timeframe}
+          onScan={triggerPairScan}
+          isScanning={scanning}
+          type="score"
+        />
+      ) : null}
 
       {/* AI Analysis */}
       <ErrorBoundary name="AIBrief">
@@ -555,6 +678,108 @@ export default function PairDetail() {
         </div>
       )}
     </AppLayout>
+  );
+}
+
+/* ─── DB Score Fallback Panel ─── */
+function DbScoreBreakdown({ dbScore, trendColor, trendBg }: { dbScore: DbScore; trendColor: string; trendBg: string }) {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div className="rounded-lg border border-border bg-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-display font-semibold text-foreground">Score (from last scan)</h3>
+          <span className={`text-3xl font-display font-bold ${trendColor}`}>{dbScore.score}</span>
+        </div>
+
+        <p className="text-[9px] font-mono text-muted-foreground mb-1.5">TECHNICAL BREAKDOWN</p>
+        <div className="space-y-2">
+          <GaugeBar label="EMA Alignment" value={dbScore.ema_score ?? 0} max={22} raw={`EMA → +${dbScore.ema_score ?? 0}pts`} color="bg-blue-500" />
+          <GaugeBar label="ADX Strength" value={dbScore.adx_score ?? 0} max={11} raw={`ADX: ${dbScore.adx?.toFixed(1) ?? "—"} → +${dbScore.adx_score ?? 0}pts`} color="bg-amber-500" />
+          <GaugeBar label="RSI Bias" value={dbScore.rsi_score ?? 0} max={11} raw={`RSI: ${dbScore.rsi?.toFixed(1) ?? "—"} → +${dbScore.rsi_score ?? 0}pts`} color="bg-purple-500" />
+          <GaugeBar label="MACD Momentum" value={dbScore.macd_score ?? 0} max={11} raw={`Hist: ${dbScore.macd_hist?.toFixed(4) ?? "—"} → +${dbScore.macd_score ?? 0}pts`} color="bg-emerald-500" />
+        </div>
+
+        <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL</p>
+        <div className="space-y-2">
+          <GaugeBar label="News Sentiment" value={dbScore.news_score ?? 0} max={13} raw={`News → +${dbScore.news_score ?? 0}pts`} color="bg-cyan-500" />
+        </div>
+
+        <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL</p>
+        <div className="space-y-2">
+          <GaugeBar label="Social Score" value={dbScore.social_score ?? 0} max={20} raw={`Social → +${dbScore.social_score ?? 0}pts`} color="bg-green-500" />
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
+            {dbScore.trend === "bullish" && <TrendingUp className="w-3.5 h-3.5" />}
+            {dbScore.trend === "bearish" && <TrendingDown className="w-3.5 h-3.5" />}
+            {dbScore.trend === "neutral" && <Minus className="w-3.5 h-3.5" />}
+            {dbScore.trend.toUpperCase()}
+          </span>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            Scanned {new Date(dbScore.scanned_at).toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Indicator Values from DB */}
+      <div className="rounded-lg border border-border bg-card p-5">
+        <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values (last scan)</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <IndicatorCell label="EMA 20" value={dbScore.ema20 ?? NaN} />
+          <IndicatorCell label="EMA 50" value={dbScore.ema50 ?? NaN} />
+          <IndicatorCell label="EMA 200" value={dbScore.ema200 ?? NaN} />
+          <IndicatorCell label="RSI" value={dbScore.rsi ?? NaN} color={rsiColor(dbScore.rsi ?? NaN)} />
+          <IndicatorCell label="ADX" value={dbScore.adx ?? NaN} color={adxColor(dbScore.adx ?? NaN)} />
+          <IndicatorCell label="MACD Hist" value={dbScore.macd_hist ?? NaN} decimals={5} color={(dbScore.macd_hist ?? 0) >= 0 ? "text-bullish" : "text-bearish"} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── No Data Panel ─── */
+function NoDataPanel({
+  symbol,
+  timeframe,
+  onScan,
+  isScanning,
+  type,
+}: {
+  symbol: string;
+  timeframe: string;
+  onScan: () => void;
+  isScanning: boolean;
+  type: "chart" | "score";
+}) {
+  return (
+    <div className={`rounded-lg border border-border bg-card flex flex-col items-center justify-center mb-6 ${type === "chart" ? "h-[280px] sm:h-[420px]" : "py-12"}`}>
+      <p className="text-sm text-muted-foreground mb-1">
+        No {timeframe} data for {symbol}
+      </p>
+      <p className="text-xs text-muted-foreground/60 mb-4">
+        This timeframe hasn't been scanned yet
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onScan}
+        disabled={isScanning}
+        className="gap-2 border-bullish/30 text-bullish hover:bg-bullish/10"
+      >
+        {isScanning ? (
+          <>
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Scanning {timeframe}…
+          </>
+        ) : (
+          <>
+            <Zap className="w-3.5 h-3.5" />
+            Scan {timeframe} now
+          </>
+        )}
+      </Button>
+    </div>
   );
 }
 
