@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RefreshCw, Calendar as CalIcon } from "lucide-react";
@@ -29,13 +30,7 @@ const ALL_PAIRS = [
   { symbol: "XAGUSD", category: "Commodities" },
 ];
 
-const YEAR_PRESETS = [
-  { label: "5Y", years: 5 },
-  { label: "10Y", years: 10 },
-  { label: "15Y", years: 15 },
-  { label: "20Y", years: 20 },
-  { label: "ALL", years: 99 },
-];
+const RANGE_PRESETS = ["5Y", "10Y", "15Y", "20Y", "ALL"] as const;
 
 const currentYear = new Date().getFullYear();
 const currentMonth = new Date().getMonth() + 1;
@@ -63,33 +58,41 @@ function getCellStyle(v: number | null) {
   };
 }
 
+const DIR_STYLES: Record<string, { bg: string; color: string }> = {
+  all:     { bg: "#1e2d3d", color: "#e8f4f8" },
+  bullish: { bg: "#0d2b1a", color: "#22c55e" },
+  bearish: { bg: "#2b0d0d", color: "#ef4444" },
+  neutral: { bg: "#1a1a2e", color: "#7a99b0" },
+};
+
 export default function SeasonalityPage() {
   const queryClient = useQueryClient();
-  const [selectedPair, setSelectedPair] = useState("EURUSD");
-  const [viewMode, setViewMode] = useState<"month" | "year">("month");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Read initial state from URL params
+  const [selectedPair, setSelectedPair] = useState(searchParams.get("pair") || "EURUSD");
+  const [viewMode, setViewMode] = useState<"month" | "year">((searchParams.get("view") as "month" | "year") || "month");
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
-  const [fromYear, setFromYear] = useState(2000);
-  const [toYear, setToYear] = useState(currentYear);
+  const [fromYear, setFromYear] = useState(parseInt(searchParams.get("from") || "2000") || 2000);
+  const [toYear, setToYear] = useState(parseInt(searchParams.get("to") || String(currentYear)) || currentYear);
+  const [rangePreset, setRangePreset] = useState<string>("ALL");
   const [selectedMonths, setSelectedMonths] = useState<number[]>([1,2,3,4,5,6,7,8,9,10,11,12]);
-  const [directionFilter, setDirectionFilter] = useState<"all"|"bullish"|"bearish"|"neutral">("all");
+  const [directionFilter, setDirectionFilter] = useState<"all"|"bullish"|"bearish"|"neutral">((searchParams.get("dir") as any) || "all");
   const [fetching, setFetching] = useState(false);
   const [pairSearch, setPairSearch] = useState("");
 
-  // Fetch stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["seasonality-stats", selectedPair],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("seasonality_stats")
-        .select("*")
-        .eq("symbol", selectedPair)
-        .order("month_number");
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Sync filter state to URL
+  useEffect(() => {
+    setSearchParams({
+      pair: selectedPair,
+      view: viewMode,
+      from: String(fromYear),
+      to: String(toYear),
+      dir: directionFilter,
+    }, { replace: true });
+  }, [selectedPair, viewMode, fromYear, toYear, directionFilter, setSearchParams]);
 
-  // Fetch raw data
+  // Fetch raw data (all years)
   const { data: rawData, isLoading: rawLoading } = useQuery({
     queryKey: ["seasonality-raw", selectedPair],
     queryFn: async () => {
@@ -103,14 +106,28 @@ export default function SeasonalityPage() {
     },
   });
 
-  const hasData = stats && stats.length > 0;
+  // Also fetch precomputed stats for auto-fetch detection
+  const { data: precomputedStats, isLoading: statsLoading } = useQuery({
+    queryKey: ["seasonality-stats", selectedPair],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("seasonality_stats")
+        .select("*")
+        .eq("symbol", selectedPair)
+        .order("month_number");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const hasData = (precomputedStats && precomputedStats.length > 0) || (rawData && rawData.length > 0);
 
   // Auto-fetch if no data
   useEffect(() => {
-    if (!statsLoading && !hasData && !fetching) {
+    if (!statsLoading && !rawLoading && !hasData && !fetching) {
       handleFetch();
     }
-  }, [selectedPair, statsLoading, hasData]);
+  }, [selectedPair, statsLoading, rawLoading, hasData]);
 
   const handleFetch = useCallback(async () => {
     setFetching(true);
@@ -135,32 +152,61 @@ export default function SeasonalityPage() {
     }
   }, [selectedPair, queryClient]);
 
-  // Filtered stats
-  const filteredStats = useMemo(() => {
-    if (!stats) return [];
-    let filtered = stats;
-    if (directionFilter === "bullish") filtered = filtered.filter(s => (s.up_pct ?? 0) >= 60);
-    else if (directionFilter === "bearish") filtered = filtered.filter(s => (s.up_pct ?? 0) <= 40);
-    else if (directionFilter === "neutral") filtered = filtered.filter(s => (s.up_pct ?? 0) > 40 && (s.up_pct ?? 0) < 60);
-    return filtered;
-  }, [stats, directionFilter]);
-
-  // Filtered raw data by year range
+  // ─── FIX 1+3: Recompute stats from raw data filtered by year range ───
   const filteredRaw = useMemo(() => {
     if (!rawData) return [];
     return rawData.filter(d => d.year >= fromYear && d.year <= toYear);
   }, [rawData, fromYear, toYear]);
 
-  // Selected month detail data
+  const computedStats = useMemo(() => {
+    if (!filteredRaw.length) return [];
+    const result = [];
+    for (let m = 1; m <= 12; m++) {
+      const monthRows = filteredRaw.filter(d => d.month_number === m);
+      if (!monthRows.length) continue;
+      const upRows = monthRows.filter(r => r.direction === "up");
+      const downRows = monthRows.filter(r => r.direction === "down");
+      const returns = monthRows.map(r => r.return_pct ?? 0);
+      const upPct = (upRows.length / monthRows.length) * 100;
+      const sorted = [...monthRows].sort((a, b) => (b.return_pct ?? 0) - (a.return_pct ?? 0));
+      const bestRow = sorted[0];
+      const worstRow = sorted[sorted.length - 1];
+      result.push({
+        month_number: m,
+        symbol: selectedPair,
+        up_count: upRows.length,
+        down_count: downRows.length,
+        flat_count: monthRows.length - upRows.length - downRows.length,
+        total_years: monthRows.length,
+        up_pct: upPct,
+        down_pct: (downRows.length / monthRows.length) * 100,
+        avg_return: returns.reduce((a, b) => a + b, 0) / returns.length,
+        best_return: bestRow?.return_pct ?? null,
+        worst_return: worstRow?.return_pct ?? null,
+        best_year: bestRow?.year ?? null,
+        worst_year: worstRow?.year ?? null,
+        bias: upPct >= 60 ? "bullish" : upPct <= 40 ? "bearish" : "neutral",
+      });
+    }
+    return result;
+  }, [filteredRaw, selectedPair]);
+
+  // ─── FIX 2: Direction filter on computed stats ───
+  const filteredStats = useMemo(() => {
+    if (directionFilter === "all") return computedStats;
+    return computedStats.filter(s => s.bias === directionFilter);
+  }, [computedStats, directionFilter]);
+
+  // Selected month detail data (filtered by year range)
   const selectedMonthData = useMemo(() => {
     if (selectedMonth == null || !filteredRaw.length) return [];
     return filteredRaw.filter(d => d.month_number === selectedMonth).sort((a, b) => a.year - b.year);
   }, [filteredRaw, selectedMonth]);
 
   const selectedMonthStats = useMemo(() => {
-    if (selectedMonth == null || !stats) return null;
-    return stats.find(s => s.month_number === selectedMonth) ?? null;
-  }, [stats, selectedMonth]);
+    if (selectedMonth == null) return null;
+    return computedStats.find(s => s.month_number === selectedMonth) ?? null;
+  }, [computedStats, selectedMonth]);
 
   // Bias chart data
   const biasData = useMemo(() => {
@@ -174,7 +220,7 @@ export default function SeasonalityPage() {
     }));
   }, [filteredStats]);
 
-  // Year view matrix
+  // Year view matrix (filtered by year range)
   const yearMatrix = useMemo(() => {
     if (!filteredRaw.length) return [];
     const years = [...new Set(filteredRaw.map(d => d.year))].sort();
@@ -202,19 +248,29 @@ export default function SeasonalityPage() {
     return groups;
   }, [pairSearch]);
 
-  const applyPreset = (years: number) => {
-    if (years >= 50) { setFromYear(2000); setToYear(currentYear); }
-    else { setFromYear(currentYear - years); setToYear(currentYear); }
-  };
+  // ─── FIX 1: Range preset handler ───
+  function applyRangePreset(preset: string) {
+    setRangePreset(preset);
+    switch (preset) {
+      case "5Y":  setFromYear(currentYear - 5);  setToYear(currentYear); break;
+      case "10Y": setFromYear(currentYear - 10); setToYear(currentYear); break;
+      case "15Y": setFromYear(currentYear - 15); setToYear(currentYear); break;
+      case "20Y": setFromYear(currentYear - 20); setToYear(currentYear); break;
+      case "ALL": setFromYear(2000);             setToYear(currentYear); break;
+    }
+  }
 
+  // ─── FIX 4: Month toggle in year view ───
   const toggleMonth = (m: number) => {
     setSelectedMonths(prev =>
-      prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
+      prev.includes(m)
+        ? prev.length > 1 ? prev.filter(x => x !== m) : prev
+        : [...prev, m].sort((a, b) => a - b)
     );
   };
 
   // Loading skeleton
-  if ((statsLoading || fetching) && !hasData) {
+  if ((statsLoading || rawLoading || fetching) && !hasData) {
     return (
       <AppLayout>
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -250,7 +306,6 @@ export default function SeasonalityPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Pair selector */}
             <div className="relative">
               <select
                 value={selectedPair}
@@ -264,7 +319,6 @@ export default function SeasonalityPage() {
                 ))}
               </select>
             </div>
-            {/* View toggle */}
             <div className="flex rounded-md border border-border overflow-hidden">
               {(["month", "year"] as const).map(v => (
                 <button key={v} onClick={() => setViewMode(v)}
@@ -287,39 +341,77 @@ export default function SeasonalityPage() {
         {/* FILTERS */}
         <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-border bg-card">
           <span className="text-xs font-medium text-muted-foreground">Range:</span>
-          {YEAR_PRESETS.map(p => (
-            <button key={p.label} onClick={() => applyPreset(p.years)}
-              className="px-2.5 py-1 text-[11px] rounded-md border border-border transition-colors"
-              style={{
-                background: (p.years >= 50 && fromYear === 2000) || (p.years < 50 && fromYear === currentYear - p.years)
-                  ? "hsl(var(--primary))" : "transparent",
-                color: (p.years >= 50 && fromYear === 2000) || (p.years < 50 && fromYear === currentYear - p.years)
-                  ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
-              }}>
-              {p.label}
-            </button>
-          ))}
-          <input type="number" value={fromYear} onChange={e => setFromYear(+e.target.value)}
-            className="w-16 h-7 rounded border border-border bg-background text-foreground text-xs px-2" />
+          {RANGE_PRESETS.map(p => {
+            const isActive = rangePreset === p;
+            return (
+              <button key={p} onClick={() => applyRangePreset(p)}
+                className="px-2.5 py-1 text-[11px] rounded-md border border-border transition-colors"
+                style={{
+                  background: isActive ? "hsl(var(--primary))" : "transparent",
+                  color: isActive ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
+                }}>
+                {p}
+              </button>
+            );
+          })}
+          <input
+            type="number"
+            value={fromYear}
+            min={2000}
+            max={toYear - 1}
+            onChange={e => {
+              const v = parseInt(e.target.value);
+              if (!isNaN(v) && v >= 2000 && v < toYear) {
+                setFromYear(v);
+                setRangePreset("custom");
+              }
+            }}
+            className="w-16 h-7 rounded border border-border bg-background text-foreground text-xs px-2"
+          />
           <span className="text-xs text-muted-foreground">to</span>
-          <input type="number" value={toYear} onChange={e => setToYear(+e.target.value)}
-            className="w-16 h-7 rounded border border-border bg-background text-foreground text-xs px-2" />
+          <input
+            type="number"
+            value={toYear}
+            min={fromYear + 1}
+            max={currentYear}
+            onChange={e => {
+              const v = parseInt(e.target.value);
+              if (!isNaN(v) && v > fromYear && v <= currentYear) {
+                setToYear(v);
+                setRangePreset("custom");
+              }
+            }}
+            className="w-16 h-7 rounded border border-border bg-background text-foreground text-xs px-2"
+          />
 
           <span className="text-xs font-medium text-muted-foreground ml-4">Direction:</span>
-          {(["all","bullish","bearish","neutral"] as const).map(d => (
-            <button key={d} onClick={() => setDirectionFilter(d)}
-              className="px-2.5 py-1 text-[11px] rounded-md border border-border capitalize transition-colors"
-              style={{
-                background: directionFilter === d ? "hsl(var(--primary))" : "transparent",
-                color: directionFilter === d ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
-              }}>
-              {d}
-            </button>
-          ))}
+          {(["all","bullish","bearish","neutral"] as const).map(d => {
+            const isActive = directionFilter === d;
+            const style = DIR_STYLES[d];
+            return (
+              <button key={d} onClick={() => setDirectionFilter(d)}
+                className="px-2.5 py-1 text-[11px] rounded-md border border-border capitalize transition-colors"
+                style={{
+                  background: isActive ? style.bg : "transparent",
+                  color: isActive ? style.color : "hsl(var(--muted-foreground))",
+                  borderColor: isActive ? style.color + "44" : undefined,
+                }}>
+                {d}
+              </button>
+            );
+          })}
 
           {viewMode === "year" && (
             <>
               <span className="text-xs font-medium text-muted-foreground ml-4">Months:</span>
+              <button onClick={() => setSelectedMonths([1,2,3,4,5,6,7,8,9,10,11,12])}
+                className="px-2 py-1 text-[10px] rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors">
+                All
+              </button>
+              <button onClick={() => setSelectedMonths([currentMonth])}
+                className="px-2 py-1 text-[10px] rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors">
+                This month
+              </button>
               {MONTHS.map((m, i) => (
                 <button key={m} onClick={() => toggleMonth(i + 1)}
                   className="px-2 py-1 text-[11px] rounded-md border border-border transition-colors"
@@ -340,7 +432,7 @@ export default function SeasonalityPage() {
           <>
             {/* Heatmap grid */}
             <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
-              {(filteredStats.length ? filteredStats : stats || []).map(month => {
+              {filteredStats.map(month => {
                 const upPct = month.up_pct ?? 50;
                 const intensity = Math.abs(upPct - 50) / 50;
                 const isBull = upPct >= 50;
@@ -377,6 +469,13 @@ export default function SeasonalityPage() {
               })}
             </div>
 
+            {/* Direction filter note */}
+            {directionFilter !== "all" && (
+              <p className="text-center text-xs text-muted-foreground">
+                Showing {filteredStats.length} of 12 months ({directionFilter} bias only)
+              </p>
+            )}
+
             {/* Colour legend */}
             <div className="flex items-center gap-2 text-[10px] text-muted-foreground justify-center">
               <span>← 90% Bear</span>
@@ -387,7 +486,12 @@ export default function SeasonalityPage() {
 
             {/* Bias bar chart */}
             <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-3">Monthly Bullish Bias — {selectedPair}</h3>
+              <h3 className="text-sm font-semibold text-foreground mb-3">
+                Monthly Bullish Bias — {selectedPair}
+                <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                  ({fromYear}–{toYear})
+                </span>
+              </h3>
               <ResponsiveContainer width="100%" height={240}>
                 <ComposedChart data={biasData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
@@ -412,6 +516,9 @@ export default function SeasonalityPage() {
                 <div className="rounded-lg border border-border bg-card p-4 space-y-2">
                   <h3 className="text-sm font-semibold text-foreground">
                     {MONTHS[selectedMonth - 1]} — {selectedPair}
+                    <span className="ml-2 text-[10px] font-normal text-muted-foreground">
+                      ({fromYear}–{toYear})
+                    </span>
                   </h3>
                   <div className="text-3xl font-bold" style={{ color: (selectedMonthStats.up_pct ?? 0) >= 50 ? "#22c55e" : "#ef4444" }}>
                     {(selectedMonthStats.up_pct ?? 0).toFixed(0)}%
@@ -449,7 +556,7 @@ export default function SeasonalityPage() {
               </div>
             )}
 
-            {/* Month view summary table */}
+            {/* Month view summary table — uses computedStats (filtered by range) */}
             <div className="rounded-lg border border-border overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -460,7 +567,7 @@ export default function SeasonalityPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(stats || []).map(s => {
+                  {filteredStats.map(s => {
                     const isCurrent = currentMonth === s.month_number;
                     return (
                       <tr key={s.month_number} className="border-b border-border"
@@ -503,15 +610,16 @@ export default function SeasonalityPage() {
         {/* YEAR VIEW */}
         {viewMode === "year" && hasData && (
           <>
-            {/* Heatmap table */}
+            {/* Heatmap table — FIX 4: only show selectedMonths columns */}
             <div className="rounded-lg border border-border overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-border bg-muted/30">
                     <th className="px-2 py-2 text-left text-muted-foreground font-medium sticky left-0 bg-muted/30">Year</th>
-                    {MONTHS.map((m, i) => (
-                      <th key={m} className="px-2 py-2 text-center text-muted-foreground font-medium"
-                        style={{ opacity: selectedMonths.includes(i + 1) ? 1 : 0.3 }}>{m}</th>
+                    {selectedMonths.map(m => (
+                      <th key={m} className="px-2 py-2 text-center text-muted-foreground font-medium">
+                        {MONTHS[m - 1]}
+                      </th>
                     ))}
                     <th className="px-2 py-2 text-center text-muted-foreground font-medium">Annual</th>
                   </tr>
@@ -520,13 +628,10 @@ export default function SeasonalityPage() {
                   {[...yearMatrix].reverse().map(row => (
                     <tr key={row.year} className="border-b border-border">
                       <td className="px-2 py-1.5 text-foreground font-medium sticky left-0 bg-background">{row.year}</td>
-                      {Array.from({ length: 12 }, (_, i) => i + 1).map(m => {
+                      {selectedMonths.map(m => {
                         const v = row["m" + m];
                         return (
-                          <td key={m} className="px-2 py-1.5 text-center" style={{
-                            ...getCellStyle(v),
-                            opacity: selectedMonths.includes(m) ? 1 : 0.3,
-                          }}>
+                          <td key={m} className="px-2 py-1.5 text-center" style={getCellStyle(v)}>
                             {v != null ? formatReturn(v) : "—"}
                           </td>
                         );
@@ -562,7 +667,7 @@ export default function SeasonalityPage() {
         )}
 
         {/* No data state */}
-        {!hasData && !statsLoading && !fetching && (
+        {!hasData && !statsLoading && !rawLoading && !fetching && (
           <div className="text-center py-16 space-y-3">
             <p className="text-muted-foreground">No seasonality data for {selectedPair}.</p>
             <Button onClick={handleFetch}><RefreshCw className="w-4 h-4 mr-2" /> Fetch Data</Button>
