@@ -432,8 +432,8 @@ export default function PairDetail() {
     series.setData(scoreHistory as any);
 
     // Dashed lines at 35 and 65
-    series.createPriceLine({ price: 65, color: "hsla(142, 60%, 50%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bull" });
-    series.createPriceLine({ price: 35, color: "hsla(0, 72%, 51%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bear" });
+    series.createPriceLine({ price: 62, color: "hsla(142, 60%, 50%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bull" });
+    series.createPriceLine({ price: 38, color: "hsla(0, 72%, 51%, 0.4)", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "Bear" });
 
     chart.timeScale().fitContent();
 
