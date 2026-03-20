@@ -520,8 +520,10 @@ export default function PairDetail() {
           <AddToWatchlist pairId={pair.id} />
         </div>
         <MarketSessionPills symbol={pair.symbol} />
-        </div>
       </div>
+
+      {/* Multi-Timeframe Score Strip */}
+      <MTFScoreStrip pairId={pair.id} selectedTF={timeframe} onSelectTF={setTimeframe} />
 
       {/* Timeframe switcher */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
