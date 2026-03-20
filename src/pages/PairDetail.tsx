@@ -689,22 +689,10 @@ function DbScoreBreakdown({ dbScore, trendColor, trendBg }: { dbScore: DbScore; 
           <span className={`text-3xl font-display font-bold ${trendColor}`}>{dbScore.score}</span>
         </div>
 
-        <p className="text-[9px] font-mono text-muted-foreground mb-1.5">TECHNICAL BREAKDOWN</p>
-        <div className="space-y-2">
-          <GaugeBar label="EMA Alignment" value={dbScore.ema_score ?? 0} max={22} raw={`EMA → +${dbScore.ema_score ?? 0}pts`} color="bg-blue-500" />
-          <GaugeBar label="ADX Strength" value={dbScore.adx_score ?? 0} max={11} raw={`ADX: ${dbScore.adx?.toFixed(1) ?? "—"} → +${dbScore.adx_score ?? 0}pts`} color="bg-amber-500" />
-          <GaugeBar label="RSI Bias" value={dbScore.rsi_score ?? 0} max={11} raw={`RSI: ${dbScore.rsi?.toFixed(1) ?? "—"} → +${dbScore.rsi_score ?? 0}pts`} color="bg-purple-500" />
-          <GaugeBar label="MACD Momentum" value={dbScore.macd_score ?? 0} max={11} raw={`Hist: ${dbScore.macd_hist?.toFixed(4) ?? "—"} → +${dbScore.macd_score ?? 0}pts`} color="bg-emerald-500" />
-        </div>
-
-        <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL</p>
-        <div className="space-y-2">
-          <GaugeBar label="News Sentiment" value={dbScore.news_score ?? 0} max={13} raw={`News → +${dbScore.news_score ?? 0}pts`} color="bg-cyan-500" />
-        </div>
-
-        <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL</p>
-        <div className="space-y-2">
-          <GaugeBar label="Social Score" value={dbScore.social_score ?? 0} max={20} raw={`Social → +${dbScore.social_score ?? 0}pts`} color="bg-green-500" />
+        <div className="space-y-3">
+          <GaugeBar label="EMA Alignment" value={dbScore.ema_score ?? 0} max={55} raw={`EMA → +${dbScore.ema_score ?? 0}pts`} color="bg-blue-500" />
+          <GaugeBar label="RSI Bias" value={dbScore.rsi_score ?? 0} max={30} raw={`RSI: ${dbScore.rsi?.toFixed(1) ?? "—"} → +${dbScore.rsi_score ?? 0}pts`} color="bg-cyan-500" />
+          <GaugeBar label="News Sentiment" value={dbScore.news_score ?? 7} max={15} raw={`News → +${dbScore.news_score ?? 7}pts`} color="bg-violet-500" />
         </div>
 
         <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
@@ -724,10 +712,13 @@ function DbScoreBreakdown({ dbScore, trendColor, trendBg }: { dbScore: DbScore; 
       <div className="rounded-lg border border-border bg-card p-5">
         <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values (last scan)</h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <IndicatorCell label="EMA 20" value={dbScore.ema20 ?? NaN} />
-          <IndicatorCell label="EMA 50" value={dbScore.ema50 ?? NaN} />
-          <IndicatorCell label="EMA 200" value={dbScore.ema200 ?? NaN} />
+          <IndicatorCell label="EMA 9" value={dbScore.ema20 ?? NaN} />
+          <IndicatorCell label="EMA 21" value={dbScore.ema50 ?? NaN} />
+          <IndicatorCell label="EMA 50" value={dbScore.ema200 ?? NaN} />
           <IndicatorCell label="RSI" value={dbScore.rsi ?? NaN} color={rsiColor(dbScore.rsi ?? NaN)} />
+        </div>
+        <p className="text-[9px] font-mono text-muted-foreground mt-4 mb-2">DISPLAY ONLY · NOT SCORED</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <IndicatorCell label="ADX" value={dbScore.adx ?? NaN} color={adxColor(dbScore.adx ?? NaN)} />
           <IndicatorCell label="MACD Hist" value={dbScore.macd_hist ?? NaN} decimals={5} color={(dbScore.macd_hist ?? 0) >= 0 ? "text-bullish" : "text-bearish"} />
         </div>
