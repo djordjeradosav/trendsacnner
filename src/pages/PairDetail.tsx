@@ -11,6 +11,10 @@ import { AddToWatchlist } from "@/components/watchlist/AddToWatchlist";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import { PairNewsSection } from "@/components/news/PairNewsSection";
 import { SocialBuzzCard } from "@/components/social/SocialBuzzCard";
+import { MTFScoreStrip } from "@/components/pair/MTFScoreStrip";
+import { MarketSessionPills } from "@/components/pair/MarketSessionPills";
+import { SeasonalityCard } from "@/components/pair/SeasonalityCard";
+import { RelatedPairsCard } from "@/components/pair/RelatedPairsCard";
 import {
   calcEMA,
   calcRSI,
@@ -490,7 +494,7 @@ export default function PairDetail() {
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <Button variant="ghost" size="sm" onClick={() => navigate("/scanner")} className="gap-1.5 self-start">
           <ArrowLeft className="w-4 h-4" /> Back
         </Button>
@@ -515,7 +519,11 @@ export default function PairDetail() {
           )}
           <AddToWatchlist pairId={pair.id} />
         </div>
+        <MarketSessionPills symbol={pair.symbol} />
       </div>
+
+      {/* Multi-Timeframe Score Strip */}
+      <MTFScoreStrip pairId={pair.id} selectedTF={timeframe} onSelectTF={setTimeframe} />
 
       {/* Timeframe switcher */}
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -571,112 +579,119 @@ export default function PairDetail() {
       )}
       </ErrorBoundary>
 
-      {/* Score Breakdown + Indicator Values */}
-      {hasCandles && scoreResult && indicators ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          {/* Score Breakdown */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-display font-semibold text-foreground">Composite Score</h3>
-                <ScoreExplanation symbol={pair.symbol} score={scoreResult.score} explanationLines={scoreResult.explanationLines} />
+      {/* Two-column layout: Left (score + indicators + history) | Right (news + seasonality + related) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 mb-6">
+        {/* LEFT COLUMN */}
+        <div className="space-y-4">
+          {/* Score Breakdown + Indicator Values */}
+          {hasCandles && scoreResult && indicators ? (
+            <>
+              {/* Score Breakdown */}
+              <div className="rounded-lg border border-border bg-card p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-display font-semibold text-foreground">Composite Score</h3>
+                    <ScoreExplanation symbol={pair.symbol} score={scoreResult.score} explanationLines={scoreResult.explanationLines} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ScoreFreshnessBadge dataQuality={scoreResult.dataQuality} />
+                    <span className={`text-3xl font-display font-bold ${trendColor}`}>{scoreResult.score}</span>
+                  </div>
+                </div>
+
+                <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-3">TECHNICAL ({scoreResult.breakdown.technicalTotal}/55)</p>
+                <div className="space-y-2">
+                  <GaugeBar label="EMA Alignment" value={scoreResult.breakdown.emaScore} max={22} raw={`EMA stack → +${scoreResult.breakdown.emaScore}pts`} color="bg-blue-500" />
+                  <GaugeBar label="ADX Strength" value={scoreResult.breakdown.adxScore} max={11} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.breakdown.adxScore}pts`} color="bg-amber-500" />
+                  <GaugeBar label="RSI Bias" value={scoreResult.breakdown.rsiScore} max={11} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.breakdown.rsiScore}pts`} color="bg-purple-500" />
+                  <GaugeBar label="MACD Momentum" value={scoreResult.breakdown.macdScore} max={11} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.breakdown.macdScore}pts`} color="bg-emerald-500" />
+                </div>
+
+                <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL ({scoreResult.breakdown.fundamentalTotal}/25)</p>
+                <div className="space-y-2">
+                  <GaugeBar label="News Sentiment" value={scoreResult.breakdown.newsScore} max={13} raw={`News → +${scoreResult.breakdown.newsScore}pts`} color="bg-cyan-500" />
+                  <GaugeBar label="Event Risk" value={scoreResult.breakdown.eventRiskScore} max={12} raw={scoreResult.upcomingEvent ? `⚠ ${scoreResult.upcomingEvent}` : "No upcoming events → +12pts"} color="bg-orange-500" />
+                </div>
+
+                <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL ({scoreResult.breakdown.socialTotal}/20)</p>
+                <div className="space-y-2">
+                  <GaugeBar label="StockTwits" value={scoreResult.breakdown.stocktwitsScore} max={10} raw={`StockTwits → +${scoreResult.breakdown.stocktwitsScore}pts`} color="bg-green-500" />
+                  <GaugeBar label="Reddit/Social" value={scoreResult.breakdown.redditScore} max={10} raw={`Reddit → +${scoreResult.breakdown.redditScore}pts`} color="bg-red-500" />
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
+                    {scoreResult.trend === "bullish" && <TrendingUp className="w-3.5 h-3.5" />}
+                    {scoreResult.trend === "bearish" && <TrendingDown className="w-3.5 h-3.5" />}
+                    {scoreResult.trend === "neutral" && <Minus className="w-3.5 h-3.5" />}
+                    {scoreResult.trend.toUpperCase()}
+                  </span>
+                  {scoreResult.eventRiskFlag && (
+                    <EventRiskFlag eventName={scoreResult.upcomingEvent} eventTime={scoreResult.upcomingEventTime} />
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <ScoreFreshnessBadge dataQuality={scoreResult.dataQuality} />
-                <span className={`text-3xl font-display font-bold ${trendColor}`}>{scoreResult.score}</span>
-              </div>
-            </div>
 
-            {/* Technical Layer */}
-            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-3">TECHNICAL ({scoreResult.breakdown.technicalTotal}/55)</p>
-            <div className="space-y-2">
-              <GaugeBar label="EMA Alignment" value={scoreResult.breakdown.emaScore} max={22} raw={`EMA stack → +${scoreResult.breakdown.emaScore}pts`} color="bg-blue-500" />
-              <GaugeBar label="ADX Strength" value={scoreResult.breakdown.adxScore} max={11} raw={`ADX: ${indicators.latest.adx.toFixed(1)} → +${scoreResult.breakdown.adxScore}pts`} color="bg-amber-500" />
-              <GaugeBar label="RSI Bias" value={scoreResult.breakdown.rsiScore} max={11} raw={`RSI: ${indicators.latest.rsi.toFixed(1)} → +${scoreResult.breakdown.rsiScore}pts`} color="bg-purple-500" />
-              <GaugeBar label="MACD Momentum" value={scoreResult.breakdown.macdScore} max={11} raw={`Hist: ${indicators.latest.macdHist.toFixed(4)} → +${scoreResult.breakdown.macdScore}pts`} color="bg-emerald-500" />
-            </div>
-
-            {/* Fundamental Layer */}
-            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">FUNDAMENTAL ({scoreResult.breakdown.fundamentalTotal}/25)</p>
-            <div className="space-y-2">
-              <GaugeBar label="News Sentiment" value={scoreResult.breakdown.newsScore} max={13} raw={`News → +${scoreResult.breakdown.newsScore}pts`} color="bg-cyan-500" />
-              <GaugeBar label="Event Risk" value={scoreResult.breakdown.eventRiskScore} max={12} raw={scoreResult.upcomingEvent ? `⚠ ${scoreResult.upcomingEvent}` : "No upcoming events → +12pts"} color="bg-orange-500" />
-            </div>
-
-            {/* Social Layer */}
-            <p className="text-[9px] font-mono text-muted-foreground mb-1.5 mt-4">SOCIAL ({scoreResult.breakdown.socialTotal}/20)</p>
-            <div className="space-y-2">
-              <GaugeBar label="StockTwits" value={scoreResult.breakdown.stocktwitsScore} max={10} raw={`StockTwits → +${scoreResult.breakdown.stocktwitsScore}pts`} color="bg-green-500" />
-              <GaugeBar label="Reddit/Social" value={scoreResult.breakdown.redditScore} max={10} raw={`Reddit → +${scoreResult.breakdown.redditScore}pts`} color="bg-red-500" />
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-border flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1.5 text-xs font-display font-bold px-3 py-1.5 rounded-md border ${trendBg}`}>
-                {scoreResult.trend === "bullish" && <TrendingUp className="w-3.5 h-3.5" />}
-                {scoreResult.trend === "bearish" && <TrendingDown className="w-3.5 h-3.5" />}
-                {scoreResult.trend === "neutral" && <Minus className="w-3.5 h-3.5" />}
-                {scoreResult.trend.toUpperCase()}
-              </span>
-              {scoreResult.eventRiskFlag && (
-                <EventRiskFlag eventName={scoreResult.upcomingEvent} eventTime={scoreResult.upcomingEventTime} />
+              {/* Score History */}
+              {scoreHistory.length >= 2 && (
+                <div className="rounded-lg border border-border bg-card p-5">
+                  <h3 className="text-sm font-display font-semibold text-foreground mb-3">
+                    Score History — {TF_LABELS[timeframe]}
+                  </h3>
+                  <div ref={scoreChartRef} className="rounded overflow-hidden" />
+                </div>
               )}
-            </div>
-          </div>
 
-          {/* Indicator Values */}
-          <div className="rounded-lg border border-border bg-card p-5">
-            <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <IndicatorCell label="EMA 20" value={indicators.latest.ema20} />
-              <IndicatorCell label="EMA 50" value={indicators.latest.ema50} />
-              <IndicatorCell label="EMA 200" value={indicators.latest.ema200} />
-              <IndicatorCell label="RSI" value={indicators.latest.rsi} color={rsiColor(indicators.latest.rsi)} />
-              <IndicatorCell label="ADX" value={indicators.latest.adx} color={adxColor(indicators.latest.adx)} />
-              <IndicatorCell label="MACD Hist" value={indicators.latest.macdHist} decimals={5} color={indicators.latest.macdHist >= 0 ? "text-bullish" : "text-bearish"} />
-              <IndicatorCell label="ATR" value={indicators.latest.atr} decimals={5} />
-              <IndicatorCell label="BB Width" value={indicators.latest.bbWidth} decimals={2} suffix="%" />
-            </div>
-          </div>
+              {/* Indicator Values */}
+              <div className="rounded-lg border border-border bg-card p-5">
+                <h3 className="text-sm font-display font-semibold text-foreground mb-4">Indicator Values</h3>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <IndicatorCell label="EMA 20" value={indicators.latest.ema20} />
+                  <IndicatorCell label="EMA 50" value={indicators.latest.ema50} />
+                  <IndicatorCell label="EMA 200" value={indicators.latest.ema200} />
+                  <IndicatorCell label="RSI" value={indicators.latest.rsi} color={rsiColor(indicators.latest.rsi)} />
+                  <IndicatorCell label="ADX" value={indicators.latest.adx} color={adxColor(indicators.latest.adx)} />
+                  <IndicatorCell label="MACD Hist" value={indicators.latest.macdHist} decimals={5} color={indicators.latest.macdHist >= 0 ? "text-bullish" : "text-bearish"} />
+                  <IndicatorCell label="ATR" value={indicators.latest.atr} decimals={5} />
+                  <IndicatorCell label="BB Width" value={indicators.latest.bbWidth} decimals={2} suffix="%" />
+                </div>
+              </div>
+            </>
+          ) : hasDbScoreOnly && dbScore ? (
+            <DbScoreBreakdown dbScore={dbScore} trendColor={trendColor} trendBg={trendBg} />
+          ) : !loading ? (
+            <NoDataPanel
+              symbol={pair.symbol}
+              timeframe={TF_LABELS[timeframe] || timeframe}
+              onScan={triggerPairScan}
+              isScanning={scanning}
+              type="score"
+            />
+          ) : null}
+
+          {/* AI Analysis */}
+          <ErrorBoundary name="AIBrief">
+            {pair && (
+              <PairAnalysisCard pairId={pair.id} timeframe={timeframe} isAuthenticated={isAuthenticated} />
+            )}
+          </ErrorBoundary>
+
+          {/* Social Buzz */}
+          {pair && <SocialBuzzCard pairSymbol={pair.symbol} />}
         </div>
-      ) : hasDbScoreOnly && dbScore ? (
-        /* Fallback: show DB score breakdown when no candles */
-        <DbScoreBreakdown dbScore={dbScore} trendColor={trendColor} trendBg={trendBg} />
-      ) : !loading ? (
-        <NoDataPanel
-          symbol={pair.symbol}
-          timeframe={TF_LABELS[timeframe] || timeframe}
-          onScan={triggerPairScan}
-          isScanning={scanning}
-          type="score"
-        />
-      ) : null}
 
-      {/* AI Analysis */}
-      <ErrorBoundary name="AIBrief">
-      {pair && (
-        <div className="mb-6">
-          <PairAnalysisCard pairId={pair.id} timeframe={timeframe} isAuthenticated={isAuthenticated} />
+        {/* RIGHT COLUMN */}
+        <div className="space-y-4">
+          {/* News */}
+          {pair && <PairNewsSection symbol={pair.symbol} />}
+
+          {/* Seasonality */}
+          {pair && <SeasonalityCard symbol={pair.symbol} />}
+
+          {/* Related Pairs */}
+          {pair && <RelatedPairsCard symbol={pair.symbol} pairId={pair.id} timeframe={timeframe} />}
         </div>
-      )}
-      </ErrorBoundary>
-
-      {/* Score History */}
-      {scoreHistory.length >= 2 && (
-        <div className="rounded-lg border border-border bg-card p-5 mb-6">
-          <h3 className="text-sm font-display font-semibold text-foreground mb-3">Score History</h3>
-          <div ref={scoreChartRef} className="rounded overflow-hidden" />
-        </div>
-      )}
-
-      {/* Latest News for this pair */}
-      {pair && <PairNewsSection symbol={pair.symbol} />}
-
-      {/* Social Buzz */}
-      {pair && (
-        <div className="mb-6">
-          <SocialBuzzCard pairSymbol={pair.symbol} />
-        </div>
-      )}
+      </div>
     </AppLayout>
   );
 }

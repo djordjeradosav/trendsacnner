@@ -38,7 +38,7 @@ export function PairNewsSection({ symbol }: Props) {
   if (articles.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-border bg-card p-5 mb-6">
+    <div className="rounded-lg border border-border bg-card p-5">
       <h3 className="text-sm font-display font-semibold text-foreground mb-3">Latest News</h3>
       <div className="space-y-2.5">
         {articles.map((a) => (
