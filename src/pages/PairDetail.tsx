@@ -255,9 +255,9 @@ export default function PairDetail() {
     const highs = sorted.map((c) => c.high);
     const lows = sorted.map((c) => c.low);
 
-    const ema20 = calcEMA(closes, 20);
-    const ema50 = calcEMA(closes, 50);
-    const ema200 = calcEMA(closes, 200);
+    const ema20 = calcEMA(closes, 9);
+    const ema50 = calcEMA(closes, 21);
+    const ema200 = calcEMA(closes, 50);
     const rsi = calcRSI(closes, 14);
     const adx = calcADX(highs, lows, closes, 14);
     const atr = calcATR(highs, lows, closes, 14);
