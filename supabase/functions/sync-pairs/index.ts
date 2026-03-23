@@ -131,8 +131,14 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Filter to only forex, commodities, indexes — no stocks, crypto, ETFs
+  const filtered = finnhubSymbols.filter((item) =>
+    shouldInclude(item.symbol, item.description)
+  );
+  console.log("Filtered to", filtered.length, "relevant instruments (from", finnhubSymbols.length, "total)");
+
   // Build rows to upsert
-  const pairRows = finnhubSymbols.map((item) => {
+  const pairRows = filtered.map((item) => {
     const internalSymbol = toInternalSymbol(item.symbol);
     const { category, base, quote, displayName } = classifyPair(
       item.symbol,
