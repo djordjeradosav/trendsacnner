@@ -168,8 +168,10 @@ export function useSectorStats(timeframe: string = "1h") {
       })
       .filter(Boolean) as SectorStat[];
 
-    // Sort by avgScore descending
-    stats.sort((a, b) => b.avgScore - a.avgScore);
+    // Filter to allowed sectors only (no exotics)
+    const filteredStats = stats.filter((s) => ALLOWED_SECTORS.has(s.name));
+    filteredStats.sort((a, b) => b.avgScore - a.avgScore);
+    const stats2 = filteredStats;
 
     const strongSectors = stats.filter((s) => s.trend === "bullish").map((s) => s.name);
     let summary = `${totalBull} of ${total} pairs (${bullPct}%) are trending bullish.`;
