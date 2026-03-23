@@ -491,9 +491,9 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Delay between chunks — spread across the minute to stay under 60/min
+        // 15 requests then wait 16s → ~56 calls/min, under 60/min limit
         if (ci < chunks.length - 1) {
-          await sleep(12000); // 10 requests per 12s = 50/min, safely under 60/min limit
+          await sleep(16000);
         }
       }
 
