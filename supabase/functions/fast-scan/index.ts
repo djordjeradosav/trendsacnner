@@ -280,7 +280,7 @@ Deno.serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const VALID_TFS = ["15min", "1h", "4h", "1day"];
+  const VALID_TFS = ["5min", "15min", "1h", "4h", "1day"];
   let timeframe = "1h";
   let pairIds: string[] | undefined;
 
