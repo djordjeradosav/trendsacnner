@@ -11,6 +11,7 @@ export interface ScanIntervalOption {
 export const scanIntervalOptions: ScanIntervalOption[] = [
   { value: "manual", label: "Manual only", ms: null },
   { value: "15min", label: "Every 15 min", ms: 15 * 60 * 1000 },
+  { value: "30min", label: "Every 30 min", ms: 30 * 60 * 1000 },
   { value: "1hour", label: "Every 1 hour", ms: 60 * 60 * 1000 },
   { value: "4hours", label: "Every 4 hours", ms: 4 * 60 * 60 * 1000 },
 ];

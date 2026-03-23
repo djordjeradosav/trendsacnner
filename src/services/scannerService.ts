@@ -3,7 +3,7 @@ import { fetchCandlesForPair } from "./dataService";
 import { scorePair, type Candle } from "@/lib/scoreEngine";
 import { checkAlertRules } from "./alertService";
 
-const BATCH_SIZE = 55;
+const BATCH_SIZE = 55; // Finnhub allows 60 calls/min
 const BATCH_DELAY_MS = 1_100; // 1.1s between batches for Finnhub rate limit
 
 export interface ScanResult {

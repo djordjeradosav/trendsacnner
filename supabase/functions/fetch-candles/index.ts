@@ -9,12 +9,10 @@ const corsHeaders = {
 // ─── Finnhub Symbol & Resolution Mapping ────────────────────────────────────
 
 const SYMBOL_MAP: Record<string, string> = {
-  // Forex majors
+  // Forex
   "EURUSD": "OANDA:EUR_USD", "GBPUSD": "OANDA:GBP_USD", "USDJPY": "OANDA:USD_JPY",
   "USDCHF": "OANDA:USD_CHF", "AUDUSD": "OANDA:AUD_USD", "USDCAD": "OANDA:USD_CAD",
-  "NZDUSD": "OANDA:NZD_USD",
-  // Forex minors
-  "EURGBP": "OANDA:EUR_GBP", "EURJPY": "OANDA:EUR_JPY",
+  "NZDUSD": "OANDA:NZD_USD", "EURGBP": "OANDA:EUR_GBP", "EURJPY": "OANDA:EUR_JPY",
   "GBPJPY": "OANDA:GBP_JPY", "AUDJPY": "OANDA:AUD_JPY", "CADJPY": "OANDA:CAD_JPY",
   "CHFJPY": "OANDA:CHF_JPY", "NZDJPY": "OANDA:NZD_JPY", "EURCAD": "OANDA:EUR_CAD",
   "EURAUD": "OANDA:EUR_AUD", "EURNZD": "OANDA:EUR_NZD", "EURCHF": "OANDA:EUR_CHF",
@@ -22,33 +20,20 @@ const SYMBOL_MAP: Record<string, string> = {
   "GBPCHF": "OANDA:GBP_CHF", "AUDCAD": "OANDA:AUD_CAD", "AUDNZD": "OANDA:AUD_NZD",
   "AUDCHF": "OANDA:AUD_CHF", "NZDCAD": "OANDA:NZD_CAD", "NZDCHF": "OANDA:NZD_CHF",
   "CADCHF": "OANDA:CAD_CHF",
-  // Forex exotics
-  "USDMXN": "OANDA:USD_MXN", "USDZAR": "OANDA:USD_ZAR", "USDSGD": "OANDA:USD_SGD",
-  "USDSEK": "OANDA:USD_SEK", "USDNOK": "OANDA:USD_NOK", "USDDKK": "OANDA:USD_DKK",
-  "USDPLN": "OANDA:USD_PLN", "USDHUF": "OANDA:USD_HUF", "USDTRY": "OANDA:USD_TRY",
-  "USDCZK": "OANDA:USD_CZK", "EURHUF": "OANDA:EUR_HUF", "EURPLN": "OANDA:EUR_PLN",
-  "EURTRY": "OANDA:EUR_TRY", "EURSEK": "OANDA:EUR_SEK", "EURNOK": "OANDA:EUR_NOK",
-  "GBPSGD": "OANDA:GBP_SGD", "GBPMXN": "OANDA:GBP_MXN",
   // Metals
   "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
   "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
-  "XAUEUR": "OANDA:XAU_EUR", "XAUGBP": "OANDA:XAU_GBP",
-  // Energy
-  "USOIL":  "OANDA:WTICO_USD", "UKOIL":  "OANDA:BCO_USD",
-  "NGAS":   "OANDA:NATGAS_USD", "XTIUSD": "OANDA:WTICO_USD", "XBRUSD": "OANDA:BCO_USD",
-  // Equity index futures
-  "US30":   "OANDA:US30_USD", "US100":  "OANDA:NAS100_USD", "US500":  "OANDA:SPX500_USD",
-  "US2000": "OANDA:US2000_USD", "GER40":  "OANDA:DE30_EUR", "UK100":  "OANDA:UK100_GBP",
-  "FRA40":  "OANDA:FR40_EUR", "ESP35":  "OANDA:ES35_EUR", "JP225":  "OANDA:JP225_USD",
-  "AUS200": "OANDA:AU200_AUD", "HK50":   "OANDA:HK33_HKD",
-  // Legacy mappings
-  "CL1!":  "OANDA:WTICO_USD", "BZ1!":  "OANDA:BCO_USD",
+  // Commodities & Futures — mapped from DB symbol names
+  "USOIL":  "OANDA:WTICO_USD",  "CL1!":  "OANDA:WTICO_USD",
+  "UKOIL":  "OANDA:BCO_USD",    "BZ1!":  "OANDA:BCO_USD",
   "NATGAS": "OANDA:NATGAS_USD", "NG1!":  "OANDA:NATGAS_USD",
-  "ES1!":  "OANDA:SPX500_USD", "NQ1!":  "OANDA:NAS100_USD", "YM1!":  "OANDA:US30_USD",
+  "US500":  "OANDA:SPX500_USD", "ES1!":  "OANDA:SPX500_USD",
+  "US100":  "OANDA:NAS100_USD", "NQ1!":  "OANDA:NAS100_USD",
+  "US30":   "OANDA:US30_USD",   "YM1!":  "OANDA:US30_USD",
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "15min": "15",
+  "15min": "15", "30min": "30",
   "1h": "60", "4h": "240", "1day": "D",
 };
 
@@ -57,7 +42,7 @@ const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "15min": 900,
+    "15min": 900, "30min": 1800,
     "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
@@ -121,13 +106,12 @@ Deno.serve(async (req) => {
 
     // Finnhub free tier: fall back to 1H for sub-hourly resolutions
     const resolution = SUPPORTED_RESOLUTIONS.has(rawResolution) ? rawResolution : "60";
-    // Always store candles with the REQUESTED timeframe so UI queries match
-    const storedTF = timeframe;
+    const effectiveTF = resolution !== rawResolution ? "1h" : timeframe;
 
     // Calculate from/to timestamps
     const to = Math.floor(Date.now() / 1000);
-    const intervalSec = getIntervalSeconds(resolution === rawResolution ? timeframe : "1h");
-    const bufferMultiplier = timeframe === "15min" ? 2.5 : 1.3;
+    const intervalSec = getIntervalSeconds(effectiveTF);
+    const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
     const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
 
     const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
@@ -184,10 +168,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map Finnhub candles to our schema — store with the REQUESTED timeframe
+    // Map Finnhub candles to our schema — store as the effective timeframe
     const candles = data.c!.map((close, i) => ({
       pair_id: pairRow.id,
-      timeframe: storedTF,
+      timeframe: effectiveTF,
       open: data.o![i],
       high: data.h![i],
       low: data.l![i],
@@ -212,7 +196,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe: storedTF }),
+      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe: effectiveTF }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

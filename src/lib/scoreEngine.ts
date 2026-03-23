@@ -79,7 +79,7 @@ export type ScoreResult = EnhancedScoreResult;
 
 // ─── EMA Alignment (0–22) ───────────────────────────────────────────────────
 function scoreEMA(price: number, ema20: number, ema50: number, ema200: number, timeframe?: string): { score: number; line: string } {
-  const isShortTF = timeframe === "15min";
+  const isShortTF = ["15min","30min"].includes(timeframe || "");
   if (isShortTF) {
     if (price > ema20 && ema20 > ema50 && ema50 > ema200)
       return { score: 22, line: "✓ EMA Stack: Full bullish alignment (+22)" };
@@ -217,7 +217,7 @@ export function calcTrendScore(
   const lows = sorted.map((c) => c.low);
 
   // Timeframe-specific indicator periods
-  const isShortTF = timeframe === "15min";
+  const isShortTF = ["15min","30min"].includes(timeframe || "");
   const emaFastP = isShortTF ? 9 : 20;
   const emaMidP = isShortTF ? 21 : 50;
   const emaSlowP = isShortTF ? 50 : 200;
