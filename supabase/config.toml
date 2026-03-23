@@ -6,9 +6,6 @@ verify_jwt = false
 [functions.fast-scan]
 verify_jwt = false
 
-[functions.deep-scan]
-verify_jwt = false
-
 [functions.fetch-fred-data]
 verify_jwt = false
 
