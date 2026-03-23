@@ -173,7 +173,7 @@ export function useSectorStats(timeframe: string = "1h") {
     filteredStats.sort((a, b) => b.avgScore - a.avgScore);
     const stats2 = filteredStats;
 
-    const strongSectors = stats.filter((s) => s.trend === "bullish").map((s) => s.name);
+    const strongSectors = stats2.filter((s) => s.trend === "bullish").map((s) => s.name);
     let summary = `${totalBull} of ${total} pairs (${bullPct}%) are trending bullish.`;
     if (strongSectors.length > 0) summary += ` ${strongSectors.join(" and ")} show${strongSectors.length === 1 ? "s" : ""} the strongest directional bias.`;
 
