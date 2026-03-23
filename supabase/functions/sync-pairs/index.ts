@@ -206,11 +206,10 @@ Deno.serve(async (req) => {
   // Return summary
   const summary = {
     success: true,
-    total: finnhubSymbols.length,
+    total: pairRows.length,
     forex: pairRows.filter((p) => p.category === "forex").length,
     commodity: pairRows.filter((p) => p.category === "commodity").length,
     futures: pairRows.filter((p) => p.category === "futures").length,
-    crypto: pairRows.filter((p) => p.category === "crypto").length,
     deactivated: allDbPairs
       ? allDbPairs.filter((p) => !activeSymbols.includes(p.symbol)).length
       : 0,
