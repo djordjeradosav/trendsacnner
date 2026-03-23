@@ -262,54 +262,7 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-// ─── Index Futures ETF Proxy Mapping ────────────────────────────────────────
-// Finnhub free tier returns 403 for OANDA index CFD symbols AND stock candles.
-// Use Alpha Vantage TIME_SERIES_DAILY with liquid ETF proxies instead.
-const INDEX_ETF_MAP: Record<string, string> = {
-  "US30USD": "DIA",
-  "NAS100USD": "QQQ",
-  "SPX500USD": "SPY",
-  "US2000USD": "IWM",
-};
-
-function getStockSymbolForPair(symbol: string): string | null {
-  return INDEX_ETF_MAP[symbol] ?? null;
-}
-
-async function fetchAlphaVantageCandles(etfSymbol: string, avKey: string): Promise<CandleData[] | null> {
-  try {
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${etfSymbol}&outputsize=compact&apikey=${avKey}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) {
-      console.warn(`[SCAN] AV: HTTP ${res.status} for ${etfSymbol}`);
-      return null;
-    }
-    const json = await res.json();
-    const timeSeries = json["Time Series (Daily)"];
-    if (!timeSeries) {
-      // Log actual response keys and first value for debugging
-      const keys = Object.keys(json);
-      const firstVal = json[keys[0]];
-      console.warn(`[SCAN] AV: no time series for ${etfSymbol}. Keys=${JSON.stringify(keys)}. Info=${typeof firstVal === 'string' ? firstVal.slice(0,150) : JSON.stringify(firstVal).slice(0,150)}`);
-      return null;
-    }
-    // Convert to array sorted by date ascending, take last 300
-    const entries = Object.entries(timeSeries)
-      .map(([date, vals]: [string, any]) => ({
-        open: parseFloat(vals["1. open"]),
-        high: parseFloat(vals["2. high"]),
-        low: parseFloat(vals["3. low"]),
-        close: parseFloat(vals["4. close"]),
-        volume: parseFloat(vals["5. volume"] || "0"),
-        ts: date,
-      }))
-      .sort((a, b) => a.ts.localeCompare(b.ts));
-    return entries.slice(-300);
-  } catch (e) {
-    console.warn(`[SCAN] AV fetch failed for ${etfSymbol}: ${e}`);
-    return null;
-  }
-}
+// No ETF proxy needed — all OANDA instruments use the same forex/candle endpoint
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
