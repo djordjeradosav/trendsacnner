@@ -507,11 +507,13 @@ Deno.serve(async (req) => {
             if (r.value.candles.length < minCandles) {
               console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
             }
-            // Store candles with the effective timeframe used for fetching
+            // Store candles - use "1day" for ETF/AV candles, effectiveTF for forex
+            const etfSym = getStockSymbolForPair(symbol);
+            const storageTF = etfSym ? "1day" : effectiveTF;
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe: effectiveTF,
+                timeframe: storageTF,
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),
