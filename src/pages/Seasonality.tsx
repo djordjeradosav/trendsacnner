@@ -66,6 +66,21 @@ export default function SeasonalityPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Fetch all active pairs from DB
+  const { data: activePairs } = useQuery({
+    queryKey: ["active-pairs"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("pairs")
+        .select("symbol, name, category, display_symbol")
+        .eq("is_active", true)
+        .order("category", { ascending: true })
+        .order("symbol", { ascending: true });
+      return data ?? [];
+    },
+    staleTime: 3600000,
+  });
+
   // Init from URL params
   const [selectedPair, setSelectedPair] = useState(searchParams.get("pair") ?? "EURUSD");
   const [viewMode, setViewMode] = useState<"month" | "year">((searchParams.get("view") as any) ?? "month");
