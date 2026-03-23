@@ -525,7 +525,9 @@ Deno.serve(async (req) => {
 
           // Fallback: load cached candles from DB
           if (!pairCandles) {
-            // Try the requested timeframe first, then fall back to 1h
+            // For ETF/index symbols, also try "1day" candles; for forex try requested TF then 1h
+            const etfSym = getStockSymbolForPair(symbol);
+            const fallbackTFs = etfSym ? ["1day", normalisedTimeframe, "1h"] : [normalisedTimeframe, "1h"];
             for (const dbTf of [normalisedTimeframe, "1h"]) {
               const { data: dbCandles } = await supabase
                 .from("candles")
