@@ -491,9 +491,9 @@ Deno.serve(async (req) => {
           }
         }
 
-        // 28 requests then wait 30s → ~56 calls/min
+        // 8 requests per 8s = ~60/min; 429 retries handle bursts
         if (ci < chunks.length - 1) {
-          await sleep(30000);
+          await sleep(8000);
         }
       }
 
