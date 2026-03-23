@@ -263,8 +263,8 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
 // ─── Index Futures ETF Proxy Mapping ────────────────────────────────────────
-// Finnhub free tier returns 403 for OANDA index CFD symbols on /forex/candle.
-// Use /stock/candle with liquid ETF proxies instead.
+// Finnhub free tier returns 403 for OANDA index CFD symbols AND stock candles.
+// Use Alpha Vantage TIME_SERIES_DAILY with liquid ETF proxies instead.
 const INDEX_ETF_MAP: Record<string, string> = {
   "US30USD": "DIA",
   "NAS100USD": "QQQ",
@@ -274,6 +274,35 @@ const INDEX_ETF_MAP: Record<string, string> = {
 
 function getStockSymbolForPair(symbol: string): string | null {
   return INDEX_ETF_MAP[symbol] ?? null;
+}
+
+async function fetchAlphaVantageCandles(etfSymbol: string, avKey: string): Promise<CandleData[] | null> {
+  try {
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${etfSymbol}&outputsize=full&apikey=${avKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const timeSeries = json["Time Series (Daily)"];
+    if (!timeSeries) {
+      console.warn(`[SCAN] AV: no time series for ${etfSymbol}: ${JSON.stringify(Object.keys(json)).slice(0,100)}`);
+      return null;
+    }
+    // Convert to array sorted by date ascending, take last 300
+    const entries = Object.entries(timeSeries)
+      .map(([date, vals]: [string, any]) => ({
+        open: parseFloat(vals["1. open"]),
+        high: parseFloat(vals["2. high"]),
+        low: parseFloat(vals["3. low"]),
+        close: parseFloat(vals["4. close"]),
+        volume: parseFloat(vals["5. volume"] || "0"),
+        ts: date,
+      }))
+      .sort((a, b) => a.ts.localeCompare(b.ts));
+    return entries.slice(-300);
+  } catch (e) {
+    console.warn(`[SCAN] AV fetch failed for ${etfSymbol}: ${e}`);
+    return null;
+  }
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
