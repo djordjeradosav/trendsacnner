@@ -262,6 +262,20 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
+// ─── Index Futures ETF Proxy Mapping ────────────────────────────────────────
+// Finnhub free tier returns 403 for OANDA index CFD symbols on /forex/candle.
+// Use /stock/candle with liquid ETF proxies instead.
+const INDEX_ETF_MAP: Record<string, string> = {
+  "US30USD": "DIA",
+  "NAS100USD": "QQQ",
+  "SPX500USD": "SPY",
+  "US2000USD": "IWM",
+};
+
+function getStockSymbolForPair(symbol: string): string | null {
+  return INDEX_ETF_MAP[symbol] ?? null;
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
