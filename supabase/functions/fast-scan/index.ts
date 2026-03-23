@@ -378,7 +378,11 @@ Deno.serve(async (req) => {
             const abortCtl = new AbortController();
             const timeout = setTimeout(() => abortCtl.abort(), 8000);
             try {
-              const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+              // Use /stock/candle for index futures (ETF proxy), /forex/candle for everything else
+              const etfSymbol = getStockSymbolForPair(pair.symbol);
+              const url = etfSymbol
+                ? `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(etfSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`
+                : `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
               let res = await fetch(url, { signal: abortCtl.signal });
 
               // Retry once on 429
@@ -395,7 +399,7 @@ Deno.serve(async (req) => {
                 return null;
               }
               if (res.status === 403) {
-                console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}`);
+                console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}${etfSymbol ? ` (ETF: ${etfSymbol})` : ''}`);
                 return null;
               }
 
