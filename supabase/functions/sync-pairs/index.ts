@@ -6,18 +6,52 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── Inclusion filter — only forex, commodities, indexes ────────────────────
+
+const FOREX_CURRENCIES = new Set([
+  "EUR","GBP","USD","JPY","CHF","AUD","CAD","NZD",
+  "SEK","NOK","DKK","SGD","HKD","ZAR","MXN","TRY",
+  "PLN","HUF","CZK","CNH","THB","ILS",
+]);
+
+const COMMODITY_BASES = new Set([
+  "XAU","XAG","XPT","XPD","XCU",
+  "BCO","WTICO","NATGAS",
+  "CORN","WHEAT","SOYBN","SUGAR","COFFEE","COCOA","COTTON",
+]);
+
+const INDEX_BASES = new Set([
+  "US30","NAS100","SPX500","US2000",
+  "UK100","GER30","GER40","EU50",
+  "FR40","FRA40","ESP35","ES35","JP225","AUS200",
+  "HK33","CN50","CHINA50","SING30","TWIX","IN50",
+  "NETH25","SWI20",
+]);
+
+function shouldInclude(oandaSymbol: string, description: string): boolean {
+  const raw = oandaSymbol.replace("OANDA:", "");
+  const parts = raw.split("_");
+  const base = parts[0];
+  const quote = parts.slice(1).join("");
+
+  // Forex pair: both parts are currency codes
+  if (FOREX_CURRENCIES.has(base) && FOREX_CURRENCIES.has(quote)) return true;
+  // Commodity
+  if (COMMODITY_BASES.has(base)) return true;
+  // Index/futures
+  if (INDEX_BASES.has(base)) return true;
+  // Description-based commodity detection
+  const dl = description.toLowerCase();
+  if (dl.includes("oil") || dl.includes("gas") || dl.includes("copper")) return true;
+
+  return false;
+}
+
 // ─── Category classification ────────────────────────────────────────────────
 
 const METALS = ["XAU", "XAG", "XPT", "XPD", "XCU"];
 const ENERGY_BASE = ["BCO", "WTICO", "NATGAS"];
-const INDICES = [
-  "US30", "NAS100", "SPX500", "UK100", "GER30", "GER40",
-  "JP225", "AUS200", "HK33", "CN50", "CHINA50", "EU50", "FR40",
-  "ES35", "US2000", "TWIX", "SING30", "IN50",
-];
-const BONDS = ["USB02Y", "USB05Y", "USB10Y", "USB30Y", "BUND", "UK10YB", "DE10YB"];
-const CRYPTO = ["BTC", "ETH", "LTC", "BCH", "XRP"];
-const GRAINS = ["CORN", "WHEAT", "SOYBN", "SUGAR"];
+const GRAINS = ["CORN", "WHEAT", "SOYBN", "SUGAR", "COFFEE", "COCOA", "COTTON"];
 
 function classifyPair(
   oandaSymbol: string,
@@ -34,26 +68,11 @@ function classifyPair(
     return { category: "commodity", base, quote, displayName };
   if (GRAINS.some((g) => base.includes(g)))
     return { category: "commodity", base, quote, displayName };
-  if (INDICES.some((i) => raw.includes(i)))
+  if (INDEX_BASES.has(base) || [...INDEX_BASES].some((i) => raw.includes(i)))
     return { category: "futures", base, quote, displayName };
-  if (BONDS.some((b) => raw.includes(b)))
-    return { category: "futures", base, quote, displayName };
-  if (CRYPTO.includes(base))
-    return { category: "crypto", base, quote, displayName };
 
-  // Check description for commodity keywords
   const descLower = description.toLowerCase();
-  if (
-    descLower.includes("oil") ||
-    descLower.includes("gas") ||
-    descLower.includes("corn") ||
-    descLower.includes("wheat") ||
-    descLower.includes("soybean") ||
-    descLower.includes("sugar") ||
-    descLower.includes("coffee") ||
-    descLower.includes("cocoa") ||
-    descLower.includes("copper")
-  )
+  if (descLower.includes("oil") || descLower.includes("gas") || descLower.includes("copper"))
     return { category: "commodity", base, quote, displayName };
 
   return { category: "forex", base, quote, displayName };
