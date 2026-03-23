@@ -16,6 +16,7 @@ const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
+    "5min": 300,
     "15min": 900,
     "1h": 3600, "4h": 14400, "1day": 86400,
   };
