@@ -106,23 +106,6 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
         </div>
       </div>
 
-      {/* Category filter */}
-      <div className="flex items-center gap-1.5 mb-3">
-        {CATEGORY_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setCategoryFilter(tab.value)}
-            className="px-2.5 py-1 text-[10px] font-mono rounded-full border transition-colors"
-            style={{
-              background: categoryFilter === tab.value ? "hsl(var(--primary) / 0.15)" : "transparent",
-              color: categoryFilter === tab.value ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
-              borderColor: categoryFilter === tab.value ? "hsl(var(--primary) / 0.4)" : "hsl(var(--border))",
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
 
       <div className="flex-1 overflow-y-auto">
         {/* Pinned indexes */}
