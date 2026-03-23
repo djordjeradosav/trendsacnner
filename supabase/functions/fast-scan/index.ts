@@ -368,29 +368,7 @@ Deno.serve(async (req) => {
             const abortCtl = new AbortController();
             const timeout = setTimeout(() => abortCtl.abort(), 15000);
             try {
-              const etfSymbol = getStockSymbolForPair(pair.symbol);
-
-              // For index futures, use Alpha Vantage daily candles via ETF proxy
-              if (etfSymbol) {
-                if (!avKey) {
-                  console.warn(`[SCAN] ${pair.symbol}: ALPHA_VANTAGE_KEY not set, skipping`);
-                  return null;
-                }
-                console.log(`[SCAN] ${pair.symbol}: fetching via Alpha Vantage ETF=${etfSymbol}`);
-                const avCandles = await fetchAlphaVantageCandles(etfSymbol, avKey);
-                if (!avCandles || avCandles.length < 20) {
-                  console.warn(`[SCAN] ${pair.symbol}: AV returned ${avCandles?.length ?? 0} candles`);
-                  return null;
-                }
-                console.log(`[SCAN] ${pair.symbol}: ${avCandles.length} daily candles from AV`);
-                return {
-                  pairId: pair.id,
-                  symbol: pair.symbol,
-                  candles: avCandles,
-                };
-              }
-
-              // For forex/commodities, use Finnhub
+              // All instruments use the same Finnhub forex/candle endpoint
               const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
               let res = await fetch(url, { signal: abortCtl.signal });
 
@@ -460,13 +438,11 @@ Deno.serve(async (req) => {
             if (r.value.candles.length < minCandles) {
               console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
             }
-            // Store candles - use "1day" for ETF/AV candles, effectiveTF for forex
-            const etfSym = getStockSymbolForPair(symbol);
-            const storageTF = etfSym ? "1day" : effectiveTF;
+            // Store candles
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe: storageTF,
+                timeframe: effectiveTF,
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),
@@ -478,9 +454,7 @@ Deno.serve(async (req) => {
 
           // Fallback: load cached candles from DB
           if (!pairCandles) {
-            // For ETF/index symbols, also try "1day" candles; for forex try requested TF then 1h
-            const etfSym = getStockSymbolForPair(symbol);
-            const fallbackTFs = etfSym ? ["1day", normalisedTimeframe, "1h"] : [normalisedTimeframe, "1h"];
+            const fallbackTFs = [normalisedTimeframe, "1h"];
             for (const dbTf of fallbackTFs) {
               const { data: dbCandles } = await supabase
                 .from("candles")
