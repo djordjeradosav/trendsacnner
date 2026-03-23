@@ -1,25 +1,33 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Search, ExternalLink } from "lucide-react";
+import { Search, ExternalLink, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import type { NewsArticle } from "@/services/newsService";
 
-const SENTIMENT_TABS = ["All", "Positive", "Neutral", "Negative"];
-const CATEGORY_TABS = ["All", "Forex", "Commodities", "Futures"];
+const SENTIMENT_TABS = ["All", "Positive", "Neutral", "Negative"] as const;
+const CATEGORY_TABS = ["All", "Forex", "Commodities", "Futures", "Crypto"] as const;
 
-// Map categories to pair symbols
 const CATEGORY_SYMBOLS: Record<string, string[]> = {
   Forex: ["EURUSD","GBPUSD","USDJPY","AUDUSD","USDCAD","USDCHF","NZDUSD","EURGBP","EURJPY","GBPJPY"],
   Commodities: ["XAUUSD","XAGUSD","USOIL","UKOIL","NATGAS"],
   Futures: ["US30","US100","US500"],
+  Crypto: ["BTCUSD","ETHUSD","BTCUSDT","ETHUSDT"],
+};
+
+const SENTIMENT_STYLES: Record<string, { bg: string; color: string }> = {
+  All:      { bg: "#1e2d3d", color: "#e8f4f8" },
+  Positive: { bg: "#0d2b1a", color: "#22c55e" },
+  Neutral:  { bg: "#1a1a1a", color: "#7a99b0" },
+  Negative: { bg: "#2b0d0d", color: "#ef4444" },
 };
 
 function timeAgo(dateStr: string | null) {
   if (!dateStr) return "";
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
@@ -33,6 +41,8 @@ function decodeEntities(str: string | null): string {
   return txt.value;
 }
 
+const PAGE_SIZE = 30;
+
 export default function NewsPage() {
   const navigate = useNavigate();
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -42,8 +52,7 @@ export default function NewsPage() {
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
-  const loaderRef = useRef<HTMLDivElement>(null);
-  const PAGE_SIZE = 20;
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const fetchArticles = useCallback(async (pageNum: number, reset = false) => {
     setLoading(true);
@@ -51,112 +60,172 @@ export default function NewsPage() {
       .from("news_articles")
       .select("*")
       .order("published_at", { ascending: false })
+      .not("headline", "ilike", "From @%")
+      .not("headline", "ilike", "From http%")
+      .not("headline", "is", null)
       .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1);
 
     if (sentiment !== "All") {
       query = query.eq("sentiment", sentiment.toLowerCase());
     }
 
-    const { data } = await query;
-    const items = (data ?? []) as unknown as NewsArticle[];
+    if (search.length >= 3) {
+      query = query.ilike("headline", `%${search}%`);
+    }
 
-    if (items.length < PAGE_SIZE) setHasMore(false);
+    const { data } = await query;
+    // Client-side filter for short headlines
+    const items = ((data ?? []) as unknown as NewsArticle[]).filter(
+      (a) => (a.headline?.length ?? 0) > 20
+    );
+
+    if (!data?.length || data.length < PAGE_SIZE) setHasMore(false);
 
     setArticles((prev) => reset ? items : [...prev, ...items]);
     setLoading(false);
-  }, [sentiment]);
+  }, [sentiment, search]);
 
   // Reset on filter change
   useEffect(() => {
     setPage(0);
     setHasMore(true);
     fetchArticles(0, true);
-  }, [sentiment, fetchArticles]);
+  }, [sentiment, search, fetchArticles]);
 
-  // Infinite scroll
-  useEffect(() => {
-    if (!loaderRef.current) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
+  // Client-side category filter
+  const filtered = useMemo(() => {
+    if (category === "All") return articles;
+    const syms = CATEGORY_SYMBOLS[category] ?? [];
+    return articles.filter((a) =>
+      (a.relevant_pairs ?? []).some((p) => syms.includes(p))
+    );
+  }, [articles, category]);
+
+  // Breaking news
+  const breaking = useMemo(() => {
+    return articles.find(
+      (a) =>
+        a.sentiment === "negative" &&
+        a.published_at &&
+        new Date(a.published_at) > new Date(Date.now() - 30 * 60 * 1000)
+    );
+  }, [articles]);
+
+  const lastFetchedAt = articles.length > 0 ? articles[0].fetched_at ?? articles[0].published_at : null;
+  const updatedAgo = lastFetchedAt ? timeAgo(lastFetchedAt) : "—";
+
+  // Infinite scroll ref callback
+  const loaderRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) observerRef.current.disconnect();
+      if (!node) return;
+      observerRef.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMore && !loading) {
           const nextPage = page + 1;
           setPage(nextPage);
           fetchArticles(nextPage);
         }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(loaderRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, loading, page, fetchArticles]);
-
-  // Client-side filters
-  const filtered = articles.filter((a) => {
-    if (search && !a.headline?.toLowerCase().includes(search.toLowerCase())) return false;
-    if (category !== "All") {
-      const syms = CATEGORY_SYMBOLS[category] ?? [];
-      const hasMatch = (a.relevant_pairs ?? []).some((p) => syms.includes(p));
-      if (!hasMatch) return false;
-    }
-    return true;
-  });
-
-  const lastFetchedAt = articles.length > 0 ? articles[0].fetched_at : null;
-  const updatedAgo = lastFetchedAt ? timeAgo(lastFetchedAt) : "—";
+      });
+      observerRef.current.observe(node);
+    },
+    [hasMore, loading, page, fetchArticles]
+  );
 
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-semibold" style={{ color: "hsl(var(--foreground))" }}>
-          Market News
-        </h1>
+      <div className="flex items-center justify-between mb-1">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Market News</h1>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Live market intelligence · Updated every 15 minutes
+          </p>
+        </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: "hsl(var(--bullish))" }} />
-          <span className="font-display" style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}>
+          <span className="w-1.5 h-1.5 rounded-full bg-bullish" />
+          <span className="text-[10px] text-muted-foreground font-display">
             Updated {updatedAgo}
           </span>
         </div>
       </div>
 
-      {/* Filter row */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="flex gap-1">
-          {SENTIMENT_TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setSentiment(t)}
-              className="px-3 py-1.5 rounded-md font-display transition-colors"
-              style={{
-                fontSize: "11px",
-                background: sentiment === t ? "hsl(var(--secondary))" : "transparent",
-                color: sentiment === t ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
-                border: sentiment === t ? "0.5px solid hsl(var(--border))" : "0.5px solid transparent",
-              }}
+      {/* Breaking news banner */}
+      {breaking && (
+        <div
+          className="flex items-center justify-between rounded-lg px-4 py-2.5 mb-4 cursor-pointer"
+          style={{ background: "#2b0d0d", border: "0.5px solid #ef4444" }}
+          onClick={() => breaking.url && window.open(breaking.url, "_blank")}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="shrink-0 flex items-center gap-1 font-display font-bold"
+              style={{ fontSize: "10px", color: "#ef4444", background: "rgba(239,68,68,0.15)", padding: "2px 6px", borderRadius: "4px" }}
             >
-              {t}
-            </button>
-          ))}
+              <Zap className="w-3 h-3" /> BREAKING
+            </span>
+            <span
+              className="truncate text-foreground"
+              style={{ fontSize: "13px" }}
+            >
+              {decodeEntities(breaking.headline)}
+            </span>
+          </div>
+          <span className="shrink-0 text-[11px] font-display" style={{ color: "#ef4444" }}>
+            Read →
+          </span>
         </div>
+      )}
+
+      {/* Filter bar — single clean row */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5 mt-4">
+        {/* Sentiment pills */}
+        <div className="flex gap-1">
+          {SENTIMENT_TABS.map((t) => {
+            const active = sentiment === t;
+            const style = SENTIMENT_STYLES[t];
+            return (
+              <button
+                key={t}
+                onClick={() => setSentiment(t)}
+                className="px-3 py-1.5 rounded-md font-display transition-all"
+                style={{
+                  fontSize: "11px",
+                  background: active ? style.bg : "transparent",
+                  color: active ? style.color : "hsl(var(--muted-foreground))",
+                  border: active ? `0.5px solid ${style.color}30` : "0.5px solid transparent",
+                }}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px h-5 bg-border" />
+
+        {/* Category pills */}
         <div className="flex gap-1">
           {CATEGORY_TABS.map((t) => (
             <button
               key={t}
               onClick={() => setCategory(t)}
-              className="px-3 py-1.5 rounded-md font-display transition-colors"
+              className="px-3 py-1.5 rounded-md font-display transition-all"
               style={{
                 fontSize: "11px",
-                background: category === t ? "hsl(var(--secondary))" : "transparent",
-                color: category === t ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
-                border: category === t ? "0.5px solid hsl(var(--border))" : "0.5px solid transparent",
+                background: category === t ? "#1e2d3d" : "transparent",
+                color: category === t ? "#e8f4f8" : "hsl(var(--muted-foreground))",
+                border: category === t ? "0.5px solid #2a3f55" : "0.5px solid transparent",
               }}
             >
               {t}
             </button>
           ))}
         </div>
+
+        {/* Search */}
         <div className="relative sm:ml-auto sm:w-56">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "hsl(var(--muted-foreground))" }} />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
             placeholder="Search headlines..."
             value={search}
@@ -169,12 +238,12 @@ export default function NewsPage() {
       {/* Article grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {filtered.map((article) => (
-          <NewsCard key={article.id} article={article} navigate={navigate} />
+          <ArticleCard key={article.id} article={article} navigate={navigate} />
         ))}
       </div>
 
       {filtered.length === 0 && !loading && (
-        <p className="text-center py-12" style={{ fontSize: "13px", color: "hsl(var(--muted-foreground))" }}>
+        <p className="text-center py-12 text-[13px] text-muted-foreground">
           No articles found. News will appear after the next fetch cycle.
         </p>
       )}
@@ -182,67 +251,83 @@ export default function NewsPage() {
       {/* Infinite scroll trigger */}
       <div ref={loaderRef} className="h-8 flex items-center justify-center mt-4">
         {loading && (
-          <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "hsl(var(--bullish))", borderTopColor: "transparent" }} />
+          <div
+            className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+            style={{ borderColor: "hsl(var(--bullish))", borderTopColor: "transparent" }}
+          />
+        )}
+        {!hasMore && articles.length > 0 && (
+          <span className="text-[11px] text-muted-foreground">No more articles</span>
         )}
       </div>
     </AppLayout>
   );
 }
 
-function NewsCard({ article, navigate }: { article: NewsArticle; navigate: (path: string) => void }) {
-  const sentimentDot = article.sentiment === "positive"
-    ? "hsl(var(--bullish))"
-    : article.sentiment === "negative"
-    ? "hsl(var(--destructive))"
-    : "hsl(var(--muted-foreground))";
+function ArticleCard({ article, navigate }: { article: NewsArticle; navigate: (path: string) => void }) {
+  const sentimentColor =
+    article.sentiment === "positive" ? "#22c55e"
+    : article.sentiment === "negative" ? "#ef4444"
+    : "#7a99b0";
+  const sentimentBg =
+    article.sentiment === "positive" ? "#0d2b1a"
+    : article.sentiment === "negative" ? "#2b0d0d"
+    : "#1a1a1a";
 
   return (
     <div
-      className="rounded-lg p-4 relative transition-colors"
+      className="rounded-lg p-4 flex flex-col transition-colors cursor-pointer"
       style={{
         background: "hsl(var(--card))",
-        border: "0.5px solid hsl(var(--border))",
+        border: "0.5px solid #1e2d3d",
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--ring))"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "hsl(var(--border))"; }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#2a3f55"; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#1e2d3d"; }}
+      onClick={() => article.url && window.open(article.url, "_blank")}
     >
-      {/* Sentiment dot */}
-      <span
-        className="absolute top-4 right-4 w-1.5 h-1.5 rounded-full"
-        style={{ background: sentimentDot }}
-      />
-
-      {/* Source + time */}
-      <div className="flex items-center gap-2 mb-2">
+      {/* Top row: source + time + sentiment badge */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span
+            className="font-display uppercase"
+            style={{
+              fontSize: "10px",
+              padding: "2px 6px",
+              borderRadius: "4px",
+              background: "hsl(var(--secondary))",
+              color: "hsl(var(--muted-foreground))",
+            }}
+          >
+            {article.source}
+          </span>
+          <span className="text-[10px] text-muted-foreground font-display">
+            {timeAgo(article.published_at)}
+          </span>
+        </div>
         <span
-          className="font-display"
+          className="font-display font-semibold uppercase"
           style={{
-            fontSize: "10px",
-            textTransform: "uppercase",
+            fontSize: "9px",
             padding: "2px 6px",
             borderRadius: "4px",
-            background: "hsl(var(--secondary))",
-            color: "hsl(var(--muted-foreground))",
+            background: sentimentBg,
+            color: sentimentColor,
           }}
         >
-          {article.source}
-        </span>
-        <span className="font-display" style={{ fontSize: "10px", color: "hsl(var(--muted-foreground))" }}>
-          {timeAgo(article.published_at)}
+          {article.sentiment?.toUpperCase() ?? "NEUTRAL"}
         </span>
       </div>
 
       {/* Headline */}
       <h3
-        className="font-medium mb-2"
+        className="font-medium mb-2 text-foreground"
         style={{
-          fontSize: "14px",
-          color: "hsl(var(--foreground))",
+          fontSize: "13px",
           display: "-webkit-box",
           WebkitLineClamp: 2,
           WebkitBoxOrient: "vertical",
           overflow: "hidden",
-          lineHeight: "1.4",
+          lineHeight: "1.45",
         }}
       >
         {decodeEntities(article.headline)}
@@ -251,52 +336,48 @@ function NewsCard({ article, navigate }: { article: NewsArticle; navigate: (path
       {/* Summary */}
       {article.summary && (
         <p
+          className="text-muted-foreground mb-3"
           style={{
-            fontSize: "12px",
-            color: "hsl(var(--muted-foreground))",
+            fontSize: "11px",
             display: "-webkit-box",
             WebkitLineClamp: 3,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
-            lineHeight: "1.5",
+            lineHeight: "1.55",
           }}
         >
           {decodeEntities(article.summary)}
         </p>
       )}
 
-      {/* Bottom: pairs + read more */}
-      <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
+      {/* Spacer to push footer down */}
+      <div className="flex-1" />
+
+      {/* Footer: pair chips + read more */}
+      <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
         <div className="flex flex-wrap gap-1">
           {(article.relevant_pairs ?? []).slice(0, 4).map((sym) => (
             <button
               key={sym}
-              onClick={() => navigate(`/pair/${sym}`)}
-              className="font-display transition-colors hover:opacity-80"
+              onClick={(e) => { e.stopPropagation(); navigate(`/pair/${sym}`); }}
+              className="font-display transition-opacity hover:opacity-80"
               style={{
                 fontSize: "10px",
                 padding: "1px 6px",
                 borderRadius: "4px",
-                background: "hsl(var(--secondary))",
-                border: "0.5px solid hsl(var(--border))",
-                color: "hsl(var(--info))",
+                cursor: "pointer",
+                background: "rgba(96,165,250,0.1)",
+                color: "#60a5fa",
+                border: "0.5px solid rgba(96,165,250,0.3)",
               }}
             >
               {sym}
             </button>
           ))}
         </div>
-        {article.url && (
-          <a
-            href={article.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 transition-opacity hover:opacity-80"
-            style={{ fontSize: "11px", color: "hsl(var(--info))" }}
-          >
-            Read more <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
+        <span className="text-[11px] font-display" style={{ color: "#60a5fa" }}>
+          Read more ↗
+        </span>
       </div>
     </div>
   );
