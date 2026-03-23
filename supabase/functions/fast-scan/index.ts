@@ -6,54 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ─── Twelve Data Symbol Map ─────────────────────────────────────────────────
-
-const TD_SYMBOL_MAP: Record<string, string> = {
-  // Forex Majors
-  "EURUSD": "EUR/USD", "GBPUSD": "GBP/USD", "USDJPY": "USD/JPY",
-  "USDCHF": "USD/CHF", "AUDUSD": "AUD/USD", "USDCAD": "USD/CAD",
-  "NZDUSD": "NZD/USD",
-  // Forex Minors
-  "EURGBP": "EUR/GBP", "EURJPY": "EUR/JPY", "EURCHF": "EUR/CHF",
-  "EURCAD": "EUR/CAD", "EURAUD": "EUR/AUD", "EURNZD": "EUR/NZD",
-  "GBPJPY": "GBP/JPY", "GBPCHF": "GBP/CHF", "GBPCAD": "GBP/CAD",
-  "GBPAUD": "GBP/AUD", "GBPNZD": "GBP/NZD",
-  "AUDJPY": "AUD/JPY", "AUDCAD": "AUD/CAD", "AUDCHF": "AUD/CHF",
-  "AUDNZD": "AUD/NZD",
-  "CADJPY": "CAD/JPY", "CADCHF": "CAD/CHF", "CHFJPY": "CHF/JPY",
-  "NZDJPY": "NZD/JPY", "NZDCAD": "NZD/CAD", "NZDCHF": "NZD/CHF",
-  // Metals
-  "XAUUSD": "XAU/USD", "XAGUSD": "XAG/USD",
-  "XPTUSD": "XPT/USD", "XPDUSD": "XPD/USD",
-  // Energy
-  "USOIL": "WTI/USD", "UKOIL": "BRENT/USD",
-  "XTIUSD": "WTI/USD", "XBRUSD": "BRENT/USD",
-  "WTICOUSD": "WTI/USD", "BCOUSD": "BRENT/USD",
-  "NATGASUSD": "NATGAS/USD", "NGAS": "NATGAS/USD",
-  // Agricultural
-  "CORNUSD": "CORN/USD", "WHEATUSD": "WHEAT/USD",
-  "SOYBNUSD": "SOYBEAN/USD", "SUGARUSD": "SUGAR/USD",
-  // Index Futures
-  "US30USD": "DJ30", "NAS100USD": "NDX", "SPX500USD": "SPX500",
-  "US2000USD": "RUT",
-  "UK100GBP": "UK100", "GER40EUR": "GER40", "AUS200AUD": "AUS200",
-  "JP225USD": "JPN225", "EU50EUR": "EU50", "FR40EUR": "FRA40",
-  "HK33HKD": "HK50", "CHINA50USD": "CN50USD",
-};
-
-const TD_INTERVAL_MAP: Record<string, string> = {
-  "5min": "5min", "15min": "15min", "1h": "1h", "4h": "4h", "1day": "1day",
-};
-
-const CANDLE_LIMITS: Record<string, number> = {
-  "5min": 120, "15min": 200, "1h": 300, "4h": 300, "1day": 365,
-};
-
-const MINIMUM_CANDLES: Record<string, number> = {
-  "5min": 40, "15min": 55, "1h": 60, "4h": 60, "1day": 100,
-};
-
-// ─── Indicator Math ─────────────────────────────────────────────────────────
+// ─── Indicator Math (self-contained, no imports from src/) ──────────────────
 
 function calcEMA(closes: number[], period: number): number[] {
   const result: number[] = new Array(closes.length).fill(NaN);
@@ -162,7 +115,7 @@ function latest(arr: number[]): number {
 
 // ─── Score Engine ───────────────────────────────────────────────────────────
 
-interface CandleData { open: number; high: number; low: number; close: number; volume?: number; ts?: string; }
+interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
 function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
   const isShortTF = timeframe === "5min" || timeframe === "15min";
@@ -204,11 +157,16 @@ const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: num
   "1day":  { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
 };
 
+function getConfig(tf: string) {
+  return TF_CONFIGS[tf] || TF_CONFIGS["1h"];
+}
+
 function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   const closes = candles.map(c => c.close);
   const highs = candles.map(c => c.high);
   const lows = candles.map(c => c.low);
-  const cfg = TF_CONFIGS[timeframe] || TF_CONFIGS["1h"];
+
+  const cfg = getConfig(timeframe);
 
   const emaFastArr = calcEMA(closes, cfg.emaFast);
   const emaMidArr = calcEMA(closes, cfg.emaMid);
@@ -251,49 +209,43 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   };
 }
 
-// ─── Twelve Data Fetch ──────────────────────────────────────────────────────
+// ─── Finnhub Resolution Mapping ─────────────────────────────────────────────
+// Finnhub free tier only supports resolution "D" (daily) for OANDA instruments.
+// All sub-daily resolutions return 403. We always fetch daily candles and score
+// with the requested timeframe's indicator config.
 
-async function fetchTwelveDataCandles(
-  symbol: string,
-  tdSymbol: string,
-  interval: string,
-  outputsize: number,
-  apiKey: string,
-): Promise<CandleData[]> {
-  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=${interval}&outputsize=${outputsize}&apikey=${apiKey}&format=JSON&order=ASC`;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    const data = await res.json();
-
-    if (data.status === "error") {
-      console.warn(`[TD] ${symbol}: ${data.message}`);
-      return [];
-    }
-
-    if (!data.values?.length) {
-      console.warn(`[TD] ${symbol}: no values returned`);
-      return [];
-    }
-
-    return data.values.map((v: any) => ({
-      open: parseFloat(v.open),
-      high: parseFloat(v.high),
-      low: parseFloat(v.low),
-      close: parseFloat(v.close),
-      volume: v.volume ? parseFloat(v.volume) : 0,
-      ts: new Date(v.datetime.includes("T") ? v.datetime : v.datetime + "T00:00:00Z").toISOString(),
-    }));
-  } catch (err) {
-    console.warn(`[TD] ${symbol}: fetch error:`, err);
-    return [];
-  } finally {
-    clearTimeout(timeout);
-  }
+function getEffectiveResolution(_resolution: string): string {
+  return "D";
 }
+
+function getIntervalSeconds(tf: string): number {
+  const map: Record<string, number> = {
+    "5min": 300,
+    "15min": 900,
+    "1h": 3600, "4h": 14400, "1day": 86400,
+  };
+  return map[tf] ?? 3600;
+}
+
+type FinnhubCandleResponse = {
+  c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[]; t?: number[];
+  s: string;
+};
+
+const CANDLE_LIMITS: Record<string, number> = {
+  "5min": 150,
+  "15min": 250,
+  "1h": 300, "4h": 300, "1day": 365,
+};
+
+const MINIMUM_CANDLES: Record<string, number> = {
+  "5min": 40,
+  "15min": 55,
+  "1h": 60, "4h": 60, "1day": 100,
+};
+
+function getCandleLimit(tf: string): number { return CANDLE_LIMITS[tf] || 200; }
+function getMinimumCandles(tf: string): number { return MINIMUM_CANDLES[tf] || 50; }
 
 function chunkArray<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -303,6 +255,8 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
+// No ETF proxy needed — all OANDA instruments use the same forex/candle endpoint
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -310,12 +264,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const tdKey = Deno.env.get("TWELVE_DATA_API_KEY");
-  if (!tdKey) {
-    return new Response(JSON.stringify({ error: "TWELVE_DATA_API_KEY not set" }), {
+  const apiKey = Deno.env.get("FINNHUB_API_KEY");
+  if (!apiKey) {
+    return new Response(JSON.stringify({ error: "FINNHUB_API_KEY not set" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+
+  const avKey = Deno.env.get("ALPHA_VANTAGE_KEY") || "";
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -340,10 +296,10 @@ Deno.serve(async (req) => {
     } catch { /* use defaults */ }
   }
 
-  console.log(`[SCAN] START | TF: ${timeframe} | Source: Twelve Data`);
+  console.log(`[SCAN] STARTING for timeframe: ${timeframe}`);
 
   // Load pairs
-  let query = supabase.from("pairs").select("id, symbol, category, display_symbol").eq("is_active", true);
+  let query = supabase.from("pairs").select("id, symbol, finnhub_symbol, category, base_currency").eq("is_active", true).not("finnhub_symbol", "is", null);
   if (pairIds && pairIds.length > 0) {
     query = query.in("id", pairIds);
   }
@@ -354,24 +310,19 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Filter to pairs with a Twelve Data symbol mapping
-  const scannable = pairs.filter((p: any) => TD_SYMBOL_MAP[p.symbol]);
-  const skipped = pairs.filter((p: any) => !TD_SYMBOL_MAP[p.symbol]);
+  const normalisedTimeframe = timeframe.toLowerCase().trim();
+  // Finnhub free tier: only "D" (daily) works for OANDA. Always fetch daily candles.
+  const resolution = "D";
+  const candleLimit = 365; // ~1 year of daily candles
+  const to = Math.floor(Date.now() / 1000);
+  const intervalSec = 86400;
+  const from = to - Math.floor(candleLimit * intervalSec * 1.3);
+  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" (daily candles, scored with ${normalisedTimeframe} config) pairs=${pairs.length}`);
 
-  if (skipped.length > 0) {
-    console.warn(`[SCAN] Skipping ${skipped.length} pairs with no TD mapping:`, skipped.map((p: any) => p.symbol).join(", "));
-  }
-
-  const interval = TD_INTERVAL_MAP[timeframe] || "1h";
-  const outputsize = CANDLE_LIMITS[timeframe] || 200;
-  const minCandles = MINIMUM_CANDLES[timeframe] || 50;
-
-  console.log(`[SCAN] Scanning ${scannable.length} pairs | interval=${interval} | outputsize=${outputsize}`);
-
-  // Twelve Data free tier: 8 requests/minute
-  // Batch into groups of 8, wait 62s between batches
+  // Finnhub free: 60 calls/min. Chunks of 8 with 8s delay — retries handle occasional 429s
   const CHUNK_SIZE = 8;
-  const chunks = chunkArray(scannable, CHUNK_SIZE);
+  const chunks = chunkArray(pairs, CHUNK_SIZE);
+  const total = pairs.length;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -388,81 +339,131 @@ Deno.serve(async (req) => {
 
       for (let ci = 0; ci < chunks.length; ci++) {
         const chunk = chunks[ci];
-        console.log(`[SCAN] Chunk ${ci + 1}/${chunks.length} | ${chunk.map((p: any) => p.symbol).join(",")}`);
 
         const results = await Promise.allSettled(
-          chunk.map((pair: any) => {
-            const tdSymbol = TD_SYMBOL_MAP[pair.symbol];
-            return fetchTwelveDataCandles(pair.symbol, tdSymbol, interval, outputsize, tdKey);
+          chunk.map(async (pair: any) => {
+            const finnhubSymbol = pair.finnhub_symbol;
+            if (!finnhubSymbol) {
+              console.warn(`[SCAN] ${pair.symbol}: no finnhub_symbol in DB`);
+              return null;
+            }
+
+            const abortCtl = new AbortController();
+            const timeout = setTimeout(() => abortCtl.abort(), 15000);
+            try {
+              // All instruments use the same Finnhub forex/candle endpoint
+              const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+              let res = await fetch(url, { signal: abortCtl.signal });
+
+              // Retry once on 429
+              if (res.status === 429) {
+                await res.text();
+                console.warn(`[SCAN] ${pair.symbol}: rate limited, retrying in 2s...`);
+                await sleep(2000);
+                res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+              }
+
+              if (res.status === 429) {
+                await res.text();
+                console.warn(`[SCAN] ${pair.symbol}: still rate limited after retry`);
+                return null;
+              }
+              if (res.status === 403) {
+                console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}`);
+                return null;
+              }
+              if (!res.ok) {
+                const body = await res.text();
+                console.warn(`[SCAN] ${pair.symbol}: HTTP ${res.status} body=${body.slice(0,200)}`);
+                return null;
+              }
+
+              const data = (await res.json()) as FinnhubCandleResponse;
+              if (data.s !== "ok" || !data.c?.length) {
+                console.warn(`[SCAN] ${pair.symbol}: status="${data.s}" candles=0`);
+                return null;
+              }
+
+              console.log(`[SCAN] ${pair.symbol}: ${data.c.length} candles fetched`);
+
+              return {
+                pairId: pair.id,
+                symbol: pair.symbol,
+                candles: data.c.map((close, i) => ({
+                  open: data.o![i],
+                  high: data.h![i],
+                  low: data.l![i],
+                  close,
+                  volume: data.v?.[i] ?? 0,
+                  ts: new Date(data.t![i] * 1000).toISOString(),
+                })),
+              };
+            } catch {
+              return null;
+            } finally {
+              clearTimeout(timeout);
+            }
           })
         );
 
+        // Process results — fall back to cached DB candles when API fails
         for (let ri = 0; ri < results.length; ri++) {
           done++;
           const r = results[ri];
-          const pair = chunk[ri] as any;
+          const pair = chunk[ri];
           let pairCandles: CandleData[] | null = null;
+          const pairId = pair.id;
+          const symbol = pair.symbol;
+          const minCandles = 20;
 
-          if (r.status === "fulfilled" && r.value && r.value.length >= minCandles) {
-            pairCandles = r.value;
-            // Store candles in DB
+          if (r.status === "fulfilled" && r.value && r.value.candles.length >= minCandles) {
+            pairCandles = r.value.candles;
+            // Store daily candles
             for (const c of pairCandles) {
               candleRows.push({
-                pair_id: pair.id,
-                timeframe,
+                pair_id: pairId,
+                timeframe: "1day",
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
-                ts: c.ts || new Date().toISOString(),
+                ts: (c as any).ts || new Date().toISOString(),
               });
             }
-            console.log(`[SCAN] ${pair.symbol}: ${pairCandles.length} candles from TD`);
-          } else if (r.status === "fulfilled" && r.value && r.value.length > 0) {
-            console.warn(`[SCAN] ${pair.symbol}: only ${r.value.length} candles, need ${minCandles}`);
-            // Still try to use what we got if > 20
-            if (r.value.length >= 20) {
-              pairCandles = r.value;
-              for (const c of pairCandles) {
-                candleRows.push({
-                  pair_id: pair.id, timeframe,
-                  open: c.open, high: c.high, low: c.low, close: c.close,
-                  volume: c.volume ?? 0, ts: c.ts || new Date().toISOString(),
-                });
-              }
-            }
+          } else if (r.status === "fulfilled" && r.value) {
+            console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum ${minCandles} — skipping`);
           }
 
-          // Fallback: load cached candles from DB
-          if (!pairCandles || pairCandles.length < 20) {
-            for (const dbTf of [timeframe, "1day", "1h", "4h"]) {
+          // Fallback: load cached candles from DB (try multiple timeframes)
+          if (!pairCandles) {
+            for (const dbTf of ["1day", "1h", "4h"]) {
               const { data: dbCandles } = await supabase
                 .from("candles")
                 .select("open, high, low, close, volume")
-                .eq("pair_id", pair.id)
+                .eq("pair_id", pairId)
                 .eq("timeframe", dbTf)
                 .order("ts", { ascending: true })
                 .limit(365);
 
-              if (dbCandles && dbCandles.length >= 20) {
-                pairCandles = dbCandles.map((c: any) => ({
-                  open: Number(c.open), high: Number(c.high),
-                  low: Number(c.low), close: Number(c.close),
-                  volume: c.volume ? Number(c.volume) : 0,
+              if (dbCandles && dbCandles.length >= minCandles) {
+                pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
+                  open: Number(c.open), high: Number(c.high), low: Number(c.low),
+                  close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
                 }));
-                console.log(`[SCAN] ${pair.symbol}: using ${dbCandles.length} cached ${dbTf} candles`);
+                console.log(`[SCAN] ${symbol}: using ${dbCandles.length} cached ${dbTf} candles`);
                 break;
               }
             }
           }
 
           if (pairCandles && pairCandles.length >= 20) {
-            const result = calcTrendScore(pairCandles, timeframe);
+            // Score with the REQUESTED timeframe's indicator config (shorter EMAs for 15min etc)
+            const result = calcTrendScore(pairCandles, normalisedTimeframe);
 
             if (result.trend === "bullish") bullish++;
             else if (result.trend === "bearish") bearish++;
             else neutral++;
 
             scoreRows.push({
-              pair_id: pair.id, timeframe,
+              pair_id: pairId, timeframe: normalisedTimeframe,
               score: result.score, trend: result.trend,
               ema_score: result.emaScore, adx_score: result.adxScore,
               rsi_score: result.rsiScore, macd_score: result.macdScore,
@@ -471,36 +472,32 @@ Deno.serve(async (req) => {
               scanned_at: new Date().toISOString(),
             });
 
-            console.log(`[SCAN] ${pair.symbol} (${pair.category}): score=${result.score} trend=${result.trend}`);
+            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
+          } else {
+            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
           }
-
-          send({ type: "progress", done, total: scannable.length, pct: Math.round((done / scannable.length) * 100), symbol: pair.symbol });
         }
 
-        // Bulk upsert candles after each chunk
-        if (candleRows.length > 0) {
-          for (let i = 0; i < candleRows.length; i += 1000) {
-            const batch = candleRows.slice(i, i + 1000);
-            await supabase.from("candles").upsert(batch as any, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
-          }
-          candleRows.length = 0;
-        }
-
-        // Bulk upsert scores after each chunk
-        if (scoreRows.length > 0) {
-          console.log(`[SCAN] Upserting ${scoreRows.length} scores for TF="${timeframe}"`);
-          const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
-          if (scoreError) console.error("[SCAN] Score upsert error:", scoreError);
-          else console.log(`[SCAN] Successfully upserted ${scoreRows.length} scores`);
-          scoreRows.length = 0;
-        }
-
-        // Rate limit: wait 62s between chunks (Twelve Data free: 8/min)
+        // 8 requests per 8s = ~60/min; 429 retries handle bursts
         if (ci < chunks.length - 1) {
-          console.log(`[SCAN] Waiting 62s for rate limit (chunk ${ci + 1}/${chunks.length})...`);
-          send({ type: "waiting", chunk: ci + 1, totalChunks: chunks.length, waitMs: 62000 });
-          await sleep(62000);
+          await sleep(8000);
         }
+      }
+
+      // Bulk upsert candles in batches of 1000
+      for (let i = 0; i < candleRows.length; i += 1000) {
+        const batch = candleRows.slice(i, i + 1000);
+        await supabase.from("candles").upsert(batch as any, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
+      }
+
+      // Bulk upsert scores
+      if (scoreRows.length > 0) {
+        console.log(`[SCAN] Upserting ${scoreRows.length} scores with timeframe="${normalisedTimeframe}". Sample:`, JSON.stringify(scoreRows[0]));
+        const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
+        if (scoreError) console.error("Score upsert error:", scoreError);
+        else console.log(`[SCAN] Successfully upserted ${scoreRows.length} scores`);
+      } else {
+        console.warn(`[SCAN] No scores to upsert for timeframe="${normalisedTimeframe}"`);
       }
 
       // Store scan history
@@ -510,25 +507,21 @@ Deno.serve(async (req) => {
           const token = authHeader.replace("Bearer ", "");
           const { data: { user } } = await supabase.auth.getUser(token);
           if (user) {
-            const allScoreRows = scoreRows; // already flushed, use summary counts
             await supabase.from("scan_history").insert({
               user_id: user.id,
-              result: {
-                totalPairs: done, bullish, bearish, neutral,
-                avgScore: done > 0 ? Math.round(((bullish * 75 + bearish * 25 + neutral * 50) / Math.max(1, bullish + bearish + neutral)) * 10) / 10 : 0,
-                duration: Math.round((Date.now() - startMs) / 1000),
-              },
+              result: { totalPairs: done, bullish, bearish, neutral, avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s, r) => s + (r.score as number), 0) / scoreRows.length * 10) / 10 : 0, duration: Math.round((Date.now() - startMs) / 1000) },
               scanned_at: new Date().toISOString(),
             });
           }
         }
-      } catch (e) { console.warn("[SCAN] Failed to store scan history:", e); }
+      } catch (e) { console.warn("Failed to store scan history:", e); }
 
       send({
         type: "complete",
         total: done, bullish, bearish, neutral,
-        scored: bullish + bearish + neutral,
+        scored: scoreRows.length,
         durationMs: Date.now() - startMs,
+        avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s, r) => s + (r.score as number), 0) / scoreRows.length * 10) / 10 : 0,
       });
 
       controller.close();

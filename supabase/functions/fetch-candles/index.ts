@@ -6,35 +6,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const TD_SYMBOL_MAP: Record<string, string> = {
-  "EURUSD": "EUR/USD", "GBPUSD": "GBP/USD", "USDJPY": "USD/JPY",
-  "USDCHF": "USD/CHF", "AUDUSD": "AUD/USD", "USDCAD": "USD/CAD",
-  "NZDUSD": "NZD/USD",
-  "EURGBP": "EUR/GBP", "EURJPY": "EUR/JPY", "EURCHF": "EUR/CHF",
-  "EURCAD": "EUR/CAD", "EURAUD": "EUR/AUD", "EURNZD": "EUR/NZD",
-  "GBPJPY": "GBP/JPY", "GBPCHF": "GBP/CHF", "GBPCAD": "GBP/CAD",
-  "GBPAUD": "GBP/AUD", "GBPNZD": "GBP/NZD",
-  "AUDJPY": "AUD/JPY", "AUDCAD": "AUD/CAD", "AUDCHF": "AUD/CHF",
-  "AUDNZD": "AUD/NZD",
-  "CADJPY": "CAD/JPY", "CADCHF": "CAD/CHF", "CHFJPY": "CHF/JPY",
-  "NZDJPY": "NZD/JPY", "NZDCAD": "NZD/CAD", "NZDCHF": "NZD/CHF",
-  "XAUUSD": "XAU/USD", "XAGUSD": "XAG/USD",
-  "XPTUSD": "XPT/USD", "XPDUSD": "XPD/USD",
-  "USOIL": "WTI/USD", "UKOIL": "BRENT/USD",
-  "XTIUSD": "WTI/USD", "XBRUSD": "BRENT/USD",
-  "WTICOUSD": "WTI/USD", "BCOUSD": "BRENT/USD",
-  "NATGASUSD": "NATGAS/USD", "NGAS": "NATGAS/USD",
-  "CORNUSD": "CORN/USD", "WHEATUSD": "WHEAT/USD",
-  "SOYBNUSD": "SOYBEAN/USD", "SUGARUSD": "SUGAR/USD",
-  "US30USD": "DJ30", "NAS100USD": "NDX", "SPX500USD": "SPX500",
-  "US2000USD": "RUT",
-  "UK100GBP": "UK100", "GER40EUR": "GER40", "AUS200AUD": "AUS200",
-  "JP225USD": "JPN225", "EU50EUR": "EU50", "FR40EUR": "FRA40",
-  "HK33HKD": "HK50", "CN50USD": "CN50USD",
+const RESOLUTION_MAP: Record<string, string> = {
+  "5min": "5",
+  "15min": "15",
+  "1h": "60", "4h": "240", "1day": "D",
 };
 
-const TD_INTERVAL_MAP: Record<string, string> = {
-  "5min": "5min", "15min": "15min", "1h": "1h", "4h": "4h", "1day": "1day",
+const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
+
+function getIntervalSeconds(tf: string): number {
+  const map: Record<string, number> = {
+    "5min": 300,
+    "15min": 900,
+    "1h": 3600, "4h": 14400, "1day": 86400,
+  };
+  return map[tf] ?? 3600;
+}
+
+type FinnhubCandleResponse = {
+  c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[]; t?: number[];
+  s: string;
 };
 
 Deno.serve(async (req) => {
@@ -52,42 +43,57 @@ Deno.serve(async (req) => {
       );
     }
 
-    const tdKey = Deno.env.get("TWELVE_DATA_API_KEY");
-    if (!tdKey) {
-      throw new Error("TWELVE_DATA_API_KEY is not configured");
+    const apiKey = Deno.env.get("FINNHUB_API_KEY");
+    if (!apiKey) {
+      throw new Error("FINNHUB_API_KEY is not configured");
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Look up pair from DB
+    // Look up pair from DB — get finnhub_symbol directly
     const { data: pairRow, error: pairError } = await supabase
       .from("pairs")
-      .select("id, symbol")
+      .select("id, finnhub_symbol")
       .eq("symbol", pair_symbol)
       .single();
 
     if (pairError || !pairRow) {
       return new Response(
-        JSON.stringify({ success: false, error: `Pair '${pair_symbol}' not found` }),
+        JSON.stringify({ success: false, error: `Pair '${pair_symbol}' not found in database` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const tdSymbol = TD_SYMBOL_MAP[pairRow.symbol];
-    if (!tdSymbol) {
+    const finnhubSymbol = pairRow.finnhub_symbol;
+    if (!finnhubSymbol) {
       return new Response(
-        JSON.stringify({ success: false, error: `No Twelve Data symbol for ${pair_symbol}` }),
+        JSON.stringify({ success: false, error: `No Finnhub symbol for ${pair_symbol}. Run sync-pairs first.` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const interval = TD_INTERVAL_MAP[timeframe] || "1h";
+    const rawResolution = RESOLUTION_MAP[timeframe];
+    if (!rawResolution) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Unsupported timeframe: ${timeframe}` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(tdSymbol)}&interval=${interval}&outputsize=${outputsize}&apikey=${tdKey}&format=JSON&order=ASC`;
+    // Finnhub free tier: fall back to 1H for sub-hourly resolutions
+    const resolution = SUPPORTED_RESOLUTIONS.has(rawResolution) ? rawResolution : "60";
+    const effectiveTF = resolution !== rawResolution ? "1h" : timeframe;
 
-    console.log(`Fetching ${pair_symbol} → ${tdSymbol} (${timeframe})`);
+    const to = Math.floor(Date.now() / 1000);
+    const intervalSec = getIntervalSeconds(effectiveTF);
+    const bufferMultiplier = effectiveTF === "15min" ? 2.5 : 1.3;
+    const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
+
+    const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+
+    console.log(`Fetching ${pair_symbol} → ${finnhubSymbol} (${timeframe}, resolution=${resolution})`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -98,32 +104,39 @@ Deno.serve(async (req) => {
       clearTimeout(timeout);
     }
 
-    const data = await res.json();
-
-    if (data.status === "error") {
+    if (res.status === 429) {
       return new Response(
-        JSON.stringify({ success: false, error: data.message || "Twelve Data error" }),
+        JSON.stringify({ success: false, error: "Rate limit hit. Try again later.", rate_limited: true }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!data.values?.length) {
+    if (res.status === 403) {
       return new Response(
-        JSON.stringify({ success: false, error: "No data returned from Twelve Data" }),
+        JSON.stringify({ success: false, error: "Finnhub free tier does not support this resolution." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Map to our schema
-    const candles = data.values.map((v: any) => ({
+    const data = (await res.json()) as FinnhubCandleResponse;
+
+    if (data.s !== "ok" || !data.c?.length) {
+      return new Response(
+        JSON.stringify({ success: false, error: data.s === "no_data" ? "No data for this symbol/range" : "No valid data returned from Finnhub" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Map Finnhub candles to our schema
+    const candles = data.c!.map((close, i) => ({
       pair_id: pairRow.id,
-      timeframe,
-      open: parseFloat(v.open),
-      high: parseFloat(v.high),
-      low: parseFloat(v.low),
-      close: parseFloat(v.close),
-      volume: v.volume ? parseFloat(v.volume) : 0,
-      ts: new Date(v.datetime.includes("T") ? v.datetime : v.datetime + "T00:00:00Z").toISOString(),
+      timeframe: effectiveTF,
+      open: data.o![i],
+      high: data.h![i],
+      low: data.l![i],
+      close,
+      volume: data.v?.[i] ?? 0,
+      ts: new Date(data.t![i] * 1000).toISOString(),
     }));
 
     // Upsert in batches of 500
@@ -141,7 +154,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe }),
+      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe: effectiveTF }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
