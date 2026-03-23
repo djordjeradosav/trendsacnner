@@ -64,14 +64,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
 
   const hasData = pinnedCells.length > 0 || otherCells.length > 0;
 
-  const CATEGORY_TABS = [
-    { label: "All", value: "all" },
-    { label: "Forex", value: "forex" },
-    { label: "Futures", value: "futures" },
-    { label: "Commodities", value: "commodity" },
-  ];
-
-  if (!hasData) {
+  if (cells.length === 0) {
     return (
       <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex items-center justify-center">
         <span className="text-xs text-muted-foreground font-mono">Run a scan to see the heatmap</span>
