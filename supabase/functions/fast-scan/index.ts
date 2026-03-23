@@ -208,30 +208,7 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
   };
 }
 
-// ─── Finnhub Symbol & Resolution Mapping ────────────────────────────────────
-
-const SYMBOL_MAP: Record<string, string> = {
-  "EURUSD": "OANDA:EUR_USD", "GBPUSD": "OANDA:GBP_USD", "USDJPY": "OANDA:USD_JPY",
-  "USDCHF": "OANDA:USD_CHF", "AUDUSD": "OANDA:AUD_USD", "USDCAD": "OANDA:USD_CAD",
-  "NZDUSD": "OANDA:NZD_USD", "EURGBP": "OANDA:EUR_GBP", "EURJPY": "OANDA:EUR_JPY",
-  "GBPJPY": "OANDA:GBP_JPY", "AUDJPY": "OANDA:AUD_JPY", "CADJPY": "OANDA:CAD_JPY",
-  "CHFJPY": "OANDA:CHF_JPY", "NZDJPY": "OANDA:NZD_JPY", "EURCAD": "OANDA:EUR_CAD",
-  "EURAUD": "OANDA:EUR_AUD", "EURNZD": "OANDA:EUR_NZD", "EURCHF": "OANDA:EUR_CHF",
-  "GBPCAD": "OANDA:GBP_CAD", "GBPAUD": "OANDA:GBP_AUD", "GBPNZD": "OANDA:GBP_NZD",
-  "GBPCHF": "OANDA:GBP_CHF", "AUDCAD": "OANDA:AUD_CAD", "AUDNZD": "OANDA:AUD_NZD",
-  "AUDCHF": "OANDA:AUD_CHF", "NZDCAD": "OANDA:NZD_CAD", "NZDCHF": "OANDA:NZD_CHF",
-  "CADCHF": "OANDA:CAD_CHF",
-  // Metals
-  "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
-  "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
-  // Commodities & Futures — mapped from DB symbol names
-  "USOIL":  "OANDA:WTICO_USD",  "CL1!":  "OANDA:WTICO_USD",
-  "UKOIL":  "OANDA:BCO_USD",    "BZ1!":  "OANDA:BCO_USD",
-  "NATGAS": "OANDA:NATGAS_USD", "NG1!":  "OANDA:NATGAS_USD",
-  "US500":  "OANDA:SPX500_USD", "ES1!":  "OANDA:SPX500_USD",
-  "US100":  "OANDA:NAS100_USD", "NQ1!":  "OANDA:NAS100_USD",
-  "US30":   "OANDA:US30_USD",   "YM1!":  "OANDA:US30_USD",
-};
+// ─── Finnhub Resolution Mapping ─────────────────────────────────────────────
 
 const RESOLUTION_MAP: Record<string, string> = {
   "15min": "15",
@@ -239,13 +216,10 @@ const RESOLUTION_MAP: Record<string, string> = {
 };
 
 // Finnhub free tier only supports resolution "60" and above for forex candles.
-// For sub-hourly timeframes, we fetch 1H candles and score with the requested
-// timeframe's indicator config (shorter EMA periods etc).
 const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getEffectiveResolution(resolution: string): string {
   if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
-  // Fallback: use 1H candles for sub-hourly timeframes
   return "60";
 }
 
@@ -255,14 +229,6 @@ function getIntervalSeconds(tf: string): number {
     "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
-}
-
-function getFinnhubSymbol(symbol: string): string | null {
-  if (SYMBOL_MAP[symbol]) return SYMBOL_MAP[symbol];
-  if (symbol.length === 6 && !symbol.includes("!")) {
-    return `OANDA:${symbol.slice(0, 3)}_${symbol.slice(3)}`;
-  }
-  return null;
 }
 
 type FinnhubCandleResponse = {
@@ -331,7 +297,7 @@ Deno.serve(async (req) => {
   console.log(`[SCAN] STARTING for timeframe: ${timeframe}`);
 
   // Load pairs
-  let query = supabase.from("pairs").select("id, symbol, category, base_currency").eq("is_active", true);
+  let query = supabase.from("pairs").select("id, symbol, finnhub_symbol, category, base_currency").eq("is_active", true).not("finnhub_symbol", "is", null);
   if (pairIds && pairIds.length > 0) {
     query = query.in("id", pairIds);
   }
@@ -385,12 +351,12 @@ Deno.serve(async (req) => {
         const chunk = chunks[ci];
 
         const results = await Promise.allSettled(
-          chunk.map(async (pair) => {
+          chunk.map(async (pair: any) => {
             if (rateLimited) return null;
 
-            const finnhubSymbol = getFinnhubSymbol(pair.symbol);
+            const finnhubSymbol = pair.finnhub_symbol;
             if (!finnhubSymbol) {
-              console.warn(`[SCAN] ${pair.symbol}: no Finnhub symbol mapping`);
+              console.warn(`[SCAN] ${pair.symbol}: no finnhub_symbol in DB`);
               return null;
             }
 

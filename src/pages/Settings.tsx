@@ -54,6 +54,8 @@ export default function SettingsPage() {
   const [clearingHistory, setClearingHistory] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [syncingPairs, setSyncingPairs] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   // Markets toggles
   const [markets, setMarkets] = useState({ forex: true, futures: true, commodity: true });
@@ -353,6 +355,36 @@ export default function SettingsPage() {
         {/* ── DATA & ACCOUNT ── */}
         <Section icon={<Database className="w-4 h-4 text-primary" />} title="Data & Account">
           <div className="space-y-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={syncingPairs}
+              onClick={async () => {
+                setSyncingPairs(true);
+                setSyncResult(null);
+                try {
+                  const { data, error } = await supabase.functions.invoke("sync-pairs");
+                  if (error) throw error;
+                  setSyncResult(
+                    `✓ Synced ${data.total} pairs — ${data.forex} forex · ${data.commodity} commodities · ${data.futures} futures` +
+                    (data.deactivated > 0 ? ` · ${data.deactivated} deactivated` : "")
+                  );
+                  toast({ title: "Pairs synced", description: `${data.total} pairs from Finnhub` });
+                } catch (err) {
+                  setSyncResult("Error: " + (err instanceof Error ? err.message : "Unknown"));
+                  toast({ title: "Sync failed", variant: "destructive" });
+                }
+                setSyncingPairs(false);
+              }}
+            >
+              {syncingPairs ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
+              {syncingPairs ? "Syncing pairs..." : "Sync pairs from Finnhub"}
+            </Button>
+            {syncResult && (
+              <p className="text-xs text-muted-foreground font-body">{syncResult}</p>
+            )}
+
             <Button variant="outline" size="sm" className="gap-2" onClick={handleExportCSV}>
               <Download className="w-3.5 h-3.5" />
               Export scores as CSV (last 30 days)

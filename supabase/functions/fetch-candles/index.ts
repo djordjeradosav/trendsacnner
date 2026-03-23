@@ -3,33 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-// ─── Finnhub Symbol & Resolution Mapping ────────────────────────────────────
-
-const SYMBOL_MAP: Record<string, string> = {
-  // Forex
-  "EURUSD": "OANDA:EUR_USD", "GBPUSD": "OANDA:GBP_USD", "USDJPY": "OANDA:USD_JPY",
-  "USDCHF": "OANDA:USD_CHF", "AUDUSD": "OANDA:AUD_USD", "USDCAD": "OANDA:USD_CAD",
-  "NZDUSD": "OANDA:NZD_USD", "EURGBP": "OANDA:EUR_GBP", "EURJPY": "OANDA:EUR_JPY",
-  "GBPJPY": "OANDA:GBP_JPY", "AUDJPY": "OANDA:AUD_JPY", "CADJPY": "OANDA:CAD_JPY",
-  "CHFJPY": "OANDA:CHF_JPY", "NZDJPY": "OANDA:NZD_JPY", "EURCAD": "OANDA:EUR_CAD",
-  "EURAUD": "OANDA:EUR_AUD", "EURNZD": "OANDA:EUR_NZD", "EURCHF": "OANDA:EUR_CHF",
-  "GBPCAD": "OANDA:GBP_CAD", "GBPAUD": "OANDA:GBP_AUD", "GBPNZD": "OANDA:GBP_NZD",
-  "GBPCHF": "OANDA:GBP_CHF", "AUDCAD": "OANDA:AUD_CAD", "AUDNZD": "OANDA:AUD_NZD",
-  "AUDCHF": "OANDA:AUD_CHF", "NZDCAD": "OANDA:NZD_CAD", "NZDCHF": "OANDA:NZD_CHF",
-  "CADCHF": "OANDA:CAD_CHF",
-  // Metals
-  "XAUUSD": "OANDA:XAU_USD", "XAGUSD": "OANDA:XAG_USD",
-  "XPTUSD": "OANDA:XPT_USD", "XPDUSD": "OANDA:XPD_USD",
-  // Commodities & Futures — mapped from DB symbol names
-  "USOIL":  "OANDA:WTICO_USD",  "CL1!":  "OANDA:WTICO_USD",
-  "UKOIL":  "OANDA:BCO_USD",    "BZ1!":  "OANDA:BCO_USD",
-  "NATGAS": "OANDA:NATGAS_USD", "NG1!":  "OANDA:NATGAS_USD",
-  "US500":  "OANDA:SPX500_USD", "ES1!":  "OANDA:SPX500_USD",
-  "US100":  "OANDA:NAS100_USD", "NQ1!":  "OANDA:NAS100_USD",
-  "US30":   "OANDA:US30_USD",   "YM1!":  "OANDA:US30_USD",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
@@ -37,7 +11,6 @@ const RESOLUTION_MAP: Record<string, string> = {
   "1h": "60", "4h": "240", "1day": "D",
 };
 
-// Finnhub free tier only supports resolution "60" and above for forex
 const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
@@ -48,23 +21,8 @@ function getIntervalSeconds(tf: string): number {
   return map[tf] ?? 3600;
 }
 
-function getFinnhubSymbol(pairSymbol: string): string | null {
-  if (SYMBOL_MAP[pairSymbol]) return SYMBOL_MAP[pairSymbol];
-  if (pairSymbol.length === 6 && !pairSymbol.includes("!")) {
-    const base = pairSymbol.slice(0, 3);
-    const quote = pairSymbol.slice(3);
-    return `OANDA:${base}_${quote}`;
-  }
-  return null;
-}
-
 type FinnhubCandleResponse = {
-  c?: number[];
-  h?: number[];
-  l?: number[];
-  o?: number[];
-  v?: number[];
-  t?: number[];
+  c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[]; t?: number[];
   s: string;
 };
 
@@ -88,10 +46,28 @@ Deno.serve(async (req) => {
       throw new Error("FINNHUB_API_KEY is not configured");
     }
 
-    const finnhubSymbol = getFinnhubSymbol(pair_symbol);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Look up pair from DB — get finnhub_symbol directly
+    const { data: pairRow, error: pairError } = await supabase
+      .from("pairs")
+      .select("id, finnhub_symbol")
+      .eq("symbol", pair_symbol)
+      .single();
+
+    if (pairError || !pairRow) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Pair '${pair_symbol}' not found in database` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const finnhubSymbol = pairRow.finnhub_symbol;
     if (!finnhubSymbol) {
       return new Response(
-        JSON.stringify({ success: false, error: `No Finnhub mapping for symbol: ${pair_symbol}` }),
+        JSON.stringify({ success: false, error: `No Finnhub symbol for ${pair_symbol}. Run sync-pairs first.` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -108,7 +84,6 @@ Deno.serve(async (req) => {
     const resolution = SUPPORTED_RESOLUTIONS.has(rawResolution) ? rawResolution : "60";
     const effectiveTF = resolution !== rawResolution ? "1h" : timeframe;
 
-    // Calculate from/to timestamps
     const to = Math.floor(Date.now() / 1000);
     const intervalSec = getIntervalSeconds(effectiveTF);
     const bufferMultiplier = effectiveTF === "15min" ? 2.5 : 1.3;
@@ -136,7 +111,7 @@ Deno.serve(async (req) => {
 
     if (res.status === 403) {
       return new Response(
-        JSON.stringify({ success: false, error: "Finnhub free tier does not support this resolution. Upgrade to premium or use 1H+ timeframes." }),
+        JSON.stringify({ success: false, error: "Finnhub free tier does not support this resolution." }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -150,25 +125,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Look up pair_id
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const { data: pairRow, error: pairError } = await supabase
-      .from("pairs")
-      .select("id")
-      .eq("symbol", pair_symbol)
-      .single();
-
-    if (pairError || !pairRow) {
-      return new Response(
-        JSON.stringify({ success: false, error: `Pair '${pair_symbol}' not found in database` }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Map Finnhub candles to our schema — store as the effective timeframe
+    // Map Finnhub candles to our schema
     const candles = data.c!.map((close, i) => ({
       pair_id: pairRow.id,
       timeframe: effectiveTF,
@@ -187,7 +144,6 @@ Deno.serve(async (req) => {
       const { error: upsertError } = await supabase
         .from("candles")
         .upsert(batch, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
-
       if (upsertError) {
         console.error("Upsert error:", upsertError);
         throw new Error(`Upsert failed: ${upsertError.message}`);
