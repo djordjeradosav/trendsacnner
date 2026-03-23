@@ -36,7 +36,7 @@ export function useAllScores(timeframe: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("scores")
-        .select("id, pair_id, score, trend, timeframe, ema_score, adx_score, rsi_score, macd_score, news_score, social_score, scanned_at")
+        .select("id, pair_id, score, trend, timeframe, ema_score, adx_score, rsi_score, macd_score, news_score, social_score, ema20, ema50, ema200, rsi, adx, macd_hist, scanned_at")
         .eq("timeframe", timeframe)
         .order("scanned_at", { ascending: false });
       if (error) throw error;
