@@ -54,6 +54,8 @@ export default function SettingsPage() {
   const [clearingHistory, setClearingHistory] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [syncingPairs, setSyncingPairs] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   // Markets toggles
   const [markets, setMarkets] = useState({ forex: true, futures: true, commodity: true });
