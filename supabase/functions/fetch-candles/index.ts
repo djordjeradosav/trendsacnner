@@ -169,10 +169,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map Finnhub candles to our schema — store as the effective timeframe
+    // Map Finnhub candles to our schema — store with the REQUESTED timeframe
     const candles = data.c!.map((close, i) => ({
       pair_id: pairRow.id,
-      timeframe: effectiveTF,
+      timeframe: storedTF,
       open: data.o![i],
       high: data.h![i],
       low: data.l![i],
