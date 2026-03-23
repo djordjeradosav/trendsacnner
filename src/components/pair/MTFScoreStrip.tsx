@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const TFS = ["15min", "30min", "1h", "4h", "1day"] as const;
+const TFS = ["15min", "1h", "4h", "1day"] as const;
 const TF_LABELS: Record<string, string> = {
-  "15min": "15M", "30min": "30M", "1h": "1H", "4h": "4H", "1day": "1D",
+  "15min": "15M", "1h": "1H", "4h": "4H", "1day": "1D",
 };
 
 interface TFScore {

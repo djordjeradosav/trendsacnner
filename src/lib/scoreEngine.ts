@@ -217,7 +217,7 @@ export function calcTrendScore(
   const lows = sorted.map((c) => c.low);
 
   // Timeframe-specific indicator periods
-  const isShortTF = ["15min","30min"].includes(timeframe || "");
+  const isShortTF = timeframe === "15min";
   const emaFastP = isShortTF ? 9 : 20;
   const emaMidP = isShortTF ? 21 : 50;
   const emaSlowP = isShortTF ? 50 : 200;
