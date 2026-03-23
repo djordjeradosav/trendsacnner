@@ -332,8 +332,8 @@ Deno.serve(async (req) => {
   }
   console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
-  // Finnhub allows 60 calls/min — use small chunks with delays to avoid 429s
-  const CHUNK_SIZE = 10;
+  // Finnhub free: 60 calls/min. Use chunks of 15 with 16s delay = ~15 req every 16s ≈ 56/min
+  const CHUNK_SIZE = 15;
   const chunks = chunkArray(pairs, CHUNK_SIZE);
   const total = pairs.length;
 
