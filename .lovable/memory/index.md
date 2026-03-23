@@ -1,19 +1,18 @@
-# Memory: index.md
-Updated: now
-
 Design system constraints, timeframes, and architecture rules for TrendScanner AI
 
 ## Timeframes
-Only 4 timeframes exist: 15min, 1h, 4h, 1day. 30min removed permanently.
+Only 5 timeframes exist: 5min, 15min, 1h, 4h, 1day. All others removed permanently.
+
+## Pair Filtering
+Only forex, commodities, and equity index futures from Finnhub OANDA. No stocks, crypto, ETFs.
 
 ## Architecture
-- Pairs auto-discovered from Finnhub OANDA exchange via `sync-pairs` edge function
-- `finnhub_symbol` column on `pairs` table stores the OANDA symbol (e.g. `OANDA:EUR_USD`)
-- `display_symbol` column stores human-readable format (e.g. `EUR/USD`)
-- No hardcoded pair lists or SYMBOL_MAP — fast-scan reads `finnhub_symbol` from DB
-- Weekly cron `sync-pairs-weekly` runs Mondays 6am UTC
-- `useAllScores(timeframe)` is the primary hook for score data (React Query + realtime)
-- `useSectorStats(timeframe)` computes sector stats from useAllScores
+- Zustand store at `src/stores/useScoresStore.ts` is the single source of truth for all score data
+- Display utilities at `src/lib/display.ts` (trendColor, trendBadgeStyle, timeAgo, PAIR_NAMES, TIMEFRAME_CONFIG)
+- `useEnsureFreshData()` hook must be called at top of every page component
+- `loadAllTimeframeScores()` loads all 5 TFs into store on boot and after scans
+- `subscribeToRealtimeScores()` subscribes to all 5 TFs for live updates
+- Store is initialized in Index.tsx (dashboard) with loadPairs + loadAllTimeframeScores + subscribeToRealtimeScores
 
 ## Design tokens
 - Bullish: hsl(var(--bullish)) / #00ff7f
@@ -23,5 +22,5 @@ Only 4 timeframes exist: 15min, 1h, 4h, 1day. 30min removed permanently.
 - Badge backgrounds: bullish=#0d2b1a, bearish=#2b0d0d, neutral=#1a2635
 
 ## Removals
-- 1min, 3min, 5min, 30min, 1week timeframes removed permanently
-- SYMBOL_MAP hardcoded object removed from fast-scan and fetch-candles
+- 1min, 3min, 30min, 1week timeframes removed permanently
+- No hardcoded pair lists for Macro Desk — uses top 8 by score deviation from 50

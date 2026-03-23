@@ -7,14 +7,16 @@ const corsHeaders = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
+  "5min": "5",
   "15min": "15",
   "1h": "60", "4h": "240", "1day": "D",
 };
 
-const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
+const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
+    "5min": 300,
     "15min": 900,
     "1h": 3600, "4h": 14400, "1day": 86400,
   };

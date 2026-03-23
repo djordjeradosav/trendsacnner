@@ -118,7 +118,7 @@ function latest(arr: number[]): number {
 interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
 function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
-  const isShortTF = timeframe === "15min";
+  const isShortTF = timeframe === "5min" || timeframe === "15min";
   if (isShortTF) {
     if (price > e20 && e20 > e50 && e50 > e200) return 22;
     if (price < e20 && e20 < e50 && e50 < e200) return 0;
@@ -150,6 +150,7 @@ function scoreMACD(hist: number, histPrev: number): number {
 }
 
 const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
+  "5min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "15min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "1h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "4h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
@@ -211,12 +212,13 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
 // ─── Finnhub Resolution Mapping ─────────────────────────────────────────────
 
 const RESOLUTION_MAP: Record<string, string> = {
+  "5min": "5",
   "15min": "15",
   "1h": "60", "4h": "240", "1day": "D",
 };
 
 // Finnhub free tier only supports resolution "60" and above for forex candles.
-const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
+const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
 
 function getEffectiveResolution(resolution: string): string {
   if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
@@ -225,6 +227,7 @@ function getEffectiveResolution(resolution: string): string {
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
+    "5min": 300,
     "15min": 900,
     "1h": 3600, "4h": 14400, "1day": 86400,
   };
@@ -237,11 +240,13 @@ type FinnhubCandleResponse = {
 };
 
 const CANDLE_LIMITS: Record<string, number> = {
+  "5min": 150,
   "15min": 250,
   "1h": 300, "4h": 300, "1day": 365,
 };
 
 const MINIMUM_CANDLES: Record<string, number> = {
+  "5min": 40,
   "15min": 55,
   "1h": 60, "4h": 60, "1day": 100,
 };
@@ -275,7 +280,7 @@ Deno.serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const VALID_TFS = ["15min", "1h", "4h", "1day"];
+  const VALID_TFS = ["5min", "15min", "1h", "4h", "1day"];
   let timeframe = "1h";
   let pairIds: string[] | undefined;
 
@@ -319,7 +324,7 @@ Deno.serve(async (req) => {
   const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
   const intervalSec = getIntervalSeconds(effectiveTF);
-  const bufferMultiplier = effectiveTF === "15min" ? 2.5 : 1.3;
+  const bufferMultiplier = (effectiveTF === "5min" || effectiveTF === "15min") ? 2.5 : 1.3;
   const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
   
   if (usedFallback) {

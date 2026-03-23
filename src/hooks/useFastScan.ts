@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef } from "react";
 
-const ALL_TIMEFRAMES = ["15min", "1h", "4h", "1day"] as const;
+const ALL_TIMEFRAMES = ["5min", "15min", "1h", "4h", "1day"] as const;
 const TF_LABELS: Record<string, string> = {
-  "15min": "15M", "1h": "1H", "4h": "4H", "1day": "1D",
+  "5min": "5M", "15min": "15M", "1h": "1H", "4h": "4H", "1day": "1D",
 };
 
 export type TFStatus = "pending" | "scanning" | "complete" | "error";
