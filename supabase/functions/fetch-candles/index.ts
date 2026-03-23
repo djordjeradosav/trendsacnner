@@ -33,7 +33,7 @@ const SYMBOL_MAP: Record<string, string> = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "15min": "15", "30min": "30",
+  "15min": "15",
   "1h": "60", "4h": "240", "1day": "D",
 };
 
