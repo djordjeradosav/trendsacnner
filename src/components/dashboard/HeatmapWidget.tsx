@@ -10,6 +10,8 @@ interface PairMap {
   [id: string]: { symbol: string; category: string };
 }
 
+const PINNED_SYMBOLS = ["US30USD", "NAS100USD", "SPX500USD", "US2000USD"];
+
 function scoreToColor(score: number): string {
   if (score >= 80) return "hsl(142 70% 35%)";
   if (score >= 65) return "hsl(142 50% 28%)";
