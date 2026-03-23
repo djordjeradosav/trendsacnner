@@ -159,7 +159,7 @@ const Index = () => {
             eta={scan.eta}
             lastScanDuration={scan.lastScanDuration}
             lastScanAt={scan.lastScanAt}
-            timeframeLabel={tfLabel}
+            tfStatuses={scan.tfStatuses}
             onScan={executeScan}
           />
         </div>
