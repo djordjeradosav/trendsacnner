@@ -118,7 +118,7 @@ export function ScanButton({
           className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-semibold font-display transition-all"
         >
           <Check className="w-3.5 h-3.5" />
-          ✓ {completeTotal} pairs · 4 TFs · {formatDuration(completeDuration)}
+          ✓ {completeTotal} pairs · 5 TFs · {formatDuration(completeDuration)}
         </button>
         {tfStatusRow}
       </div>
