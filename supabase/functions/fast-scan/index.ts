@@ -491,9 +491,9 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Delay between chunks — only 1.1s needed for Finnhub's 60/min limit
+        // Delay between chunks — spread across the minute to stay under 60/min
         if (ci < chunks.length - 1) {
-          await sleep(1100);
+          await sleep(12000); // 10 requests per 12s = 50/min, safely under 60/min limit
         }
       }
 
