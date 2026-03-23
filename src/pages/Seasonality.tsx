@@ -254,13 +254,17 @@ export default function SeasonalityPage() {
 
   // Pair selector groups
   const pairGroups = useMemo(() => {
-    const groups: Record<string, typeof ALL_PAIRS> = {};
-    ALL_PAIRS.filter(p => p.symbol.toLowerCase().includes(pairSearch.toLowerCase())).forEach(p => {
-      if (!groups[p.category]) groups[p.category] = [];
-      groups[p.category].push(p);
-    });
+    const groups: Record<string, { symbol: string; name: string; category: string; display_symbol: string | null }[]> = {};
+    (activePairs ?? [])
+      .filter(p => p.symbol.toLowerCase().includes(pairSearch.toLowerCase()) ||
+                    (p.name ?? "").toLowerCase().includes(pairSearch.toLowerCase()))
+      .forEach(p => {
+        const label = CATEGORY_LABELS[p.category] ?? p.category;
+        if (!groups[label]) groups[label] = [];
+        groups[label].push(p);
+      });
     return groups;
-  }, [pairSearch]);
+  }, [pairSearch, activePairs]);
 
   // ═══ Range preset handler ═══
   function applyRangePreset(preset: typeof RANGE_PRESETS[number]) {
