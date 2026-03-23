@@ -127,23 +127,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map Finnhub candles to our schema, skipping invalid timestamps
-    const candles = data.c!.map((close, i) => {
-      const rawTs = data.t![i];
-      if (!rawTs || !Number.isFinite(rawTs)) return null;
-      const d = new Date(rawTs * 1000);
-      if (isNaN(d.getTime())) return null;
-      return {
-        pair_id: pairRow.id,
-        timeframe: effectiveTF,
-        open: data.o![i],
-        high: data.h![i],
-        low: data.l![i],
-        close,
-        volume: data.v?.[i] ?? 0,
-        ts: d.toISOString(),
-      };
-    }).filter(Boolean);
+    // Map Finnhub candles to our schema
+    const candles = data.c!.map((close, i) => ({
+      pair_id: pairRow.id,
+      timeframe: effectiveTF,
+      open: data.o![i],
+      high: data.h![i],
+      low: data.l![i],
+      close,
+      volume: data.v?.[i] ?? 0,
+      ts: new Date(data.t![i] * 1000).toISOString(),
+    }));
 
     // Upsert in batches of 500
     let upserted = 0;

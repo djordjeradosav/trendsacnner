@@ -210,12 +210,19 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
 }
 
 // ─── Finnhub Resolution Mapping ─────────────────────────────────────────────
-// Finnhub free tier only supports resolution "D" (daily) for OANDA instruments.
-// All sub-daily resolutions return 403. We always fetch daily candles and score
-// with the requested timeframe's indicator config.
 
-function getEffectiveResolution(_resolution: string): string {
-  return "D";
+const RESOLUTION_MAP: Record<string, string> = {
+  "5min": "5",
+  "15min": "15",
+  "1h": "60", "4h": "240", "1day": "D",
+};
+
+// Finnhub free tier only supports resolution "60" and above for forex candles.
+const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
+
+function getEffectiveResolution(resolution: string): string {
+  if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
+  return "60";
 }
 
 function getIntervalSeconds(tf: string): number {
@@ -255,7 +262,54 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
 
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
 
-// No ETF proxy needed — all OANDA instruments use the same forex/candle endpoint
+// ─── Index Futures ETF Proxy Mapping ────────────────────────────────────────
+// Finnhub free tier returns 403 for OANDA index CFD symbols AND stock candles.
+// Use Alpha Vantage TIME_SERIES_DAILY with liquid ETF proxies instead.
+const INDEX_ETF_MAP: Record<string, string> = {
+  "US30USD": "DIA",
+  "NAS100USD": "QQQ",
+  "SPX500USD": "SPY",
+  "US2000USD": "IWM",
+};
+
+function getStockSymbolForPair(symbol: string): string | null {
+  return INDEX_ETF_MAP[symbol] ?? null;
+}
+
+async function fetchAlphaVantageCandles(etfSymbol: string, avKey: string): Promise<CandleData[] | null> {
+  try {
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${etfSymbol}&outputsize=compact&apikey=${avKey}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) {
+      console.warn(`[SCAN] AV: HTTP ${res.status} for ${etfSymbol}`);
+      return null;
+    }
+    const json = await res.json();
+    const timeSeries = json["Time Series (Daily)"];
+    if (!timeSeries) {
+      // Log actual response keys and first value for debugging
+      const keys = Object.keys(json);
+      const firstVal = json[keys[0]];
+      console.warn(`[SCAN] AV: no time series for ${etfSymbol}. Keys=${JSON.stringify(keys)}. Info=${typeof firstVal === 'string' ? firstVal.slice(0,150) : JSON.stringify(firstVal).slice(0,150)}`);
+      return null;
+    }
+    // Convert to array sorted by date ascending, take last 300
+    const entries = Object.entries(timeSeries)
+      .map(([date, vals]: [string, any]) => ({
+        open: parseFloat(vals["1. open"]),
+        high: parseFloat(vals["2. high"]),
+        low: parseFloat(vals["3. low"]),
+        close: parseFloat(vals["4. close"]),
+        volume: parseFloat(vals["5. volume"] || "0"),
+        ts: date,
+      }))
+      .sort((a, b) => a.ts.localeCompare(b.ts));
+    return entries.slice(-300);
+  } catch (e) {
+    console.warn(`[SCAN] AV fetch failed for ${etfSymbol}: ${e}`);
+    return null;
+  }
+}
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
@@ -311,13 +365,23 @@ Deno.serve(async (req) => {
   }
 
   const normalisedTimeframe = timeframe.toLowerCase().trim();
-  // Finnhub free tier: only "D" (daily) works for OANDA. Always fetch daily candles.
-  const resolution = "D";
-  const candleLimit = 365; // ~1 year of daily candles
+  const rawResolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
+  // Finnhub free tier: sub-hourly resolutions return 403 for forex.
+  // Fall back to 1H candles and score with the requested timeframe's indicator config.
+  const resolution = getEffectiveResolution(rawResolution);
+  const usedFallback = resolution !== rawResolution;
+  // When using fallback resolution, fetch candles based on the fallback (1H) timing
+  const effectiveTF = usedFallback ? "1h" : normalisedTimeframe;
+  const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
-  const intervalSec = 86400;
-  const from = to - Math.floor(candleLimit * intervalSec * 1.3);
-  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" (daily candles, scored with ${normalisedTimeframe} config) pairs=${pairs.length}`);
+  const intervalSec = getIntervalSeconds(effectiveTF);
+  const bufferMultiplier = (effectiveTF === "5min" || effectiveTF === "15min") ? 2.5 : 1.3;
+  const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
+  
+  if (usedFallback) {
+    console.log(`[SCAN] Finnhub free tier: resolution "${rawResolution}" not supported, falling back to "${resolution}" (1H candles) for scoring`);
+  }
+  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
   // Finnhub free: 60 calls/min. Chunks of 8 with 8s delay — retries handle occasional 429s
   const CHUNK_SIZE = 8;
@@ -351,7 +415,29 @@ Deno.serve(async (req) => {
             const abortCtl = new AbortController();
             const timeout = setTimeout(() => abortCtl.abort(), 15000);
             try {
-              // All instruments use the same Finnhub forex/candle endpoint
+              const etfSymbol = getStockSymbolForPair(pair.symbol);
+
+              // For index futures, use Alpha Vantage daily candles via ETF proxy
+              if (etfSymbol) {
+                if (!avKey) {
+                  console.warn(`[SCAN] ${pair.symbol}: ALPHA_VANTAGE_KEY not set, skipping`);
+                  return null;
+                }
+                console.log(`[SCAN] ${pair.symbol}: fetching via Alpha Vantage ETF=${etfSymbol}`);
+                const avCandles = await fetchAlphaVantageCandles(etfSymbol, avKey);
+                if (!avCandles || avCandles.length < 20) {
+                  console.warn(`[SCAN] ${pair.symbol}: AV returned ${avCandles?.length ?? 0} candles`);
+                  return null;
+                }
+                console.log(`[SCAN] ${pair.symbol}: ${avCandles.length} daily candles from AV`);
+                return {
+                  pairId: pair.id,
+                  symbol: pair.symbol,
+                  candles: avCandles,
+                };
+              }
+
+              // For forex/commodities, use Finnhub
               const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
               let res = await fetch(url, { signal: abortCtl.signal });
 
@@ -414,41 +500,51 @@ Deno.serve(async (req) => {
           let pairCandles: CandleData[] | null = null;
           const pairId = pair.id;
           const symbol = pair.symbol;
-          const minCandles = 20;
+          const minCandles = getMinimumCandles(normalisedTimeframe);
 
-          if (r.status === "fulfilled" && r.value && r.value.candles.length >= minCandles) {
+          if (r.status === "fulfilled" && r.value && r.value.candles.length >= 20) {
             pairCandles = r.value.candles;
-            // Store daily candles
+            if (r.value.candles.length < minCandles) {
+              console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
+            }
+            // Store candles - use "1day" for ETF/AV candles, effectiveTF for forex
+            const etfSym = getStockSymbolForPair(symbol);
+            const storageTF = etfSym ? "1day" : effectiveTF;
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe: "1day",
+                timeframe: storageTF,
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),
               });
             }
           } else if (r.status === "fulfilled" && r.value) {
-            console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum ${minCandles} — skipping`);
+            console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum 20 — skipping`);
           }
 
-          // Fallback: load cached candles from DB (try multiple timeframes)
+          // Fallback: load cached candles from DB
           if (!pairCandles) {
-            for (const dbTf of ["1day", "1h", "4h"]) {
+            // For ETF/index symbols, also try "1day" candles; for forex try requested TF then 1h
+            const etfSym = getStockSymbolForPair(symbol);
+            const fallbackTFs = etfSym ? ["1day", normalisedTimeframe, "1h"] : [normalisedTimeframe, "1h"];
+            for (const dbTf of fallbackTFs) {
               const { data: dbCandles } = await supabase
                 .from("candles")
                 .select("open, high, low, close, volume")
                 .eq("pair_id", pairId)
                 .eq("timeframe", dbTf)
                 .order("ts", { ascending: true })
-                .limit(365);
+                .limit(candleLimit);
 
-              if (dbCandles && dbCandles.length >= minCandles) {
+              if (dbCandles && dbCandles.length >= 20) {
                 pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
                   open: Number(c.open), high: Number(c.high), low: Number(c.low),
                   close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
                 }));
-                console.log(`[SCAN] ${symbol}: using ${dbCandles.length} cached ${dbTf} candles`);
+                if (dbTf !== normalisedTimeframe) {
+                  console.log(`[SCAN] ${symbol}: using cached ${dbTf} candles as fallback`);
+                }
                 break;
               }
             }
