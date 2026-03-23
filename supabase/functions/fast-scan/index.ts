@@ -210,19 +210,12 @@ function calcTrendScore(candles: CandleData[], timeframe = "1h") {
 }
 
 // ─── Finnhub Resolution Mapping ─────────────────────────────────────────────
+// Finnhub free tier only supports resolution "D" (daily) for OANDA instruments.
+// All sub-daily resolutions return 403. We always fetch daily candles and score
+// with the requested timeframe's indicator config.
 
-const RESOLUTION_MAP: Record<string, string> = {
-  "5min": "5",
-  "15min": "15",
-  "1h": "60", "4h": "240", "1day": "D",
-};
-
-// Finnhub free tier only supports resolution "60" and above for forex candles.
-const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
-
-function getEffectiveResolution(resolution: string): string {
-  if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
-  return "60";
+function getEffectiveResolution(_resolution: string): string {
+  return "D";
 }
 
 function getIntervalSeconds(tf: string): number {
