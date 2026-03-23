@@ -6,96 +6,82 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── TF-specific config ─────────────────────────────────────────────────────
+
+const VALID_TFS = ["5min", "15min", "1h", "4h", "1day"];
+
+const EMA_PERIODS: Record<string, { fast: number; mid: number; slow: number; long: number | null }> = {
+  "5min":  { fast: 9,  mid: 21, slow: 50,  long: null },
+  "15min": { fast: 9,  mid: 21, slow: 50,  long: null },
+  "1h":    { fast: 9,  mid: 21, slow: 50,  long: null },
+  "4h":    { fast: 9,  mid: 21, slow: 50,  long: 200  },
+  "1day":  { fast: 20, mid: 50, slow: 200, long: null },
+};
+
+const MIN_CANDLES: Record<string, number> = {
+  "5min": 35, "15min": 55, "1h": 60, "4h": 60, "1day": 100,
+};
+
 // ─── Indicator Math ─────────────────────────────────────────────────────────
 
-function calcEMA(closes: number[], period: number): number[] {
+function ema(closes: number[], period: number): number[] {
   const k = 2 / (period + 1);
-  const result = [closes[0]];
-  for (let i = 1; i < closes.length; i++) {
-    result.push(closes[i] * k + result[i - 1] * (1 - k));
-  }
-  return result;
+  let e = closes[0];
+  return closes.map((v) => { e = v * k + e * (1 - k); return e; });
 }
 
-function calcRSI(closes: number[], period = 14): number {
-  if (closes.length < period + 1) return 50;
-  let avgGain = 0, avgLoss = 0;
-  for (let i = 1; i <= period; i++) {
-    const d = closes[i] - closes[i - 1];
-    if (d > 0) avgGain += d; else avgLoss -= d;
-  }
-  avgGain /= period; avgLoss /= period;
-  for (let i = period + 1; i < closes.length; i++) {
-    const d = closes[i] - closes[i - 1];
-    const g = d > 0 ? d : 0;
-    const l = d < 0 ? -d : 0;
-    avgGain = (avgGain * (period - 1) + g) / period;
-    avgLoss = (avgLoss * (period - 1) + l) / period;
-  }
-  return avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
-}
-
-function calcADX(highs: number[], lows: number[], closes: number[], period = 14): number {
-  const n = closes.length;
-  if (n < period * 2) return 25;
-  const tr: number[] = [], dmp: number[] = [], dmm: number[] = [];
-  for (let i = 1; i < n; i++) {
-    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
-    const up = highs[i] - highs[i - 1], dn = lows[i - 1] - lows[i];
-    dmp.push(up > dn && up > 0 ? up : 0);
-    dmm.push(dn > up && dn > 0 ? dn : 0);
-  }
-  const smooth = (arr: number[]) => {
-    let s = arr.slice(0, period).reduce((a, b) => a + b, 0);
-    const r = [s];
-    for (let i = period; i < arr.length; i++) { s = s - s / period + arr[i]; r.push(s); }
-    return r;
-  };
-  const st = smooth(tr), sp = smooth(dmp), sm = smooth(dmm);
-  const dip = sp.map((v, i) => st[i] > 0 ? v / st[i] * 100 : 0);
-  const dim = sm.map((v, i) => st[i] > 0 ? v / st[i] * 100 : 0);
-  const dx = dip.map((p, i) => { const s = p + dim[i]; return s > 0 ? Math.abs(p - dim[i]) / s * 100 : 0; });
-  let adx = dx.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  for (let i = period; i < dx.length; i++) adx = (adx * (period - 1) + dx[i]) / period;
-  return adx;
-}
-
-function calcTrendScore(candles: any[], timeframe: string, isLongTF: boolean) {
-  const closes = candles.map((c: any) => c.close);
-  const highs = candles.map((c: any) => c.high);
-  const lows = candles.map((c: any) => c.low);
+function calcScore(
+  candles: { open: number; high: number; low: number; close: number }[],
+  periods: { fast: number; mid: number; slow: number; long: number | null }
+) {
+  const closes = candles.map((c) => c.close);
+  const highs = candles.map((c) => c.high);
+  const lows = candles.map((c) => c.low);
   const n = closes.length;
   if (n < 30) return null;
 
-  const ef = calcEMA(closes, 9)[n - 1];
-  const em = calcEMA(closes, 21)[n - 1];
-  const es = calcEMA(closes, 50)[n - 1];
-  const e200 = isLongTF ? calcEMA(closes, 200)[n - 1] : null;
-  const price = closes[n - 1];
-  const rsi = calcRSI(closes, 14);
-  const adx = calcADX(highs, lows, closes, 14);
+  const efArr = ema(closes, periods.fast);
+  const emArr = ema(closes, periods.mid);
+  const esArr = ema(closes, periods.slow);
+  const elArr = periods.long ? ema(closes, periods.long) : null;
 
-  // EMA score 0-55
+  const ef = efArr[n - 1], em = emArr[n - 1], es = esArr[n - 1];
+  const el = elArr ? elArr[n - 1] : null;
+  const price = closes[n - 1];
+
   let emaScore = 22;
-  if (isLongTF && e200) {
-    if (price > ef && ef > em && em > es && es > e200) emaScore = 55;
-    else if (price < ef && ef < em && em < es && es < e200) emaScore = 0;
+  if (el !== null) {
+    if (price > ef && ef > em && em > es && es > el) emaScore = 55;
+    else if (price < ef && ef < em && em < es && es < el) emaScore = 0;
     else if (price > ef && ef > em && em > es) emaScore = 40;
     else if (price > ef && ef > em) emaScore = 28;
     else if (price > ef) emaScore = 16;
     else if (price < ef && ef < em && em < es) emaScore = 14;
     else if (price < ef && ef < em) emaScore = 8;
-    else if (price < ef) emaScore = 4;
+    else emaScore = 4;
   } else {
     if (price > ef && ef > em && em > es) emaScore = 55;
     else if (price < ef && ef < em && em < es) emaScore = 0;
     else if (price > ef && ef > em) emaScore = 40;
     else if (price > ef) emaScore = 22;
     else if (price < ef && ef < em) emaScore = 10;
-    else if (price < ef) emaScore = 6;
+    else emaScore = 6;
   }
 
-  // RSI score 0-30
+  // RSI
+  if (n < 15) return null;
+  let avgG = 0, avgL = 0;
+  for (let i = 1; i <= 14; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) avgG += d; else avgL -= d;
+  }
+  avgG /= 14; avgL /= 14;
+  for (let i = 15; i < n; i++) {
+    const d = closes[i] - closes[i - 1];
+    avgG = (avgG * 13 + (d > 0 ? d : 0)) / 14;
+    avgL = (avgL * 13 + (d < 0 ? -d : 0)) / 14;
+  }
+  const rsi = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
   let rsiScore = 15;
   if (rsi >= 60 && rsi < 70) rsiScore = 30;
   else if (rsi >= 70) rsiScore = 24;
@@ -106,23 +92,44 @@ function calcTrendScore(candles: any[], timeframe: string, isLongTF: boolean) {
   else if (rsi >= 30) rsiScore = 3;
   else rsiScore = 5;
 
+  // ADX
+  const tr: number[] = [], dmp: number[] = [], dmm: number[] = [];
+  for (let i = 1; i < n; i++) {
+    tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+    const up = highs[i] - highs[i - 1], dn = lows[i - 1] - lows[i];
+    dmp.push(up > dn && up > 0 ? up : 0);
+    dmm.push(dn > up && dn > 0 ? dn : 0);
+  }
+  const sm = (a: number[]) => {
+    let s = a.slice(0, 14).reduce((x, y) => x + y, 0);
+    const r = [s];
+    for (let i = 14; i < a.length; i++) { s = s - s / 14 + a[i]; r.push(s); }
+    return r;
+  };
+  const st = sm(tr), sp = sm(dmp), sn = sm(dmm);
+  const dip = sp.map((v, i) => st[i] > 0 ? v / st[i] * 100 : 0);
+  const dim = sn.map((v, i) => st[i] > 0 ? v / st[i] * 100 : 0);
+  const dx = dip.map((p, i) => { const s = p + dim[i]; return s > 0 ? Math.abs(p - dim[i]) / s * 100 : 0; });
+  let adxVal = dx.slice(0, 14).reduce((a, b) => a + b, 0) / 14;
+  for (let i = 14; i < dx.length; i++) adxVal = (adxVal * 13 + dx[i]) / 14;
+
+  // MACD
+  const e12 = ema(closes, 12), e26 = ema(closes, 26);
+  const macdLine = e12.map((v, i) => v - e26[i]);
+  const sigLine = ema(macdLine, 9);
+  const hist = macdLine[n - 1] - sigLine[n - 1];
+
   const composite = Math.min(100, Math.max(0, emaScore + rsiScore + 7));
-  const trend = composite >= 62 ? "bullish" : composite <= 38 ? "bearish" : "neutral";
-
-  // MACD histogram for display
-  const m12 = calcEMA(closes, 12);
-  const m26 = calcEMA(closes, 26);
-  const macd = m12[n - 1] - m26[n - 1];
-  const sig = calcEMA(m12.map((v, i) => v - m26[i]), 9)[n - 1];
-
   return {
-    score: composite, trend, emaScore, rsiScore,
-    ema20: parseFloat(ef.toFixed(6)),
-    ema50: parseFloat(em.toFixed(6)),
-    ema200: e200 ? parseFloat(e200.toFixed(6)) : null,
+    score: Math.round(composite),
+    trend: composite >= 62 ? "bullish" as const : composite <= 38 ? "bearish" as const : "neutral" as const,
+    emaScore, rsiScore,
+    emaFast: parseFloat(ef.toFixed(6)),
+    emaMid: parseFloat(em.toFixed(6)),
+    emaLong: el ? parseFloat(el.toFixed(6)) : null,
     rsi: parseFloat(rsi.toFixed(2)),
-    adx: parseFloat(adx.toFixed(2)),
-    macdHist: parseFloat((macd - sig).toFixed(6)),
+    adx: parseFloat(adxVal.toFixed(2)),
+    macdHist: parseFloat(hist.toFixed(6)),
   };
 }
 
@@ -138,9 +145,7 @@ Deno.serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const VALID_TFS = ["15min", "1h", "4h", "1day"];
   let timeframe = "1h";
-
   if (req.method === "GET") {
     const url = new URL(req.url);
     const raw = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
@@ -150,7 +155,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const raw = (body.timeframe || "1h").toLowerCase().trim();
       timeframe = VALID_TFS.includes(raw) ? raw : "1h";
-    } catch { /* use defaults */ }
+    } catch { /* defaults */ }
   }
 
   console.log("FAST SCAN START | TF:", timeframe);
@@ -164,16 +169,14 @@ Deno.serve(async (req) => {
 
   if (pairsError || !pairs?.length) {
     return new Response(JSON.stringify({ error: "No pairs" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  // Step 2 — Fetch ALL live forex prices in bulk (one call per base currency)
+  // Step 2 — Fetch ALL live forex prices in bulk
   const livePrices: Record<string, number> = {};
   const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
 
-  // Fetch all base rates in parallel — 8 calls total, all free tier
   const rateResults = await Promise.allSettled(
     bases.map(async (base) => {
       try {
@@ -190,31 +193,29 @@ Deno.serve(async (req) => {
   );
   console.log("Live forex prices fetched:", Object.keys(livePrices).length);
 
-  // For commodities/futures — use Finnhub /quote (free for all instruments)
+  // For commodities/futures
   const nonForex = pairs.filter((p) => p.category !== "forex");
-  const quoteResults = await Promise.allSettled(
+  await Promise.allSettled(
     nonForex.map(async (pair) => {
       try {
         const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(pair.finnhub_symbol)}&token=${FINNHUB_KEY}`;
         const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
         if (!res.ok) return;
         const data = await res.json();
-        if (data.c && data.c > 0) {
-          livePrices[pair.symbol] = data.c;
-        }
+        if (data.c && data.c > 0) livePrices[pair.symbol] = data.c;
       } catch { /* skip */ }
     })
   );
   console.log("Total live prices:", Object.keys(livePrices).length, "| Fetch time:", Date.now() - startTime, "ms");
 
-  // Step 3 — Load ALL stored candles in ONE query
+  // Step 3 — Load stored candles for THIS SPECIFIC TIMEFRAME
   const { data: allCandles } = await supabase
     .from("candles")
     .select("pair_id, open, high, low, close, volume, ts")
     .in("pair_id", pairs.map((p) => p.id))
-    .eq("timeframe", timeframe)
+    .eq("timeframe", timeframe)  // ← CRITICAL: filter by timeframe
     .order("ts", { ascending: false })
-    .limit(400 * pairs.length);
+    .limit(350 * pairs.length);
 
   // Group candles by pair_id
   const candlesByPair: Record<string, any[]> = {};
@@ -223,25 +224,28 @@ Deno.serve(async (req) => {
     candlesByPair[c.pair_id].push(c);
   });
 
-  const MINIMUM_CANDLES: Record<string, number> = {
-    "15min": 50, "1h": 55, "4h": 55, "1day": 80,
-  };
+  // Sort each pair's candles ASC
+  Object.keys(candlesByPair).forEach((pid) => {
+    candlesByPair[pid].sort(
+      (a: any, b: any) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
+    );
+  });
 
-  // Step 4 — Score each pair
+  const emaPeriods = EMA_PERIODS[timeframe];
+  const minRequired = MIN_CANDLES[timeframe] ?? 55;
+
+  // Step 4 — Score each pair using TF-specific candles + EMA periods
   const scoreRows: any[] = [];
   let bullish = 0, bearish = 0, neutral = 0;
-  const isLongTF = ["4h", "1day"].includes(timeframe);
 
   for (const pair of pairs) {
     const livePrice = livePrices[pair.symbol];
-    const storedCandles = (candlesByPair[pair.id] ?? [])
-      .sort((a: any, b: any) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
-      .map((c: any) => ({
-        open: Number(c.open), high: Number(c.high), low: Number(c.low),
-        close: Number(c.close), volume: Number(c.volume ?? 0),
-      }));
+    const storedCandles = (candlesByPair[pair.id] ?? []).map((c: any) => ({
+      open: Number(c.open), high: Number(c.high), low: Number(c.low),
+      close: Number(c.close), volume: Number(c.volume ?? 0),
+    }));
 
-    if (!storedCandles.length) continue;
+    if (storedCandles.length < minRequired) continue;
 
     // Append live price as synthetic latest candle
     const lastCandle = storedCandles[storedCandles.length - 1];
@@ -258,10 +262,8 @@ Deno.serve(async (req) => {
         ]
       : storedCandles;
 
-    const minRequired = MINIMUM_CANDLES[timeframe] ?? 55;
-    if (candles.length < minRequired) continue;
-
-    const result = calcTrendScore(candles, timeframe, isLongTF);
+    // Score uses TF-specific EMA periods → different result per TF
+    const result = calcScore(candles, emaPeriods);
     if (!result) continue;
 
     if (result.trend === "bullish") bullish++;
@@ -276,9 +278,9 @@ Deno.serve(async (req) => {
       ema_score: result.emaScore,
       rsi_score: result.rsiScore,
       news_score: 7,
-      ema20: result.ema20,
-      ema50: result.ema50,
-      ema200: result.ema200 ?? null,
+      ema20: result.emaFast,
+      ema50: result.emaMid,
+      ema200: result.emaLong ?? null,
       rsi: result.rsi,
       adx: result.adx,
       macd_hist: result.macdHist,
@@ -286,7 +288,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  console.log("Computed", scoreRows.length, "scores");
+  console.log("Computed", scoreRows.length, "scores for TF:", timeframe);
 
   // Step 5 — Bulk upsert scores
   if (scoreRows.length > 0) {

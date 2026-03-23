@@ -167,7 +167,7 @@ export function ScanButton({
         <Zap className="w-3.5 h-3.5" />
         Scan All
         <span className="px-1.5 py-0.5 rounded bg-primary-foreground/15 text-[10px] font-bold">
-          4 TFs
+          5 TFs
         </span>
       </button>
       {lastScanAt && agoText && (
