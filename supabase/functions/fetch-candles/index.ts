@@ -106,12 +106,13 @@ Deno.serve(async (req) => {
 
     // Finnhub free tier: fall back to 1H for sub-hourly resolutions
     const resolution = SUPPORTED_RESOLUTIONS.has(rawResolution) ? rawResolution : "60";
-    const effectiveTF = resolution !== rawResolution ? "1h" : timeframe;
+    // Always store candles with the REQUESTED timeframe so UI queries match
+    const storedTF = timeframe;
 
     // Calculate from/to timestamps
     const to = Math.floor(Date.now() / 1000);
-    const intervalSec = getIntervalSeconds(effectiveTF);
-    const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
+    const intervalSec = getIntervalSeconds(resolution === rawResolution ? timeframe : "1h");
+    const bufferMultiplier = timeframe === "15min" ? 2.5 : 1.3;
     const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
 
     const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
