@@ -118,7 +118,7 @@ function latest(arr: number[]): number {
 interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
 
 function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
-  const isShortTF = ["15min","30min"].includes(timeframe || "");
+  const isShortTF = timeframe === "15min";
   if (isShortTF) {
     if (price > e20 && e20 > e50 && e50 > e200) return 22;
     if (price < e20 && e20 < e50 && e50 < e200) return 0;
@@ -151,7 +151,6 @@ function scoreMACD(hist: number, histPrev: number): number {
 
 const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
   "15min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "30min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "1h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "4h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
   "1day":  { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
@@ -235,7 +234,7 @@ const SYMBOL_MAP: Record<string, string> = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "15min": "15", "30min": "30",
+  "15min": "15",
   "1h": "60", "4h": "240", "1day": "D",
 };
 
@@ -252,7 +251,7 @@ function getEffectiveResolution(resolution: string): string {
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "15min": 900, "30min": 1800,
+    "15min": 900,
     "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
@@ -272,12 +271,12 @@ type FinnhubCandleResponse = {
 };
 
 const CANDLE_LIMITS: Record<string, number> = {
-  "15min": 250, "30min": 250,
+  "15min": 250,
   "1h": 300, "4h": 300, "1day": 365,
 };
 
 const MINIMUM_CANDLES: Record<string, number> = {
-  "15min": 55, "30min": 55,
+  "15min": 55,
   "1h": 60, "4h": 60, "1day": 100,
 };
 
@@ -310,21 +309,26 @@ Deno.serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  const VALID_TFS = ["15min", "1h", "4h", "1day"];
   let timeframe = "1h";
   let pairIds: string[] | undefined;
 
   if (req.method === "GET") {
     const url = new URL(req.url);
-    timeframe = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
+    const raw = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
+    timeframe = VALID_TFS.includes(raw) ? raw : "1h";
     const ids = url.searchParams.get("pairIds");
     if (ids) pairIds = ids.split(",");
   } else {
     try {
       const body = await req.json();
-      timeframe = (body.timeframe || "1h").toLowerCase().trim();
+      const raw = (body.timeframe || "1h").toLowerCase().trim();
+      timeframe = VALID_TFS.includes(raw) ? raw : "1h";
       pairIds = body.pairIds;
     } catch { /* use defaults */ }
   }
+
+  console.log(`[SCAN] STARTING for timeframe: ${timeframe}`);
 
   // Load pairs
   let query = supabase.from("pairs").select("id, symbol, category, base_currency").eq("is_active", true);
@@ -349,7 +353,7 @@ Deno.serve(async (req) => {
   const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
   const intervalSec = getIntervalSeconds(effectiveTF);
-  const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
+  const bufferMultiplier = effectiveTF === "15min" ? 2.5 : 1.3;
   const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
   
   if (usedFallback) {

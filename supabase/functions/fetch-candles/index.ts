@@ -33,7 +33,7 @@ const SYMBOL_MAP: Record<string, string> = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "15min": "15", "30min": "30",
+  "15min": "15",
   "1h": "60", "4h": "240", "1day": "D",
 };
 
@@ -42,7 +42,7 @@ const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "15min": 900, "30min": 1800,
+    "15min": 900,
     "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     // Calculate from/to timestamps
     const to = Math.floor(Date.now() / 1000);
     const intervalSec = getIntervalSeconds(effectiveTF);
-    const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
+    const bufferMultiplier = effectiveTF === "15min" ? 2.5 : 1.3;
     const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
 
     const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;

@@ -1,29 +1,23 @@
-TrendScan AI trading dashboard - design system, architecture, and key decisions
+# Memory: index.md
+Updated: now
 
-## Design System
-- Bloomberg Terminal / dark IDE aesthetic
-- Backgrounds: base #080c10, surface #0d1117, elevated #131a22, border #1e2d3d
-- Primary accent: neon green #00ff7f, dim green #00c46a
-- Info/cyan: #00d4ff, caution/orange: #ff6b35, bearish/red: #ff3b3b
-- Text: primary #e8f4f8, secondary #7a99b0, tertiary #3d5a70
-- Fonts: JetBrains Mono + Fira Code (numbers/tickers), system-ui (body)
-- Body: 13px, line-height 1.6
-- Cards: no shadows, 0.5px border, 10px radius, hover border #2a3f55
-- Custom scrollbar: 4px, thumb #1e2d3d
-- Utility classes: .ticker, .font-mono-nums, .section-label
+Design system constraints, timeframes, and architecture rules for TrendScanner AI
+
+## Timeframes
+Only 4 timeframes exist: 15min, 1h, 4h, 1day. 30min removed permanently along with 1min, 3min, 5min, 1week.
 
 ## Architecture
-- Supabase tables: pairs, candles, scores, alert_rules, alert_notifications, watchlists
-- candles has unique constraint on (pair_id, timeframe, ts) for upsert
-- Edge function: fetch-candles (verify_jwt=false) calls Twelve Data API
-- Service: src/services/dataService.ts (fetchCandlesForPair, fetchAllPairs, getLatestCandles)
-- Auth: email/password, RequireAuth wrapper in src/hooks/useAuth.tsx
+- Display utilities at `src/lib/display.ts` (trendColor, trendBadgeStyle, timeAgo, PAIR_NAMES, TIMEFRAME_CONFIG)
+- `useScores.ts` hook (react-query) is used for score data
+- `useTimeframe.ts` has the canonical timeframeOptions array (4 options)
 
-## Data
-- 73 pairs: 42 forex, 18 commodity, 13 futures
-- Twelve Data API key stored as TWELVE_DATA_API_KEY secret
-- Forex symbols mapped: EURUSD -> EUR/USD for Twelve Data API
+## Design tokens
+- Bullish: hsl(var(--bullish)) / #00ff7f
+- Bearish: hsl(var(--bearish)) / #ff3b3b  
+- Neutral: #7a99b0
+- Muted timestamp: #3d5a70
+- Badge backgrounds: bullish=#0d2b1a, bearish=#2b0d0d, neutral=#1a2635
 
-## Layout
-- Fixed 220px left sidebar, top header bar
-- Debug panel visible only in dev mode (import.meta.env.DEV)
+## Removals
+- 1min, 3min, 5min, 30min, 1week timeframes removed permanently
+- No hardcoded pair lists for Macro Desk — uses top 8 by score deviation from 50
