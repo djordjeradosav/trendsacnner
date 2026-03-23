@@ -14,20 +14,12 @@ import { toast } from "sonner";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-const ALL_PAIRS = [
-  { symbol: "EURUSD", category: "Forex Majors" },
-  { symbol: "GBPUSD", category: "Forex Majors" },
-  { symbol: "USDJPY", category: "Forex Majors" },
-  { symbol: "USDCHF", category: "Forex Majors" },
-  { symbol: "AUDUSD", category: "Forex Majors" },
-  { symbol: "USDCAD", category: "Forex Majors" },
-  { symbol: "NZDUSD", category: "Forex Majors" },
-  { symbol: "EURGBP", category: "Forex Minors" },
-  { symbol: "EURJPY", category: "Forex Minors" },
-  { symbol: "GBPJPY", category: "Forex Minors" },
-  { symbol: "XAUUSD", category: "Commodities" },
-  { symbol: "XAGUSD", category: "Commodities" },
-];
+const CATEGORY_LABELS: Record<string, string> = {
+  forex: "Forex",
+  commodity: "Commodities",
+  futures: "Futures",
+  crypto: "Crypto",
+};
 
 const RANGE_PRESETS = [
   { label: "5Y", years: 5 },
@@ -73,6 +65,21 @@ function getCellStyle(v: number | null) {
 export default function SeasonalityPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Fetch all active pairs from DB
+  const { data: activePairs } = useQuery({
+    queryKey: ["active-pairs"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("pairs")
+        .select("symbol, name, category, display_symbol")
+        .eq("is_active", true)
+        .order("category", { ascending: true })
+        .order("symbol", { ascending: true });
+      return data ?? [];
+    },
+    staleTime: 3600000,
+  });
 
   // Init from URL params
   const [selectedPair, setSelectedPair] = useState(searchParams.get("pair") ?? "EURUSD");
@@ -247,13 +254,17 @@ export default function SeasonalityPage() {
 
   // Pair selector groups
   const pairGroups = useMemo(() => {
-    const groups: Record<string, typeof ALL_PAIRS> = {};
-    ALL_PAIRS.filter(p => p.symbol.toLowerCase().includes(pairSearch.toLowerCase())).forEach(p => {
-      if (!groups[p.category]) groups[p.category] = [];
-      groups[p.category].push(p);
-    });
+    const groups: Record<string, { symbol: string; name: string; category: string; display_symbol: string | null }[]> = {};
+    (activePairs ?? [])
+      .filter(p => p.symbol.toLowerCase().includes(pairSearch.toLowerCase()) ||
+                    (p.name ?? "").toLowerCase().includes(pairSearch.toLowerCase()))
+      .forEach(p => {
+        const label = CATEGORY_LABELS[p.category] ?? p.category;
+        if (!groups[label]) groups[label] = [];
+        groups[label].push(p);
+      });
     return groups;
-  }, [pairSearch]);
+  }, [pairSearch, activePairs]);
 
   // ═══ Range preset handler ═══
   function applyRangePreset(preset: typeof RANGE_PRESETS[number]) {
@@ -330,7 +341,7 @@ export default function SeasonalityPage() {
               >
                 {Object.entries(pairGroups).map(([cat, pairs]) => (
                   <optgroup key={cat} label={cat}>
-                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{p.symbol}</option>)}
+                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{p.display_symbol ?? p.symbol} — {p.name}</option>)}
                   </optgroup>
                 ))}
               </select>
