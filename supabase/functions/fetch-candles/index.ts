@@ -12,7 +12,7 @@ const RESOLUTION_MAP: Record<string, string> = {
   "1h": "60", "4h": "240", "1day": "D",
 };
 
-const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
+const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
