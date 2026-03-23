@@ -48,9 +48,11 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
     staleTime: 5 * 60_000,
   });
 
-  const cells = useMemo(() => {
-    if (!allScores || !pairs) return [];
-    return allScores
+  const [categoryFilter, setCategoryFilter] = useState("all");
+
+  const { pinnedCells, otherCells } = useMemo(() => {
+    if (!allScores || !pairs) return { pinnedCells: [], otherCells: [] };
+    const all = allScores
       .map((s) => ({
         pairId: s.pair_id,
         symbol: pairs[s.pair_id]?.symbol ?? "?",
@@ -58,8 +60,19 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
         score: s.score,
         trend: s.trend,
       }))
-      .sort((a, b) => b.score - a.score);
-  }, [allScores, pairs]);
+      .filter((c) => c.symbol !== "?");
+
+    const pinned = PINNED_SYMBOLS
+      .map((sym) => all.find((c) => c.symbol === sym))
+      .filter(Boolean) as typeof all;
+
+    const others = all
+      .filter((c) => !PINNED_SYMBOLS.includes(c.symbol))
+      .filter((c) => categoryFilter === "all" || c.category === categoryFilter)
+      .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50));
+
+    return { pinnedCells: pinned, otherCells: others };
+  }, [allScores, pairs, categoryFilter]);
 
   if (cells.length === 0) {
     return (
