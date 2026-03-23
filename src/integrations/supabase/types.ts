@@ -611,6 +611,8 @@ export type Database = {
           base_currency: string | null
           category: string
           created_at: string
+          display_symbol: string | null
+          finnhub_symbol: string | null
           id: string
           is_active: boolean
           name: string
@@ -621,6 +623,8 @@ export type Database = {
           base_currency?: string | null
           category: string
           created_at?: string
+          display_symbol?: string | null
+          finnhub_symbol?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -631,6 +635,8 @@ export type Database = {
           base_currency?: string | null
           category?: string
           created_at?: string
+          display_symbol?: string | null
+          finnhub_symbol?: string | null
           id?: string
           is_active?: boolean
           name?: string
