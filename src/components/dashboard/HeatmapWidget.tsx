@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllScores } from "@/hooks/useScores";
@@ -10,7 +10,7 @@ interface PairMap {
   [id: string]: { symbol: string; category: string };
 }
 
-const PINNED_SYMBOLS = ["US30USD", "NAS100USD", "SPX500USD", "US2000USD"];
+
 
 function scoreToColor(score: number): string {
   if (score >= 80) return "hsl(142 70% 35%)";
@@ -48,11 +48,9 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
     staleTime: 5 * 60_000,
   });
 
-  const [categoryFilter, setCategoryFilter] = useState("all");
-
-  const { pinnedCells, otherCells } = useMemo(() => {
-    if (!allScores || !pairs) return { pinnedCells: [], otherCells: [] };
-    const all = allScores
+  const cells = useMemo(() => {
+    if (!allScores || !pairs) return [];
+    return allScores
       .map((s) => ({
         pairId: s.pair_id,
         symbol: pairs[s.pair_id]?.symbol ?? "?",
@@ -60,30 +58,13 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
         score: s.score,
         trend: s.trend,
       }))
-      .filter((c) => c.symbol !== "?");
-
-    const pinned = PINNED_SYMBOLS
-      .map((sym) => all.find((c) => c.symbol === sym))
-      .filter(Boolean) as typeof all;
-
-    const others = all
-      .filter((c) => !PINNED_SYMBOLS.includes(c.symbol))
-      .filter((c) => categoryFilter === "all" || c.category === categoryFilter)
+      .filter((c) => c.symbol !== "?")
       .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50));
+  }, [allScores, pairs]);
 
-    return { pinnedCells: pinned, otherCells: others };
-  }, [allScores, pairs, categoryFilter]);
+  
 
-  const hasData = pinnedCells.length > 0 || otherCells.length > 0;
-
-  const CATEGORY_TABS = [
-    { label: "All", value: "all" },
-    { label: "Forex", value: "forex" },
-    { label: "Futures", value: "futures" },
-    { label: "Commodities", value: "commodity" },
-  ];
-
-  if (!hasData) {
+  if (cells.length === 0) {
     return (
       <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex items-center justify-center">
         <span className="text-xs text-muted-foreground font-mono">Run a scan to see the heatmap</span>
@@ -108,57 +89,8 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
 
 
       <div className="flex-1 overflow-y-auto">
-        {/* Pinned indexes */}
-        {pinnedCells.length > 0 && (
-          <>
-            <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
-              📌 Index Futures
-            </div>
-            <div className="grid grid-cols-4 gap-1 mb-3 pb-3 border-b border-border/30">
-              {pinnedCells.map((cell) => {
-                const spark = sparklines?.[cell.pairId];
-                const change = spark?.score_change ?? 0;
-                const showChange = Math.abs(change) > 1;
-                return (
-                  <button
-                    key={cell.pairId}
-                    onClick={() => navigate(`/pair/${cell.symbol}`)}
-                    className="group rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer flex flex-col items-center gap-0.5"
-                    style={{
-                      background: cell.score === null ? "hsl(var(--muted))" : scoreToColor(cell.score),
-                      border: `1px solid ${cell.score === null ? "hsl(var(--border))" : scoreToBorder(cell.score)}`,
-                      minHeight: "90px",
-                    }}
-                    title={`${cell.symbol}: Score ${cell.score} (${cell.trend})`}
-                  >
-                    <div className="flex items-center justify-between w-full gap-0.5">
-                      <span className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
-                        {cell.symbol.replace("USD", "")}
-                      </span>
-                      {showChange && (
-                        <span className="text-[7px] font-mono font-semibold leading-none px-0.5 rounded"
-                          style={{ color: change > 0 ? "#4ade80" : "#f87171" }}>
-                          {change > 0 ? "+" : ""}{change.toFixed(1)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-sm font-mono font-bold text-white/90 leading-tight">
-                      {cell.score === null ? "—" : cell.score}
-                    </div>
-                    <div className="text-[7px] font-mono uppercase text-white/50 leading-tight">{cell.trend}</div>
-                    {spark && spark.scores.length >= 2 && (
-                      <ScoreSparkline scores={spark.scores} trend={cell.trend} width={56} height={16} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {/* Other pairs */}
         <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-1">
-          {otherCells.map((cell) => {
+          {cells.map((cell) => {
             const spark = sparklines?.[cell.pairId];
             const change = spark?.score_change ?? 0;
             const showChange = Math.abs(change) > 1;

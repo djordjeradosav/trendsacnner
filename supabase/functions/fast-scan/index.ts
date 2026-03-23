@@ -332,8 +332,8 @@ Deno.serve(async (req) => {
   }
   console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
-  // Finnhub allows 60 calls/min — use chunks of 55 with 1.1s delay
-  const CHUNK_SIZE = 55;
+  // Finnhub free: 60 calls/min. Chunks of 8 with 8s delay — retries handle occasional 429s
+  const CHUNK_SIZE = 8;
   const chunks = chunkArray(pairs, CHUNK_SIZE);
   const total = pairs.length;
 
@@ -350,15 +350,11 @@ Deno.serve(async (req) => {
       const scoreRows: Array<Record<string, unknown>> = [];
       const candleRows: Array<Record<string, unknown>> = [];
 
-      let rateLimited = false;
-
       for (let ci = 0; ci < chunks.length; ci++) {
         const chunk = chunks[ci];
 
         const results = await Promise.allSettled(
           chunk.map(async (pair: any) => {
-            if (rateLimited) return null;
-
             const finnhubSymbol = pair.finnhub_symbol;
             if (!finnhubSymbol) {
               console.warn(`[SCAN] ${pair.symbol}: no finnhub_symbol in DB`);
@@ -369,11 +365,19 @@ Deno.serve(async (req) => {
             const timeout = setTimeout(() => abortCtl.abort(), 8000);
             try {
               const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
-              const res = await fetch(url, { signal: abortCtl.signal });
+              let res = await fetch(url, { signal: abortCtl.signal });
+
+              // Retry once on 429
+              if (res.status === 429) {
+                await res.text();
+                console.warn(`[SCAN] ${pair.symbol}: rate limited, retrying in 2s...`);
+                await sleep(2000);
+                res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+              }
 
               if (res.status === 429) {
-                console.warn(`[SCAN] ${pair.symbol}: rate limited (429), waiting...`);
-                rateLimited = true;
+                await res.text();
+                console.warn(`[SCAN] ${pair.symbol}: still rate limited after retry`);
                 return null;
               }
               if (res.status === 403) {
@@ -487,9 +491,9 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Delay between chunks — only 1.1s needed for Finnhub's 60/min limit
+        // 8 requests per 8s = ~60/min; 429 retries handle bursts
         if (ci < chunks.length - 1) {
-          await sleep(1100);
+          await sleep(8000);
         }
       }
 
