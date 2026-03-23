@@ -350,15 +350,11 @@ Deno.serve(async (req) => {
       const scoreRows: Array<Record<string, unknown>> = [];
       const candleRows: Array<Record<string, unknown>> = [];
 
-      let rateLimited = false;
-
       for (let ci = 0; ci < chunks.length; ci++) {
         const chunk = chunks[ci];
 
         const results = await Promise.allSettled(
           chunk.map(async (pair: any) => {
-            if (rateLimited) return null;
-
             const finnhubSymbol = pair.finnhub_symbol;
             if (!finnhubSymbol) {
               console.warn(`[SCAN] ${pair.symbol}: no finnhub_symbol in DB`);
@@ -369,11 +365,19 @@ Deno.serve(async (req) => {
             const timeout = setTimeout(() => abortCtl.abort(), 8000);
             try {
               const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
-              const res = await fetch(url, { signal: abortCtl.signal });
+              let res = await fetch(url, { signal: abortCtl.signal });
+
+              // Retry once on 429
+              if (res.status === 429) {
+                await res.text();
+                console.warn(`[SCAN] ${pair.symbol}: rate limited, retrying in 2s...`);
+                await sleep(2000);
+                res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+              }
 
               if (res.status === 429) {
-                console.warn(`[SCAN] ${pair.symbol}: rate limited (429), waiting...`);
-                rateLimited = true;
+                await res.text();
+                console.warn(`[SCAN] ${pair.symbol}: still rate limited after retry`);
                 return null;
               }
               if (res.status === 403) {
