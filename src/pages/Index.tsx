@@ -77,7 +77,7 @@ const Index = () => {
 
   const executeScan = async () => {
     if (scan.isScanning) return;
-    await scan.runScan(selectedTimeframe);
+    await scan.runScan();
   };
 
   // Show toast on completion
