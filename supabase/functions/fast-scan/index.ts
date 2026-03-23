@@ -432,22 +432,25 @@ Deno.serve(async (req) => {
             console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum ${minCandles} — skipping`);
           }
 
-          // Fallback: load cached daily candles from DB
+          // Fallback: load cached candles from DB (try multiple timeframes)
           if (!pairCandles) {
-            const { data: dbCandles } = await supabase
-              .from("candles")
-              .select("open, high, low, close, volume")
-              .eq("pair_id", pairId)
-              .eq("timeframe", "1day")
-              .order("ts", { ascending: true })
-              .limit(365);
+            for (const dbTf of ["1day", "1h", "4h"]) {
+              const { data: dbCandles } = await supabase
+                .from("candles")
+                .select("open, high, low, close, volume")
+                .eq("pair_id", pairId)
+                .eq("timeframe", dbTf)
+                .order("ts", { ascending: true })
+                .limit(365);
 
-            if (dbCandles && dbCandles.length >= minCandles) {
-              pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
-                open: Number(c.open), high: Number(c.high), low: Number(c.low),
-                close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
-              }));
-              console.log(`[SCAN] ${symbol}: using ${dbCandles.length} cached daily candles`);
+              if (dbCandles && dbCandles.length >= minCandles) {
+                pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
+                  open: Number(c.open), high: Number(c.high), low: Number(c.low),
+                  close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
+                }));
+                console.log(`[SCAN] ${symbol}: using ${dbCandles.length} cached ${dbTf} candles`);
+                break;
+              }
             }
           }
 
