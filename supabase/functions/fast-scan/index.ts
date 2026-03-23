@@ -351,12 +351,12 @@ Deno.serve(async (req) => {
         const chunk = chunks[ci];
 
         const results = await Promise.allSettled(
-          chunk.map(async (pair) => {
+          chunk.map(async (pair: any) => {
             if (rateLimited) return null;
 
-            const finnhubSymbol = getFinnhubSymbol(pair.symbol);
+            const finnhubSymbol = pair.finnhub_symbol;
             if (!finnhubSymbol) {
-              console.warn(`[SCAN] ${pair.symbol}: no Finnhub symbol mapping`);
+              console.warn(`[SCAN] ${pair.symbol}: no finnhub_symbol in DB`);
               return null;
             }
 
