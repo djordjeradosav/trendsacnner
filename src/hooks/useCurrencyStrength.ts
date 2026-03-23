@@ -75,7 +75,7 @@ export function useCurrencyStrength(timeframe: string) {
       // Get the 2nd most recent batch by distinct scanned_at
       const { data } = await supabase
         .from("scores")
-        .select("pair_id, score, trend, timeframe, scanned_at, id, ema_score, adx_score, rsi_score, macd_score, news_score, social_score")
+        .select("pair_id, score, trend, timeframe, scanned_at, id, ema_score, adx_score, rsi_score, macd_score, news_score, social_score, ema20, ema50, ema200, rsi, adx, macd_hist")
         .eq("timeframe", timeframe)
         .order("scanned_at", { ascending: false })
         .limit(200);

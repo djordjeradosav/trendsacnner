@@ -3,20 +3,54 @@ import { useAllScores, type ScoreRow } from "@/hooks/useScores";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
-const FOREX_MAJORS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD"];
-const FOREX_MINORS = [
-  "EURGBP", "EURJPY", "EURCHF", "EURAUD", "EURCAD", "EURNZD",
-  "GBPJPY", "GBPCHF", "GBPAUD", "GBPCAD", "GBPNZD",
-  "AUDJPY", "AUDCHF", "AUDCAD", "AUDNZD",
-  "NZDJPY", "NZDCHF", "NZDCAD",
-  "CADJPY", "CADCHF", "CHFJPY",
-];
-const METALS = ["XAUUSD", "XAGUSD", "XPTUSD", "XPDUSD", "GOLD", "SILVER"];
-const ENERGY = ["CRUDEOIL", "BRENT", "NATURALGAS", "WTI", "USOIL", "UKOIL", "CL", "NG"];
-const GRAINS = ["WHEAT", "CORN", "SOYBEAN", "SOYBEANS", "RICE", "OATS", "ZW", "ZC", "ZS"];
-const EQUITY_FUTURES = ["ES", "NQ", "YM", "RTY", "SPX", "NDX", "DJI", "DAX", "FTSE", "NIKKEI", "SP500", "NASDAQ",
-  "US30", "US100", "US500", "GER40", "UK100", "JP225", "AUS200"];
-const BOND_FUTURES = ["ZN", "ZB", "ZT", "ZF", "US10Y", "US30Y", "US2Y", "US5Y", "TNOTE", "TBOND", "BUND"];
+// ─── Classification based on DB fields ──────────────────────────────────────
+
+const MAJOR_CURRENCIES = new Set(["EUR", "GBP", "USD", "JPY", "CHF", "AUD", "CAD", "NZD"]);
+const EXOTIC_CURRENCIES = new Set([
+  "SEK", "NOK", "DKK", "SGD", "HKD", "ZAR", "MXN", "TRY",
+  "PLN", "HUF", "CZK", "CNH", "THB", "ILS",
+]);
+const METALS = new Set(["XAU", "XAG", "XPT", "XPD", "XCU"]);
+const ENERGY = new Set(["BCO", "WTICO", "NATGAS"]);
+const AGRI = new Set(["CORN", "WHEAT", "SOYBN", "SUGAR", "COFFEE", "COCOA", "COTTON"]);
+
+interface PairRow {
+  id: string;
+  symbol: string;
+  name: string;
+  category: string;
+  base_currency: string | null;
+  quote_currency: string | null;
+}
+
+function getSector(pair: PairRow): string {
+  const cat = pair.category;
+  const base = (pair.base_currency ?? "").toUpperCase();
+  const quote = (pair.quote_currency ?? "").toUpperCase();
+
+  if (cat === "futures") return "Equity Futures";
+
+  if (cat === "commodity") {
+    if (METALS.has(base)) return "Metals";
+    if (ENERGY.has(base)) return "Energy";
+    if (AGRI.has(base)) return "Grains";
+    return "Commodities";
+  }
+
+  if (cat === "forex") {
+    const isExotic = EXOTIC_CURRENCIES.has(base) || EXOTIC_CURRENCIES.has(quote);
+    if (isExotic) return "Forex Exotics";
+    const isMajor =
+      MAJOR_CURRENCIES.has(base) &&
+      MAJOR_CURRENCIES.has(quote) &&
+      (base === "USD" || quote === "USD");
+    return isMajor ? "Forex Majors" : "Forex Minors";
+  }
+
+  return "Other";
+}
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 export const SECTOR_NAMES = [
   "Forex Majors",
@@ -26,40 +60,12 @@ export const SECTOR_NAMES = [
   "Energy",
   "Grains",
   "Equity Futures",
-  "Bond Futures",
 ] as const;
 
-export type SectorName = (typeof SECTOR_NAMES)[number];
-
-function classifySector(symbol: string, category: string): SectorName {
-  const sym = symbol.replace(/[\/\-\s]/g, "").toUpperCase();
-  if (METALS.some((m) => sym.includes(m))) return "Metals";
-  if (ENERGY.some((e) => sym.includes(e))) return "Energy";
-  if (GRAINS.some((g) => sym.includes(g))) return "Grains";
-  if (EQUITY_FUTURES.some((e) => sym.includes(e))) return "Equity Futures";
-  if (BOND_FUTURES.some((b) => sym.includes(b))) return "Bond Futures";
-
-  if (category.toLowerCase() === "forex") {
-    if (FOREX_MAJORS.some((m) => sym.includes(m))) return "Forex Majors";
-    if (FOREX_MINORS.some((m) => sym.includes(m))) return "Forex Minors";
-    return "Forex Exotics";
-  }
-  if (category.toLowerCase() === "commodity") {
-    if (METALS.some((m) => sym.includes(m))) return "Metals";
-    if (ENERGY.some((e) => sym.includes(e))) return "Energy";
-    if (GRAINS.some((g) => sym.includes(g))) return "Grains";
-    return "Energy";
-  }
-  if (category.toLowerCase() === "futures") {
-    if (EQUITY_FUTURES.some((e) => sym.includes(e))) return "Equity Futures";
-    if (BOND_FUTURES.some((b) => sym.includes(b))) return "Bond Futures";
-    return "Equity Futures";
-  }
-  return "Forex Exotics";
-}
+export type SectorName = string;
 
 export interface SectorStat {
-  name: SectorName;
+  name: string;
   avgScore: number;
   bullishCount: number;
   neutralCount: number;
@@ -82,25 +88,24 @@ export interface MarketSentiment {
   summary: string;
 }
 
-/** Fetches pairs info (cached) */
+// ─── Pairs query ────────────────────────────────────────────────────────────
+
 function usePairsInfo() {
   return useQuery({
-    queryKey: ["pairs-info"],
+    queryKey: ["pairs-info-full"],
     queryFn: async () => {
       const { data } = await supabase
         .from("pairs")
-        .select("id, symbol, name, category")
+        .select("id, symbol, name, category, base_currency, quote_currency")
         .eq("is_active", true);
-      return data ?? [];
+      return (data ?? []) as PairRow[];
     },
     staleTime: 5 * 60_000,
   });
 }
 
-/**
- * Computes sector stats from scores for a given timeframe.
- * Uses useAllScores so it stays in sync with realtime updates.
- */
+// ─── Main hook ──────────────────────────────────────────────────────────────
+
 export function useSectorStats(timeframe: string = "1h") {
   const { data: pairsData } = usePairsInfo();
   const { data: allScores, isLoading: scoresLoading } = useAllScores(timeframe);
@@ -113,14 +118,14 @@ export function useSectorStats(timeframe: string = "1h") {
     const scoreMap = new Map<string, ScoreRow>();
     allScores.forEach((s) => scoreMap.set(s.pair_id, s));
 
-    // Group by sector
-    const sectorGroups: Record<SectorName, { symbol: string; score: number; trend: string }[]> = {} as any;
-    SECTOR_NAMES.forEach((n) => { sectorGroups[n] = []; });
+    // Group by sector using DB fields
+    const sectorGroups: Record<string, { symbol: string; score: number; trend: string }[]> = {};
 
     let totalBull = 0, totalNeutral = 0, totalBear = 0;
 
     pairsData.forEach((p) => {
-      const sector = classifySector(p.symbol, p.category);
+      const sector = getSector(p);
+      if (!sectorGroups[sector]) sectorGroups[sector] = [];
       const s = scoreMap.get(p.id);
       const score = s ? Number(s.score) : 50;
       const trend = s?.trend ?? "neutral";
@@ -137,9 +142,8 @@ export function useSectorStats(timeframe: string = "1h") {
     const overallTrend: "bullish" | "neutral" | "bearish" =
       bullPct >= 50 ? "bullish" : bearPct >= 50 ? "bearish" : "neutral";
 
-    const stats: SectorStat[] = SECTOR_NAMES
-      .map((name) => {
-        const items = sectorGroups[name];
+    const stats: SectorStat[] = Object.entries(sectorGroups)
+      .map(([name, items]) => {
         if (items.length === 0) return null;
         const avg = items.reduce((s, i) => s + i.score, 0) / items.length;
         const bull = items.filter((i) => i.trend === "bullish").length;
@@ -160,11 +164,12 @@ export function useSectorStats(timeframe: string = "1h") {
       })
       .filter(Boolean) as SectorStat[];
 
+    // Sort by avgScore descending
+    stats.sort((a, b) => b.avgScore - a.avgScore);
+
     const strongSectors = stats.filter((s) => s.trend === "bullish").map((s) => s.name);
-    const neutralSectors = stats.filter((s) => s.trend === "neutral").map((s) => s.name);
     let summary = `${totalBull} of ${total} pairs (${bullPct}%) are trending bullish.`;
     if (strongSectors.length > 0) summary += ` ${strongSectors.join(" and ")} show${strongSectors.length === 1 ? "s" : ""} the strongest directional bias.`;
-    if (neutralSectors.length > 0) summary += ` ${neutralSectors.slice(0, 2).join(" and ")} ${neutralSectors.length === 1 ? "is" : "are"} largely neutral.`;
 
     const sentiment: MarketSentiment = {
       totalPairs: total,
