@@ -240,11 +240,13 @@ type FinnhubCandleResponse = {
 };
 
 const CANDLE_LIMITS: Record<string, number> = {
+  "5min": 150,
   "15min": 250,
   "1h": 300, "4h": 300, "1day": 365,
 };
 
 const MINIMUM_CANDLES: Record<string, number> = {
+  "5min": 40,
   "15min": 55,
   "1h": 60, "4h": 60, "1day": 100,
 };
