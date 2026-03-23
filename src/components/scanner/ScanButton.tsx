@@ -1,5 +1,10 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Zap, Check } from "lucide-react";
+import type { TFStatus } from "@/hooks/useFastScan";
+
+const TF_LABELS: Record<string, string> = {
+  "15min": "15M", "1h": "1H", "4h": "4H", "1day": "1D",
+};
 
 interface ScanButtonProps {
   isScanning: boolean;
@@ -10,7 +15,8 @@ interface ScanButtonProps {
   eta: number | null;
   lastScanDuration: number | null;
   lastScanAt: string | null;
-  timeframeLabel: string;
+  timeframeLabel?: string;
+  tfStatuses?: Record<string, TFStatus>;
   onScan: () => void;
 }
 
@@ -35,7 +41,7 @@ export function ScanButton({
   eta,
   lastScanDuration,
   lastScanAt,
-  timeframeLabel,
+  tfStatuses,
   onScan,
 }: ScanButtonProps) {
   const [showComplete, setShowComplete] = useState(false);
@@ -44,7 +50,6 @@ export function ScanButton({
   const prevScanning = useRef(isScanning);
   const [agoText, setAgoText] = useState<string | null>(null);
 
-  // Detect scan completion
   useEffect(() => {
     if (prevScanning.current && !isScanning && lastScanDuration) {
       setShowComplete(true);
@@ -56,7 +61,6 @@ export function ScanButton({
     prevScanning.current = isScanning;
   }, [isScanning, lastScanDuration, total]);
 
-  // Update ago text
   useEffect(() => {
     if (!lastScanAt) return;
     const update = () => setAgoText(formatAgo(lastScanAt));
@@ -65,7 +69,6 @@ export function ScanButton({
     return () => clearInterval(interval);
   }, [lastScanAt]);
 
-  // Keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "S") {
@@ -77,40 +80,60 @@ export function ScanButton({
     return () => window.removeEventListener("keydown", handler);
   }, [isScanning, onScan]);
 
-  // Conic gradient for progress ring
   const ringStyle = isScanning
     ? {
         background: `conic-gradient(hsl(var(--primary)) ${progress * 3.6}deg, hsl(var(--muted)) ${progress * 3.6}deg)`,
       }
     : {};
 
+  // Per-TF status indicators
+  const tfStatusRow = tfStatuses && Object.keys(tfStatuses).length > 0 && (
+    <div className="flex items-center gap-2">
+      {Object.entries(tfStatuses).map(([tf, status]) => {
+        const color =
+          status === "complete" ? "text-bullish"
+          : status === "scanning" ? "text-yellow-500"
+          : status === "error" ? "text-bearish"
+          : "text-muted-foreground";
+        const icon =
+          status === "complete" ? "✓"
+          : status === "scanning" ? "⟳"
+          : status === "error" ? "✗"
+          : "·";
+        return (
+          <span key={tf} className={`flex items-center gap-0.5 text-[10px] font-display font-medium ${color}`}>
+            <span>{icon}</span>
+            <span>{TF_LABELS[tf] || tf}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+
   if (showComplete && completeDuration) {
     return (
-      <div className="flex flex-col items-end gap-0.5">
+      <div className="flex flex-col items-end gap-1">
         <button
           disabled
           className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-semibold font-display transition-all"
         >
           <Check className="w-3.5 h-3.5" />
-          ✓ {completeTotal} pairs · {formatDuration(completeDuration)}
+          ✓ {completeTotal} pairs · 4 TFs · {formatDuration(completeDuration)}
         </button>
+        {tfStatusRow}
       </div>
     );
   }
 
   if (isScanning) {
     return (
-      <div className="flex flex-col items-end gap-0.5">
+      <div className="flex flex-col items-end gap-1">
         <button
           disabled
           className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold font-display bg-card border border-border text-foreground overflow-hidden"
         >
-          {/* Progress ring */}
           <div className="relative w-5 h-5 shrink-0">
-            <div
-              className="absolute inset-0 rounded-full"
-              style={ringStyle}
-            />
+            <div className="absolute inset-0 rounded-full" style={ringStyle} />
             <div className="absolute inset-[2px] rounded-full bg-card" />
             <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-primary tabular-nums">
               {progress}
@@ -120,14 +143,17 @@ export function ScanButton({
             {done}/{total}
           </span>
           {eta !== null && eta > 0 && (
-            <span className="text-muted-foreground">
-              · ETA {eta}s
-            </span>
+            <span className="text-muted-foreground">· ETA {eta}s</span>
           )}
         </button>
-        <span className="text-[9px] text-muted-foreground font-display truncate max-w-[180px]">
-          {currentSymbol}
-        </span>
+        <div className="flex items-center gap-2">
+          {tfStatusRow}
+          {currentSymbol && (
+            <span className="text-[9px] text-muted-foreground font-display truncate max-w-[120px]">
+              {currentSymbol}
+            </span>
+          )}
+        </div>
       </div>
     );
   }
@@ -139,9 +165,9 @@ export function ScanButton({
         className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold font-display hover:bg-primary/90 transition-colors active:scale-95"
       >
         <Zap className="w-3.5 h-3.5" />
-        Scan Now
+        Scan All
         <span className="px-1.5 py-0.5 rounded bg-primary-foreground/15 text-[10px] font-bold">
-          {timeframeLabel}
+          4 TFs
         </span>
       </button>
       {lastScanAt && agoText && (

@@ -77,7 +77,7 @@ const Index = () => {
 
   const executeScan = async () => {
     if (scan.isScanning) return;
-    await scan.runScan(selectedTimeframe);
+    await scan.runScan();
   };
 
   // Show toast on completion
@@ -104,7 +104,7 @@ const Index = () => {
   const marketSentiment = stats.avg >= 60 ? "Risk-On" : stats.avg <= 40 ? "Risk-Off" : "Mixed";
   const sentimentColor = stats.avg >= 60 ? "hsl(var(--primary))" : stats.avg <= 40 ? "#ef4444" : "#f59e0b";
 
-  const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
+  
 
   return (
     <AppLayout
@@ -159,7 +159,7 @@ const Index = () => {
             eta={scan.eta}
             lastScanDuration={scan.lastScanDuration}
             lastScanAt={scan.lastScanAt}
-            timeframeLabel={tfLabel}
+            tfStatuses={scan.tfStatuses}
             onScan={executeScan}
           />
         </div>

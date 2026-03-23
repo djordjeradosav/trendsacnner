@@ -128,8 +128,8 @@ export default function ScannerPage() {
 
   const executeScan = useCallback(async () => {
     if (scan.isScanning) return;
-    await scan.runScan(selectedTimeframe);
-  }, [scan.isScanning, selectedTimeframe, scan.runScan]);
+    await scan.runScan();
+  }, [scan.isScanning, scan.runScan]);
 
   // Show toast on completion
   useEffect(() => {
@@ -182,7 +182,7 @@ export default function ScannerPage() {
 
   const handleCancelScan = () => { scan.cancelScan(); };
 
-  const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
+  
 
   const layoutProps = {
     lastScan,
@@ -339,7 +339,7 @@ export default function ScannerPage() {
             eta={scan.eta}
             lastScanDuration={scan.lastScanDuration}
             lastScanAt={scan.lastScanAt}
-            timeframeLabel={tfLabel}
+            tfStatuses={scan.tfStatuses}
             onScan={executeScan}
           />
         </div>
