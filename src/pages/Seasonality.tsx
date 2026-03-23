@@ -334,7 +334,7 @@ export default function SeasonalityPage() {
               >
                 {Object.entries(pairGroups).map(([cat, pairs]) => (
                   <optgroup key={cat} label={cat}>
-                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{p.symbol}</option>)}
+                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{(p as any).displayName ?? p.symbol}</option>)}
                   </optgroup>
                 ))}
               </select>
