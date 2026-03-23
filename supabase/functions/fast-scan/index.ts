@@ -332,8 +332,8 @@ Deno.serve(async (req) => {
   }
   console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
 
-  // Finnhub free: 60 calls/min. Chunks of 28 with 30s gap = ~56/min
-  const CHUNK_SIZE = 28;
+  // Finnhub free: 60 calls/min. Chunks of 8 with 8s delay — retries handle occasional 429s
+  const CHUNK_SIZE = 8;
   const chunks = chunkArray(pairs, CHUNK_SIZE);
   const total = pairs.length;
 
