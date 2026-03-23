@@ -6,309 +6,131 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ─── Indicator Math (self-contained, no imports from src/) ──────────────────
+// ─── TF-specific config ─────────────────────────────────────────────────────
 
-function calcEMA(closes: number[], period: number): number[] {
-  const result: number[] = new Array(closes.length).fill(NaN);
-  if (closes.length < period) return result;
-  let sum = 0;
-  for (let i = 0; i < period; i++) sum += closes[i];
-  result[period - 1] = sum / period;
+const VALID_TFS = ["5min", "15min", "1h", "4h", "1day"];
+
+const EMA_PERIODS: Record<string, { fast: number; mid: number; slow: number; long: number | null }> = {
+  "5min":  { fast: 9,  mid: 21, slow: 50,  long: null },
+  "15min": { fast: 9,  mid: 21, slow: 50,  long: null },
+  "1h":    { fast: 9,  mid: 21, slow: 50,  long: null },
+  "4h":    { fast: 9,  mid: 21, slow: 50,  long: 200  },
+  "1day":  { fast: 20, mid: 50, slow: 200, long: null },
+};
+
+const MIN_CANDLES: Record<string, number> = {
+  "5min": 35, "15min": 55, "1h": 60, "4h": 60, "1day": 100,
+};
+
+// ─── Indicator Math ─────────────────────────────────────────────────────────
+
+function ema(closes: number[], period: number): number[] {
   const k = 2 / (period + 1);
-  for (let i = period; i < closes.length; i++) {
-    result[i] = closes[i] * k + result[i - 1] * (1 - k);
-  }
-  return result;
+  let e = closes[0];
+  return closes.map((v) => { e = v * k + e * (1 - k); return e; });
 }
 
-function calcRSI(closes: number[], period = 14): number[] {
-  const result: number[] = new Array(closes.length).fill(NaN);
-  if (closes.length < period + 1) return result;
-  let avgGain = 0, avgLoss = 0;
-  for (let i = 1; i <= period; i++) {
-    const change = closes[i] - closes[i - 1];
-    if (change > 0) avgGain += change; else avgLoss += Math.abs(change);
-  }
-  avgGain /= period; avgLoss /= period;
-  result[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
-  for (let i = period + 1; i < closes.length; i++) {
-    const change = closes[i] - closes[i - 1];
-    avgGain = (avgGain * (period - 1) + (change > 0 ? change : 0)) / period;
-    avgLoss = (avgLoss * (period - 1) + (change < 0 ? Math.abs(change) : 0)) / period;
-    result[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
-  }
-  return result;
-}
+function calcScore(
+  candles: { open: number; high: number; low: number; close: number }[],
+  periods: { fast: number; mid: number; slow: number; long: number | null }
+) {
+  const closes = candles.map((c) => c.close);
+  const highs = candles.map((c) => c.high);
+  const lows = candles.map((c) => c.low);
+  const n = closes.length;
+  if (n < 30) return null;
 
-function calcMACD(closes: number[], fast = 12, slow = 26, signalPeriod = 9) {
-  const emaFast = calcEMA(closes, fast);
-  const emaSlow = calcEMA(closes, slow);
-  const len = closes.length;
-  const macdLine: number[] = new Array(len).fill(NaN);
-  for (let i = 0; i < len; i++) {
-    if (!isNaN(emaFast[i]) && !isNaN(emaSlow[i])) macdLine[i] = emaFast[i] - emaSlow[i];
-  }
-  const validMacd = macdLine.filter((v) => !isNaN(v));
-  const signalLine = calcEMA(validMacd, signalPeriod);
-  const histogram: number[] = new Array(len).fill(NaN);
-  let si = 0;
-  for (let i = 0; i < len; i++) {
-    if (!isNaN(macdLine[i])) {
-      if (!isNaN(signalLine[si])) histogram[i] = macdLine[i] - signalLine[si];
-      si++;
-    }
-  }
-  return { histogram };
-}
+  const efArr = ema(closes, periods.fast);
+  const emArr = ema(closes, periods.mid);
+  const esArr = ema(closes, periods.slow);
+  const elArr = periods.long ? ema(closes, periods.long) : null;
 
-function calcTrueRange(highs: number[], lows: number[], closes: number[]): number[] {
-  const tr: number[] = [highs[0] - lows[0]];
-  for (let i = 1; i < highs.length; i++) {
+  const ef = efArr[n - 1], em = emArr[n - 1], es = esArr[n - 1];
+  const el = elArr ? elArr[n - 1] : null;
+  const price = closes[n - 1];
+
+  let emaScore = 22;
+  if (el !== null) {
+    if (price > ef && ef > em && em > es && es > el) emaScore = 55;
+    else if (price < ef && ef < em && em < es && es < el) emaScore = 0;
+    else if (price > ef && ef > em && em > es) emaScore = 40;
+    else if (price > ef && ef > em) emaScore = 28;
+    else if (price > ef) emaScore = 16;
+    else if (price < ef && ef < em && em < es) emaScore = 14;
+    else if (price < ef && ef < em) emaScore = 8;
+    else emaScore = 4;
+  } else {
+    if (price > ef && ef > em && em > es) emaScore = 55;
+    else if (price < ef && ef < em && em < es) emaScore = 0;
+    else if (price > ef && ef > em) emaScore = 40;
+    else if (price > ef) emaScore = 22;
+    else if (price < ef && ef < em) emaScore = 10;
+    else emaScore = 6;
+  }
+
+  // RSI
+  if (n < 15) return null;
+  let avgG = 0, avgL = 0;
+  for (let i = 1; i <= 14; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) avgG += d; else avgL -= d;
+  }
+  avgG /= 14; avgL /= 14;
+  for (let i = 15; i < n; i++) {
+    const d = closes[i] - closes[i - 1];
+    avgG = (avgG * 13 + (d > 0 ? d : 0)) / 14;
+    avgL = (avgL * 13 + (d < 0 ? -d : 0)) / 14;
+  }
+  const rsi = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
+  let rsiScore = 15;
+  if (rsi >= 60 && rsi < 70) rsiScore = 30;
+  else if (rsi >= 70) rsiScore = 24;
+  else if (rsi >= 55) rsiScore = 22;
+  else if (rsi >= 50) rsiScore = 18;
+  else if (rsi >= 45) rsiScore = 12;
+  else if (rsi >= 40) rsiScore = 7;
+  else if (rsi >= 30) rsiScore = 3;
+  else rsiScore = 5;
+
+  // ADX
+  const tr: number[] = [], dmp: number[] = [], dmm: number[] = [];
+  for (let i = 1; i < n; i++) {
     tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
+    const up = highs[i] - highs[i - 1], dn = lows[i - 1] - lows[i];
+    dmp.push(up > dn && up > 0 ? up : 0);
+    dmm.push(dn > up && dn > 0 ? dn : 0);
   }
-  return tr;
-}
+  const sm = (a: number[]) => {
+    let s = a.slice(0, 14).reduce((x, y) => x + y, 0);
+    const r = [s];
+    for (let i = 14; i < a.length; i++) { s = s - s / 14 + a[i]; r.push(s); }
+    return r;
+  };
+  const st = sm(tr), sp = sm(dmp), sn = sm(dmm);
+  const dip = sp.map((v, i) => st[i] > 0 ? v / st[i] * 100 : 0);
+  const dim = sn.map((v, i) => st[i] > 0 ? v / st[i] * 100 : 0);
+  const dx = dip.map((p, i) => { const s = p + dim[i]; return s > 0 ? Math.abs(p - dim[i]) / s * 100 : 0; });
+  let adxVal = dx.slice(0, 14).reduce((a, b) => a + b, 0) / 14;
+  for (let i = 14; i < dx.length; i++) adxVal = (adxVal * 13 + dx[i]) / 14;
 
-function calcADX(highs: number[], lows: number[], closes: number[], period = 14): number[] {
-  const len = highs.length;
-  const result: number[] = new Array(len).fill(NaN);
-  if (len < period * 2) return result;
-  const plusDM: number[] = [0], minusDM: number[] = [0];
-  for (let i = 1; i < len; i++) {
-    const up = highs[i] - highs[i - 1], down = lows[i - 1] - lows[i];
-    plusDM.push(up > down && up > 0 ? up : 0);
-    minusDM.push(down > up && down > 0 ? down : 0);
-  }
-  const tr = calcTrueRange(highs, lows, closes);
-  const sTR: number[] = new Array(len).fill(NaN);
-  const sPDM: number[] = new Array(len).fill(NaN);
-  const sMDM: number[] = new Array(len).fill(NaN);
-  let sumTR = 0, sumPDM = 0, sumMDM = 0;
-  for (let i = 1; i <= period; i++) { sumTR += tr[i]; sumPDM += plusDM[i]; sumMDM += minusDM[i]; }
-  sTR[period] = sumTR; sPDM[period] = sumPDM; sMDM[period] = sumMDM;
-  for (let i = period + 1; i < len; i++) {
-    sTR[i] = sTR[i-1] - sTR[i-1]/period + tr[i];
-    sPDM[i] = sPDM[i-1] - sPDM[i-1]/period + plusDM[i];
-    sMDM[i] = sMDM[i-1] - sMDM[i-1]/period + minusDM[i];
-  }
-  const dx: number[] = new Array(len).fill(NaN);
-  for (let i = period; i < len; i++) {
-    if (!isNaN(sTR[i]) && sTR[i] !== 0) {
-      const pdi = (sPDM[i]/sTR[i])*100, mdi = (sMDM[i]/sTR[i])*100;
-      const s = pdi + mdi;
-      dx[i] = s === 0 ? 0 : (Math.abs(pdi - mdi)/s)*100;
-    }
-  }
-  const adxStart = period * 2;
-  if (adxStart >= len) return result;
-  let adxSum = 0;
-  for (let i = period; i < adxStart; i++) adxSum += isNaN(dx[i]) ? 0 : dx[i];
-  result[adxStart - 1] = adxSum / period;
-  for (let i = adxStart; i < len; i++) result[i] = (result[i-1]*(period-1) + (isNaN(dx[i]) ? 0 : dx[i]))/period;
-  return result;
-}
+  // MACD
+  const e12 = ema(closes, 12), e26 = ema(closes, 26);
+  const macdLine = e12.map((v, i) => v - e26[i]);
+  const sigLine = ema(macdLine, 9);
+  const hist = macdLine[n - 1] - sigLine[n - 1];
 
-function latest(arr: number[]): number {
-  for (let i = arr.length - 1; i >= 0; i--) if (!isNaN(arr[i])) return arr[i];
-  return NaN;
-}
-
-// ─── Score Engine ───────────────────────────────────────────────────────────
-
-interface CandleData { open: number; high: number; low: number; close: number; volume?: number; }
-
-function scoreEMA(price: number, e20: number, e50: number, e200: number, timeframe?: string): number {
-  const isShortTF = timeframe === "5min" || timeframe === "15min";
-  if (isShortTF) {
-    if (price > e20 && e20 > e50 && e50 > e200) return 22;
-    if (price < e20 && e20 < e50 && e50 < e200) return 0;
-    if (price > e20 && e20 > e50) return 16;
-    if (price > e20) return 10;
-    if (price < e20 && e20 < e50) return 6;
-    return 11;
-  }
-  if (price > e20 && e20 > e50 && e50 > e200) return 22;
-  if (price > e20 && e20 > e50) return 15;
-  if (price > e20) return 8;
-  if (price < e20 && e20 < e50 && e50 < e200) return 0;
-  return 11;
-}
-
-function scoreADX(adx: number): number {
-  if (adx >= 40) return 11; if (adx >= 25) return 8; if (adx >= 15) return 4; return 2;
-}
-
-function scoreRSI(rsi: number): number {
-  return Math.max(0, Math.min(11, Math.round(((rsi - 50) / 50) * 11)));
-}
-
-function scoreMACD(hist: number, histPrev: number): number {
-  if (hist > 0 && hist > histPrev) return 11;
-  if (hist > 0) return 7;
-  if (hist <= 0 && hist > histPrev) return 4;
-  return 0;
-}
-
-const TF_CONFIGS: Record<string, { emaFast: number; emaMid: number; emaSlow: number; rsiPeriod: number; adxPeriod: number; macdFast: number; macdSlow: number; macdSignal: number }> = {
-  "5min":  { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "15min": { emaFast: 9,  emaMid: 21, emaSlow: 50,  rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "1h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "4h":    { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-  "1day":  { emaFast: 20, emaMid: 50, emaSlow: 200, rsiPeriod: 14, adxPeriod: 14, macdFast: 12, macdSlow: 26, macdSignal: 9 },
-};
-
-function getConfig(tf: string) {
-  return TF_CONFIGS[tf] || TF_CONFIGS["1h"];
-}
-
-function calcTrendScore(candles: CandleData[], timeframe = "1h") {
-  const closes = candles.map(c => c.close);
-  const highs = candles.map(c => c.high);
-  const lows = candles.map(c => c.low);
-
-  const cfg = getConfig(timeframe);
-
-  const emaFastArr = calcEMA(closes, cfg.emaFast);
-  const emaMidArr = calcEMA(closes, cfg.emaMid);
-  const emaSlowArr = calcEMA(closes, cfg.emaSlow);
-  const rsiVal = latest(calcRSI(closes, cfg.rsiPeriod));
-  const adxVal = latest(calcADX(highs, lows, closes, cfg.adxPeriod));
-  const { histogram } = calcMACD(closes, cfg.macdFast, cfg.macdSlow, cfg.macdSignal);
-  const macdHist = latest(histogram);
-  let macdHistPrev = NaN;
-  for (let i = histogram.length - 2; i >= 0; i--) { if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; } }
-
-  const price = closes[closes.length - 1];
-  const emaFast = latest(emaFastArr);
-  const emaMid = latest(emaMidArr);
-  const emaSlow = latest(emaSlowArr);
-
-  const emaS = !isNaN(emaFast) && !isNaN(emaMid) && !isNaN(emaSlow) ? scoreEMA(price, emaFast, emaMid, emaSlow, timeframe) : 11;
-  const adxS = !isNaN(adxVal) ? scoreADX(adxVal) : 2;
-  const rsiS = !isNaN(rsiVal) ? scoreRSI(rsiVal) : 6;
-  const macdS = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : 6;
-
-  const technical = emaS + adxS + rsiS + macdS;
-  const newsDefault = 7;
-  const eventDefault = 12;
-  const stocktwitsDefault = 5;
-  const redditDefault = 5;
-
-  const rawScore = Math.max(0, Math.min(100, technical + newsDefault + eventDefault + stocktwitsDefault + redditDefault));
-  const trend = rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
-
+  const composite = Math.min(100, Math.max(0, emaScore + rsiScore + 7));
   return {
-    score: rawScore, trend,
-    emaScore: emaS, adxScore: adxS, rsiScore: rsiS, macdScore: macdS,
-    ema20: isNaN(emaFast) ? 0 : emaFast,
-    ema50: isNaN(emaMid) ? 0 : emaMid,
-    ema200: isNaN(emaSlow) ? 0 : emaSlow,
-    adx: isNaN(adxVal) ? 0 : adxVal,
-    rsi: isNaN(rsiVal) ? 50 : rsiVal,
-    macdHist: isNaN(macdHist) ? 0 : macdHist,
+    score: Math.round(composite),
+    trend: composite >= 62 ? "bullish" as const : composite <= 38 ? "bearish" as const : "neutral" as const,
+    emaScore, rsiScore,
+    emaFast: parseFloat(ef.toFixed(6)),
+    emaMid: parseFloat(em.toFixed(6)),
+    emaLong: el ? parseFloat(el.toFixed(6)) : null,
+    rsi: parseFloat(rsi.toFixed(2)),
+    adx: parseFloat(adxVal.toFixed(2)),
+    macdHist: parseFloat(hist.toFixed(6)),
   };
-}
-
-// ─── Finnhub Resolution Mapping ─────────────────────────────────────────────
-
-const RESOLUTION_MAP: Record<string, string> = {
-  "5min": "5",
-  "15min": "15",
-  "1h": "60", "4h": "240", "1day": "D",
-};
-
-// Finnhub free tier only supports resolution "60" and above for forex candles.
-const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
-
-function getEffectiveResolution(resolution: string): string {
-  if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
-  return "60";
-}
-
-function getIntervalSeconds(tf: string): number {
-  const map: Record<string, number> = {
-    "5min": 300,
-    "15min": 900,
-    "1h": 3600, "4h": 14400, "1day": 86400,
-  };
-  return map[tf] ?? 3600;
-}
-
-type FinnhubCandleResponse = {
-  c?: number[]; h?: number[]; l?: number[]; o?: number[]; v?: number[]; t?: number[];
-  s: string;
-};
-
-const CANDLE_LIMITS: Record<string, number> = {
-  "5min": 150,
-  "15min": 250,
-  "1h": 300, "4h": 300, "1day": 365,
-};
-
-const MINIMUM_CANDLES: Record<string, number> = {
-  "5min": 40,
-  "15min": 55,
-  "1h": 60, "4h": 60, "1day": 100,
-};
-
-function getCandleLimit(tf: string): number { return CANDLE_LIMITS[tf] || 200; }
-function getMinimumCandles(tf: string): number { return MINIMUM_CANDLES[tf] || 50; }
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
-  return chunks;
-}
-
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
-
-// ─── Index Futures ETF Proxy Mapping ────────────────────────────────────────
-// Finnhub free tier returns 403 for OANDA index CFD symbols AND stock candles.
-// Use Alpha Vantage TIME_SERIES_DAILY with liquid ETF proxies instead.
-const INDEX_ETF_MAP: Record<string, string> = {
-  "US30USD": "DIA",
-  "NAS100USD": "QQQ",
-  "SPX500USD": "SPY",
-  "US2000USD": "IWM",
-};
-
-function getStockSymbolForPair(symbol: string): string | null {
-  return INDEX_ETF_MAP[symbol] ?? null;
-}
-
-async function fetchAlphaVantageCandles(etfSymbol: string, avKey: string): Promise<CandleData[] | null> {
-  try {
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${etfSymbol}&outputsize=compact&apikey=${avKey}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) {
-      console.warn(`[SCAN] AV: HTTP ${res.status} for ${etfSymbol}`);
-      return null;
-    }
-    const json = await res.json();
-    const timeSeries = json["Time Series (Daily)"];
-    if (!timeSeries) {
-      // Log actual response keys and first value for debugging
-      const keys = Object.keys(json);
-      const firstVal = json[keys[0]];
-      console.warn(`[SCAN] AV: no time series for ${etfSymbol}. Keys=${JSON.stringify(keys)}. Info=${typeof firstVal === 'string' ? firstVal.slice(0,150) : JSON.stringify(firstVal).slice(0,150)}`);
-      return null;
-    }
-    // Convert to array sorted by date ascending, take last 300
-    const entries = Object.entries(timeSeries)
-      .map(([date, vals]: [string, any]) => ({
-        open: parseFloat(vals["1. open"]),
-        high: parseFloat(vals["2. high"]),
-        low: parseFloat(vals["3. low"]),
-        close: parseFloat(vals["4. close"]),
-        volume: parseFloat(vals["5. volume"] || "0"),
-        ts: date,
-      }))
-      .sort((a, b) => a.ts.localeCompare(b.ts));
-    return entries.slice(-300);
-  } catch (e) {
-    console.warn(`[SCAN] AV fetch failed for ${etfSymbol}: ${e}`);
-    return null;
-  }
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
@@ -318,318 +140,196 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const apiKey = Deno.env.get("FINNHUB_API_KEY");
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: "FINNHUB_API_KEY not set" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const avKey = Deno.env.get("ALPHA_VANTAGE_KEY") || "";
-
+  const FINNHUB_KEY = Deno.env.get("FINNHUB_API_KEY") ?? "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const VALID_TFS = ["5min", "15min", "1h", "4h", "1day"];
   let timeframe = "1h";
-  let pairIds: string[] | undefined;
-
   if (req.method === "GET") {
     const url = new URL(req.url);
     const raw = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
     timeframe = VALID_TFS.includes(raw) ? raw : "1h";
-    const ids = url.searchParams.get("pairIds");
-    if (ids) pairIds = ids.split(",");
   } else {
     try {
       const body = await req.json();
       const raw = (body.timeframe || "1h").toLowerCase().trim();
       timeframe = VALID_TFS.includes(raw) ? raw : "1h";
-      pairIds = body.pairIds;
-    } catch { /* use defaults */ }
+    } catch { /* defaults */ }
   }
 
-  console.log(`[SCAN] STARTING for timeframe: ${timeframe}`);
+  console.log("FAST SCAN START | TF:", timeframe);
+  const startTime = Date.now();
 
-  // Load pairs
-  let query = supabase.from("pairs").select("id, symbol, finnhub_symbol, category, base_currency").eq("is_active", true).not("finnhub_symbol", "is", null);
-  if (pairIds && pairIds.length > 0) {
-    query = query.in("id", pairIds);
-  }
-  const { data: pairs, error: pairsError } = await query.order("symbol");
-  if (pairsError || !pairs || pairs.length === 0) {
-    return new Response(JSON.stringify({ error: "No pairs found" }), {
+  // Step 1 — Load all active pairs
+  const { data: pairs, error: pairsError } = await supabase
+    .from("pairs")
+    .select("id, symbol, finnhub_symbol, category")
+    .eq("is_active", true);
+
+  if (pairsError || !pairs?.length) {
+    return new Response(JSON.stringify({ error: "No pairs" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const normalisedTimeframe = timeframe.toLowerCase().trim();
-  const rawResolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
-  // Finnhub free tier: sub-hourly resolutions return 403 for forex.
-  // Fall back to 1H candles and score with the requested timeframe's indicator config.
-  const resolution = getEffectiveResolution(rawResolution);
-  const usedFallback = resolution !== rawResolution;
-  // When using fallback resolution, fetch candles based on the fallback (1H) timing
-  const effectiveTF = usedFallback ? "1h" : normalisedTimeframe;
-  const candleLimit = getCandleLimit(effectiveTF);
-  const to = Math.floor(Date.now() / 1000);
-  const intervalSec = getIntervalSeconds(effectiveTF);
-  const bufferMultiplier = (effectiveTF === "5min" || effectiveTF === "15min") ? 2.5 : 1.3;
-  const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
-  
-  if (usedFallback) {
-    console.log(`[SCAN] Finnhub free tier: resolution "${rawResolution}" not supported, falling back to "${resolution}" (1H candles) for scoring`);
-  }
-  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
+  // Step 2 — Fetch ALL live forex prices in bulk
+  const livePrices: Record<string, number> = {};
+  const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
 
-  // Finnhub free: 60 calls/min. Chunks of 8 with 8s delay — retries handle occasional 429s
-  const CHUNK_SIZE = 8;
-  const chunks = chunkArray(pairs, CHUNK_SIZE);
-  const total = pairs.length;
-
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      function send(data: Record<string, unknown>) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-      }
-
-      const startMs = Date.now();
-      let done = 0;
-      let bullish = 0, bearish = 0, neutral = 0;
-      const scoreRows: Array<Record<string, unknown>> = [];
-      const candleRows: Array<Record<string, unknown>> = [];
-
-      for (let ci = 0; ci < chunks.length; ci++) {
-        const chunk = chunks[ci];
-
-        const results = await Promise.allSettled(
-          chunk.map(async (pair: any) => {
-            const finnhubSymbol = pair.finnhub_symbol;
-            if (!finnhubSymbol) {
-              console.warn(`[SCAN] ${pair.symbol}: no finnhub_symbol in DB`);
-              return null;
-            }
-
-            const abortCtl = new AbortController();
-            const timeout = setTimeout(() => abortCtl.abort(), 15000);
-            try {
-              const etfSymbol = getStockSymbolForPair(pair.symbol);
-
-              // For index futures, use Alpha Vantage daily candles via ETF proxy
-              if (etfSymbol) {
-                if (!avKey) {
-                  console.warn(`[SCAN] ${pair.symbol}: ALPHA_VANTAGE_KEY not set, skipping`);
-                  return null;
-                }
-                console.log(`[SCAN] ${pair.symbol}: fetching via Alpha Vantage ETF=${etfSymbol}`);
-                const avCandles = await fetchAlphaVantageCandles(etfSymbol, avKey);
-                if (!avCandles || avCandles.length < 20) {
-                  console.warn(`[SCAN] ${pair.symbol}: AV returned ${avCandles?.length ?? 0} candles`);
-                  return null;
-                }
-                console.log(`[SCAN] ${pair.symbol}: ${avCandles.length} daily candles from AV`);
-                return {
-                  pairId: pair.id,
-                  symbol: pair.symbol,
-                  candles: avCandles,
-                };
-              }
-
-              // For forex/commodities, use Finnhub
-              const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
-              let res = await fetch(url, { signal: abortCtl.signal });
-
-              // Retry once on 429
-              if (res.status === 429) {
-                await res.text();
-                console.warn(`[SCAN] ${pair.symbol}: rate limited, retrying in 2s...`);
-                await sleep(2000);
-                res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-              }
-
-              if (res.status === 429) {
-                await res.text();
-                console.warn(`[SCAN] ${pair.symbol}: still rate limited after retry`);
-                return null;
-              }
-              if (res.status === 403) {
-                console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}`);
-                return null;
-              }
-              if (!res.ok) {
-                const body = await res.text();
-                console.warn(`[SCAN] ${pair.symbol}: HTTP ${res.status} body=${body.slice(0,200)}`);
-                return null;
-              }
-
-              const data = (await res.json()) as FinnhubCandleResponse;
-              if (data.s !== "ok" || !data.c?.length) {
-                console.warn(`[SCAN] ${pair.symbol}: status="${data.s}" candles=0`);
-                return null;
-              }
-
-              console.log(`[SCAN] ${pair.symbol}: ${data.c.length} candles fetched`);
-
-              return {
-                pairId: pair.id,
-                symbol: pair.symbol,
-                candles: data.c.map((close, i) => ({
-                  open: data.o![i],
-                  high: data.h![i],
-                  low: data.l![i],
-                  close,
-                  volume: data.v?.[i] ?? 0,
-                  ts: new Date(data.t![i] * 1000).toISOString(),
-                })),
-              };
-            } catch {
-              return null;
-            } finally {
-              clearTimeout(timeout);
-            }
-          })
-        );
-
-        // Process results — fall back to cached DB candles when API fails
-        for (let ri = 0; ri < results.length; ri++) {
-          done++;
-          const r = results[ri];
-          const pair = chunk[ri];
-          let pairCandles: CandleData[] | null = null;
-          const pairId = pair.id;
-          const symbol = pair.symbol;
-          const minCandles = getMinimumCandles(normalisedTimeframe);
-
-          if (r.status === "fulfilled" && r.value && r.value.candles.length >= 20) {
-            pairCandles = r.value.candles;
-            if (r.value.candles.length < minCandles) {
-              console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
-            }
-            // Store candles - use "1day" for ETF/AV candles, effectiveTF for forex
-            const etfSym = getStockSymbolForPair(symbol);
-            const storageTF = etfSym ? "1day" : effectiveTF;
-            for (const c of pairCandles) {
-              candleRows.push({
-                pair_id: pairId,
-                timeframe: storageTF,
-                open: c.open, high: c.high, low: c.low, close: c.close,
-                volume: c.volume ?? 0,
-                ts: (c as any).ts || new Date().toISOString(),
-              });
-            }
-          } else if (r.status === "fulfilled" && r.value) {
-            console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum 20 — skipping`);
-          }
-
-          // Fallback: load cached candles from DB
-          if (!pairCandles) {
-            // For ETF/index symbols, also try "1day" candles; for forex try requested TF then 1h
-            const etfSym = getStockSymbolForPair(symbol);
-            const fallbackTFs = etfSym ? ["1day", normalisedTimeframe, "1h"] : [normalisedTimeframe, "1h"];
-            for (const dbTf of fallbackTFs) {
-              const { data: dbCandles } = await supabase
-                .from("candles")
-                .select("open, high, low, close, volume")
-                .eq("pair_id", pairId)
-                .eq("timeframe", dbTf)
-                .order("ts", { ascending: true })
-                .limit(candleLimit);
-
-              if (dbCandles && dbCandles.length >= 20) {
-                pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
-                  open: Number(c.open), high: Number(c.high), low: Number(c.low),
-                  close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
-                }));
-                if (dbTf !== normalisedTimeframe) {
-                  console.log(`[SCAN] ${symbol}: using cached ${dbTf} candles as fallback`);
-                }
-                break;
-              }
-            }
-          }
-
-          if (pairCandles && pairCandles.length >= 20) {
-            // Score with the REQUESTED timeframe's indicator config (shorter EMAs for 15min etc)
-            const result = calcTrendScore(pairCandles, normalisedTimeframe);
-
-            if (result.trend === "bullish") bullish++;
-            else if (result.trend === "bearish") bearish++;
-            else neutral++;
-
-            scoreRows.push({
-              pair_id: pairId, timeframe: normalisedTimeframe,
-              score: result.score, trend: result.trend,
-              ema_score: result.emaScore, adx_score: result.adxScore,
-              rsi_score: result.rsiScore, macd_score: result.macdScore,
-              ema20: result.ema20, ema50: result.ema50, ema200: result.ema200,
-              adx: result.adx, rsi: result.rsi, macd_hist: result.macdHist,
-              scanned_at: new Date().toISOString(),
-            });
-
-            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
-          } else {
-            send({ type: "progress", done, total, pct: Math.round((done/total)*100), symbol });
-          }
-        }
-
-        // 8 requests per 8s = ~60/min; 429 retries handle bursts
-        if (ci < chunks.length - 1) {
-          await sleep(8000);
-        }
-      }
-
-      // Bulk upsert candles in batches of 1000
-      for (let i = 0; i < candleRows.length; i += 1000) {
-        const batch = candleRows.slice(i, i + 1000);
-        await supabase.from("candles").upsert(batch as any, { onConflict: "pair_id,timeframe,ts", ignoreDuplicates: false });
-      }
-
-      // Bulk upsert scores
-      if (scoreRows.length > 0) {
-        console.log(`[SCAN] Upserting ${scoreRows.length} scores with timeframe="${normalisedTimeframe}". Sample:`, JSON.stringify(scoreRows[0]));
-        const { error: scoreError } = await supabase.from("scores").upsert(scoreRows as any, { onConflict: "pair_id,timeframe" });
-        if (scoreError) console.error("Score upsert error:", scoreError);
-        else console.log(`[SCAN] Successfully upserted ${scoreRows.length} scores`);
-      } else {
-        console.warn(`[SCAN] No scores to upsert for timeframe="${normalisedTimeframe}"`);
-      }
-
-      // Store scan history
+  const rateResults = await Promise.allSettled(
+    bases.map(async (base) => {
       try {
-        const authHeader = req.headers.get("authorization");
-        if (authHeader) {
-          const token = authHeader.replace("Bearer ", "");
-          const { data: { user } } = await supabase.auth.getUser(token);
-          if (user) {
-            await supabase.from("scan_history").insert({
-              user_id: user.id,
-              result: { totalPairs: done, bullish, bearish, neutral, avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s, r) => s + (r.score as number), 0) / scoreRows.length * 10) / 10 : 0, duration: Math.round((Date.now() - startMs) / 1000) },
-              scanned_at: new Date().toISOString(),
-            });
-          }
+        const url = `https://finnhub.io/api/v1/forex/rates?base=${base}&token=${FINNHUB_KEY}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.quote) return;
+        for (const [quote, rate] of Object.entries(data.quote as Record<string, number>)) {
+          livePrices[base + quote] = rate;
         }
-      } catch (e) { console.warn("Failed to store scan history:", e); }
+      } catch { /* skip */ }
+    })
+  );
+  console.log("Live forex prices fetched:", Object.keys(livePrices).length);
 
-      send({
-        type: "complete",
-        total: done, bullish, bearish, neutral,
-        scored: scoreRows.length,
-        durationMs: Date.now() - startMs,
-        avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s, r) => s + (r.score as number), 0) / scoreRows.length * 10) / 10 : 0,
-      });
+  // For commodities/futures
+  const nonForex = pairs.filter((p) => p.category !== "forex");
+  await Promise.allSettled(
+    nonForex.map(async (pair) => {
+      try {
+        const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(pair.finnhub_symbol)}&token=${FINNHUB_KEY}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.c && data.c > 0) livePrices[pair.symbol] = data.c;
+      } catch { /* skip */ }
+    })
+  );
+  console.log("Total live prices:", Object.keys(livePrices).length, "| Fetch time:", Date.now() - startTime, "ms");
 
-      controller.close();
-    },
+  // Step 3 — Load stored candles for THIS SPECIFIC TIMEFRAME
+  const { data: allCandles } = await supabase
+    .from("candles")
+    .select("pair_id, open, high, low, close, volume, ts")
+    .in("pair_id", pairs.map((p) => p.id))
+    .eq("timeframe", timeframe)  // ← CRITICAL: filter by timeframe
+    .order("ts", { ascending: false })
+    .limit(350 * pairs.length);
+
+  // Group candles by pair_id
+  const candlesByPair: Record<string, any[]> = {};
+  allCandles?.forEach((c) => {
+    if (!candlesByPair[c.pair_id]) candlesByPair[c.pair_id] = [];
+    candlesByPair[c.pair_id].push(c);
   });
 
-  return new Response(stream, {
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
+  // Sort each pair's candles ASC
+  Object.keys(candlesByPair).forEach((pid) => {
+    candlesByPair[pid].sort(
+      (a: any, b: any) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
+    );
+  });
+
+  const emaPeriods = EMA_PERIODS[timeframe];
+  const minRequired = MIN_CANDLES[timeframe] ?? 55;
+
+  // Step 4 — Score each pair using TF-specific candles + EMA periods
+  const scoreRows: any[] = [];
+  let bullish = 0, bearish = 0, neutral = 0;
+
+  for (const pair of pairs) {
+    const livePrice = livePrices[pair.symbol];
+    const storedCandles = (candlesByPair[pair.id] ?? []).map((c: any) => ({
+      open: Number(c.open), high: Number(c.high), low: Number(c.low),
+      close: Number(c.close), volume: Number(c.volume ?? 0),
+    }));
+
+    if (storedCandles.length < minRequired) continue;
+
+    // Append live price as synthetic latest candle
+    const lastCandle = storedCandles[storedCandles.length - 1];
+    const candles = livePrice
+      ? [
+          ...storedCandles,
+          {
+            open: lastCandle.close,
+            high: Math.max(livePrice, lastCandle.close),
+            low: Math.min(livePrice, lastCandle.close),
+            close: livePrice,
+            volume: 0,
+          },
+        ]
+      : storedCandles;
+
+    // Score uses TF-specific EMA periods → different result per TF
+    const result = calcScore(candles, emaPeriods);
+    if (!result) continue;
+
+    if (result.trend === "bullish") bullish++;
+    else if (result.trend === "bearish") bearish++;
+    else neutral++;
+
+    scoreRows.push({
+      pair_id: pair.id,
+      timeframe,
+      score: result.score,
+      trend: result.trend,
+      ema_score: result.emaScore,
+      rsi_score: result.rsiScore,
+      news_score: 7,
+      ema20: result.emaFast,
+      ema50: result.emaMid,
+      ema200: result.emaLong ?? null,
+      rsi: result.rsi,
+      adx: result.adx,
+      macd_hist: result.macdHist,
+      scanned_at: new Date().toISOString(),
+    });
+  }
+
+  console.log("Computed", scoreRows.length, "scores for TF:", timeframe);
+
+  // Step 5 — Bulk upsert scores
+  if (scoreRows.length > 0) {
+    const { error } = await supabase
+      .from("scores")
+      .upsert(scoreRows, { onConflict: "pair_id,timeframe" });
+    if (error) console.error("Score upsert error:", error.message);
+  }
+
+  const duration = Date.now() - startTime;
+  console.log("FAST SCAN COMPLETE |", scoreRows.length, "pairs scored |", duration, "ms");
+
+  // Store scan history
+  try {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user) {
+        await supabase.from("scan_history").insert({
+          user_id: user.id,
+          result: {
+            totalPairs: pairs.length, bullish, bearish, neutral,
+            avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s: number, r: any) => s + r.score, 0) / scoreRows.length * 10) / 10 : 0,
+            duration: Math.round(duration / 1000),
+          },
+          scanned_at: new Date().toISOString(),
+        });
+      }
+    }
+  } catch (e) { console.warn("Failed to store scan history:", e); }
+
+  return new Response(JSON.stringify({
+    success: true,
+    scored: scoreRows.length,
+    total: pairs.length,
+    timeframe,
+    bullish, bearish, neutral,
+    avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s: number, r: any) => s + r.score, 0) / scoreRows.length * 10) / 10 : 0,
+    durationMs: duration,
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
