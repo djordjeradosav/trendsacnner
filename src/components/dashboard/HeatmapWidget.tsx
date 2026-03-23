@@ -104,9 +104,76 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
         </div>
       </div>
 
+      {/* Category filter */}
+      <div className="flex items-center gap-1.5 mb-3">
+        {CATEGORY_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => setCategoryFilter(tab.value)}
+            className="px-2.5 py-1 text-[10px] font-mono rounded-full border transition-colors"
+            style={{
+              background: categoryFilter === tab.value ? "hsl(var(--primary) / 0.15)" : "transparent",
+              color: categoryFilter === tab.value ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
+              borderColor: categoryFilter === tab.value ? "hsl(var(--primary) / 0.4)" : "hsl(var(--border))",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto">
+        {/* Pinned indexes */}
+        {pinnedCells.length > 0 && (
+          <>
+            <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+              📌 Index Futures
+            </div>
+            <div className="grid grid-cols-4 gap-1 mb-3 pb-3 border-b border-border/30">
+              {pinnedCells.map((cell) => {
+                const spark = sparklines?.[cell.pairId];
+                const change = spark?.score_change ?? 0;
+                const showChange = Math.abs(change) > 1;
+                return (
+                  <button
+                    key={cell.pairId}
+                    onClick={() => navigate(`/pair/${cell.symbol}`)}
+                    className="group rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer flex flex-col items-center gap-0.5"
+                    style={{
+                      background: cell.score === null ? "hsl(var(--muted))" : scoreToColor(cell.score),
+                      border: `1px solid ${cell.score === null ? "hsl(var(--border))" : scoreToBorder(cell.score)}`,
+                      minHeight: "90px",
+                    }}
+                    title={`${cell.symbol}: Score ${cell.score} (${cell.trend})`}
+                  >
+                    <div className="flex items-center justify-between w-full gap-0.5">
+                      <span className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
+                        {cell.symbol.replace("USD", "")}
+                      </span>
+                      {showChange && (
+                        <span className="text-[7px] font-mono font-semibold leading-none px-0.5 rounded"
+                          style={{ color: change > 0 ? "#4ade80" : "#f87171" }}>
+                          {change > 0 ? "+" : ""}{change.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-sm font-mono font-bold text-white/90 leading-tight">
+                      {cell.score === null ? "—" : cell.score}
+                    </div>
+                    <div className="text-[7px] font-mono uppercase text-white/50 leading-tight">{cell.trend}</div>
+                    {spark && spark.scores.length >= 2 && (
+                      <ScoreSparkline scores={spark.scores} trend={cell.trend} width={56} height={16} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Other pairs */}
         <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-1">
-          {cells.map((cell) => {
+          {otherCells.map((cell) => {
             const spark = sparklines?.[cell.pairId];
             const change = spark?.score_change ?? 0;
             const showChange = Math.abs(change) > 1;
