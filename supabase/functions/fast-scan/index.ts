@@ -361,10 +361,12 @@ Deno.serve(async (req) => {
   const usedFallback = resolution !== rawResolution;
   // When using fallback resolution, fetch candles based on the fallback (1H) timing
   const effectiveTF = usedFallback ? "1h" : normalisedTimeframe;
+  // Store candles with the REQUESTED timeframe so UI queries match
+  const storedCandleTF = normalisedTimeframe;
   const candleLimit = getCandleLimit(effectiveTF);
   const to = Math.floor(Date.now() / 1000);
   const intervalSec = getIntervalSeconds(effectiveTF);
-  const bufferMultiplier = ["15min","30min"].includes(effectiveTF) ? 2.5 : 1.3;
+  const bufferMultiplier = normalisedTimeframe === "15min" ? 2.5 : 1.3;
   const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
   
   if (usedFallback) {
