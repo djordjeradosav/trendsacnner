@@ -309,21 +309,26 @@ Deno.serve(async (req) => {
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  const VALID_TFS = ["15min", "1h", "4h", "1day"];
   let timeframe = "1h";
   let pairIds: string[] | undefined;
 
   if (req.method === "GET") {
     const url = new URL(req.url);
-    timeframe = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
+    const raw = (url.searchParams.get("timeframe") || "1h").toLowerCase().trim();
+    timeframe = VALID_TFS.includes(raw) ? raw : "1h";
     const ids = url.searchParams.get("pairIds");
     if (ids) pairIds = ids.split(",");
   } else {
     try {
       const body = await req.json();
-      timeframe = (body.timeframe || "1h").toLowerCase().trim();
+      const raw = (body.timeframe || "1h").toLowerCase().trim();
+      timeframe = VALID_TFS.includes(raw) ? raw : "1h";
       pairIds = body.pairIds;
     } catch { /* use defaults */ }
   }
+
+  console.log(`[SCAN] STARTING for timeframe: ${timeframe}`);
 
   // Load pairs
   let query = supabase.from("pairs").select("id, symbol, category, base_currency").eq("is_active", true);
