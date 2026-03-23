@@ -182,7 +182,7 @@ export default function ScannerPage() {
 
   const handleCancelScan = () => { scan.cancelScan(); };
 
-  const tfLabel = timeframeOptions.find(o => o.value === selectedTimeframe)?.label || selectedTimeframe;
+  
 
   const layoutProps = {
     lastScan,
