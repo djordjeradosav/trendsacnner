@@ -278,13 +278,19 @@ function getStockSymbolForPair(symbol: string): string | null {
 
 async function fetchAlphaVantageCandles(etfSymbol: string, avKey: string): Promise<CandleData[] | null> {
   try {
-    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${etfSymbol}&outputsize=full&apikey=${avKey}`;
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${etfSymbol}&outputsize=compact&apikey=${avKey}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[SCAN] AV: HTTP ${res.status} for ${etfSymbol}`);
+      return null;
+    }
     const json = await res.json();
     const timeSeries = json["Time Series (Daily)"];
     if (!timeSeries) {
-      console.warn(`[SCAN] AV: no time series for ${etfSymbol}: ${JSON.stringify(Object.keys(json)).slice(0,100)}`);
+      // Log actual response keys and first value for debugging
+      const keys = Object.keys(json);
+      const firstVal = json[keys[0]];
+      console.warn(`[SCAN] AV: no time series for ${etfSymbol}. Keys=${JSON.stringify(keys)}. Info=${typeof firstVal === 'string' ? firstVal.slice(0,150) : JSON.stringify(firstVal).slice(0,150)}`);
       return null;
     }
     // Convert to array sorted by date ascending, take last 300
