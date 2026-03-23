@@ -14,20 +14,12 @@ import { toast } from "sonner";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-const ALL_PAIRS = [
-  { symbol: "EURUSD", category: "Forex Majors" },
-  { symbol: "GBPUSD", category: "Forex Majors" },
-  { symbol: "USDJPY", category: "Forex Majors" },
-  { symbol: "USDCHF", category: "Forex Majors" },
-  { symbol: "AUDUSD", category: "Forex Majors" },
-  { symbol: "USDCAD", category: "Forex Majors" },
-  { symbol: "NZDUSD", category: "Forex Majors" },
-  { symbol: "EURGBP", category: "Forex Minors" },
-  { symbol: "EURJPY", category: "Forex Minors" },
-  { symbol: "GBPJPY", category: "Forex Minors" },
-  { symbol: "XAUUSD", category: "Commodities" },
-  { symbol: "XAGUSD", category: "Commodities" },
-];
+const CATEGORY_LABELS: Record<string, string> = {
+  forex: "Forex",
+  commodity: "Commodities",
+  futures: "Futures",
+  crypto: "Crypto",
+};
 
 const RANGE_PRESETS = [
   { label: "5Y", years: 5 },
