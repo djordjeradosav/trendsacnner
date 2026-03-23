@@ -74,13 +74,20 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
     return { pinnedCells: pinned, otherCells: others };
   }, [allScores, pairs, categoryFilter]);
 
-  if (cells.length === 0) {
+  if (pinnedCells.length === 0 && otherCells.length === 0) {
     return (
       <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex items-center justify-center">
         <span className="text-xs text-muted-foreground font-mono">Run a scan to see the heatmap</span>
       </div>
     );
   }
+
+  const CATEGORY_TABS = [
+    { label: "All", value: "all" },
+    { label: "Forex", value: "forex" },
+    { label: "Futures", value: "futures" },
+    { label: "Commodities", value: "commodity" },
+  ];
 
   return (
     <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex flex-col">
