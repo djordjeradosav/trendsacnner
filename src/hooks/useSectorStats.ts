@@ -55,12 +55,16 @@ function getSector(pair: PairRow): string {
 export const SECTOR_NAMES = [
   "Forex Majors",
   "Forex Minors",
-  "Forex Exotics",
   "Metals",
   "Energy",
   "Grains",
   "Equity Futures",
 ] as const;
+
+const ALLOWED_SECTORS = new Set([
+  "Forex Majors", "Forex Minors",
+  "Metals", "Energy", "Grains", "Equity Futures",
+]);
 
 export type SectorName = string;
 
