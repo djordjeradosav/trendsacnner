@@ -311,23 +311,13 @@ Deno.serve(async (req) => {
   }
 
   const normalisedTimeframe = timeframe.toLowerCase().trim();
-  const rawResolution = RESOLUTION_MAP[normalisedTimeframe] || "60";
-  // Finnhub free tier: sub-hourly resolutions return 403 for forex.
-  // Fall back to 1H candles and score with the requested timeframe's indicator config.
-  const resolution = getEffectiveResolution(rawResolution);
-  const usedFallback = resolution !== rawResolution;
-  // When using fallback resolution, fetch candles based on the fallback (1H) timing
-  const effectiveTF = usedFallback ? "1h" : normalisedTimeframe;
-  const candleLimit = getCandleLimit(effectiveTF);
+  // Finnhub free tier: only "D" (daily) works for OANDA. Always fetch daily candles.
+  const resolution = "D";
+  const candleLimit = 365; // ~1 year of daily candles
   const to = Math.floor(Date.now() / 1000);
-  const intervalSec = getIntervalSeconds(effectiveTF);
-  const bufferMultiplier = (effectiveTF === "5min" || effectiveTF === "15min") ? 2.5 : 1.3;
-  const from = to - Math.floor(candleLimit * intervalSec * bufferMultiplier);
-  
-  if (usedFallback) {
-    console.log(`[SCAN] Finnhub free tier: resolution "${rawResolution}" not supported, falling back to "${resolution}" (1H candles) for scoring`);
-  }
-  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" candleLimit=${candleLimit} minCandles=${getMinimumCandles(normalisedTimeframe)} buffer=${bufferMultiplier} pairs=${pairs.length}`);
+  const intervalSec = 86400;
+  const from = to - Math.floor(candleLimit * intervalSec * 1.3);
+  console.log(`[SCAN] timeframe="${normalisedTimeframe}" resolution="${resolution}" (daily candles, scored with ${normalisedTimeframe} config) pairs=${pairs.length}`);
 
   // Finnhub free: 60 calls/min. Chunks of 8 with 8s delay — retries handle occasional 429s
   const CHUNK_SIZE = 8;
