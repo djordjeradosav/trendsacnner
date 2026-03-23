@@ -189,7 +189,7 @@ export function useSectorStats(timeframe: string = "1h") {
       summary,
     };
 
-    return { sectors: stats, sentiment, loading: false };
+    return { sectors: stats2, sentiment, loading: false };
   }, [pairsData, allScores]);
 
   return result;
