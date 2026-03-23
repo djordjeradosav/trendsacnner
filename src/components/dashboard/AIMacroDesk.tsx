@@ -101,14 +101,46 @@ export function AIMacroDesk({ timeframe }: { timeframe: string }) {
       });
   }, []);
 
-  // Pick top 8 most trending pairs (highest deviation from 50)
+  const [pairCategories, setPairCategories] = useState<Record<string, { category: string; base: string; quote: string }>>({});
+
+  useEffect(() => {
+    supabase
+      .from("pairs")
+      .select("id, symbol, category, base_currency, quote_currency")
+      .eq("is_active", true)
+      .then(({ data }) => {
+        if (data) {
+          const map: Record<string, { category: string; base: string; quote: string }> = {};
+          data.forEach((p) => { map[p.id] = { category: p.category, base: p.base_currency ?? "", quote: p.quote_currency ?? "" }; });
+          setPairCategories(map);
+        }
+      });
+  }, []);
+
+  const EXOTIC_CURRENCIES = new Set([
+    "SEK","NOK","DKK","SGD","HKD","ZAR","MXN","TRY",
+    "PLN","HUF","CZK","CNH","THB","ILS","TWD",
+  ]);
+
+  // Pick top 8 most trending pairs, excluding exotics
   const topPairs = useMemo(() => {
     if (!allScores?.length || !Object.keys(pairMap).length) return [];
     return [...allScores]
-      .filter((s) => s.score != null && pairMap[s.pair_id])
+      .filter((s) => {
+        if (s.score == null || !pairMap[s.pair_id]) return false;
+        const cat = pairCategories[s.pair_id];
+        if (!cat) return false;
+        // Exclude exotics
+        if (cat.category === "forex") {
+          const base = cat.base.toUpperCase();
+          const quote = cat.quote.toUpperCase();
+          if (EXOTIC_CURRENCIES.has(base) || EXOTIC_CURRENCIES.has(quote)) return false;
+        }
+        return true;
+      })
       .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50))
       .slice(0, 8);
-  }, [allScores, pairMap]);
+  }, [allScores, pairMap, pairCategories]);
 
   const hasScores = allScores && allScores.length > 0;
 

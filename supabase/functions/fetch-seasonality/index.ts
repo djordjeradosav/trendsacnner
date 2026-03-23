@@ -6,7 +6,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PAIRS = [
+const PAIRS: Array<{
+  symbol: string;
+  avFrom?: string;
+  avTo?: string;
+  avType?: string;
+  avSymbol?: string;
+}> = [
+  // Forex
   { symbol: "EURUSD", avFrom: "EUR", avTo: "USD" },
   { symbol: "GBPUSD", avFrom: "GBP", avTo: "USD" },
   { symbol: "USDJPY", avFrom: "USD", avTo: "JPY" },
@@ -17,8 +24,14 @@ const PAIRS = [
   { symbol: "EURGBP", avFrom: "EUR", avTo: "GBP" },
   { symbol: "EURJPY", avFrom: "EUR", avTo: "JPY" },
   { symbol: "GBPJPY", avFrom: "GBP", avTo: "JPY" },
+  // Metals (ETF proxies)
   { symbol: "XAUUSD", avType: "COMMODITY", avSymbol: "GLD" },
   { symbol: "XAGUSD", avType: "COMMODITY", avSymbol: "SLV" },
+  // US Index Futures (ETF proxies)
+  { symbol: "US30USD",   avType: "COMMODITY", avSymbol: "DIA" },
+  { symbol: "NAS100USD", avType: "COMMODITY", avSymbol: "QQQ" },
+  { symbol: "SPX500USD", avType: "COMMODITY", avSymbol: "SPY" },
+  { symbol: "US2000USD", avType: "COMMODITY", avSymbol: "IWM" },
 ];
 
 Deno.serve(async (req) => {

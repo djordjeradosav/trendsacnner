@@ -55,12 +55,16 @@ function getSector(pair: PairRow): string {
 export const SECTOR_NAMES = [
   "Forex Majors",
   "Forex Minors",
-  "Forex Exotics",
   "Metals",
   "Energy",
   "Grains",
   "Equity Futures",
 ] as const;
+
+const ALLOWED_SECTORS = new Set([
+  "Forex Majors", "Forex Minors",
+  "Metals", "Energy", "Grains", "Equity Futures",
+]);
 
 export type SectorName = string;
 
@@ -164,10 +168,12 @@ export function useSectorStats(timeframe: string = "1h") {
       })
       .filter(Boolean) as SectorStat[];
 
-    // Sort by avgScore descending
-    stats.sort((a, b) => b.avgScore - a.avgScore);
+    // Filter to allowed sectors only (no exotics)
+    const filteredStats = stats.filter((s) => ALLOWED_SECTORS.has(s.name));
+    filteredStats.sort((a, b) => b.avgScore - a.avgScore);
+    const stats2 = filteredStats;
 
-    const strongSectors = stats.filter((s) => s.trend === "bullish").map((s) => s.name);
+    const strongSectors = stats2.filter((s) => s.trend === "bullish").map((s) => s.name);
     let summary = `${totalBull} of ${total} pairs (${bullPct}%) are trending bullish.`;
     if (strongSectors.length > 0) summary += ` ${strongSectors.join(" and ")} show${strongSectors.length === 1 ? "s" : ""} the strongest directional bias.`;
 
@@ -183,7 +189,7 @@ export function useSectorStats(timeframe: string = "1h") {
       summary,
     };
 
-    return { sectors: stats, sentiment, loading: false };
+    return { sectors: stats2, sentiment, loading: false };
   }, [pairsData, allScores]);
 
   return result;

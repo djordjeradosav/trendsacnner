@@ -27,6 +27,10 @@ const ALL_PAIRS = [
   { symbol: "GBPJPY", category: "Forex Minors" },
   { symbol: "XAUUSD", category: "Commodities" },
   { symbol: "XAGUSD", category: "Commodities" },
+  { symbol: "US30USD", category: "Index Futures", displayName: "US30 (Dow Jones)" },
+  { symbol: "NAS100USD", category: "Index Futures", displayName: "NAS100 (Nasdaq 100)" },
+  { symbol: "SPX500USD", category: "Index Futures", displayName: "SPX500 (S&P 500)" },
+  { symbol: "US2000USD", category: "Index Futures", displayName: "Russell 2000" },
 ];
 
 const RANGE_PRESETS = [
@@ -330,7 +334,7 @@ export default function SeasonalityPage() {
               >
                 {Object.entries(pairGroups).map(([cat, pairs]) => (
                   <optgroup key={cat} label={cat}>
-                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{p.symbol}</option>)}
+                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{(p as any).displayName ?? p.symbol}</option>)}
                   </optgroup>
                 ))}
               </select>
