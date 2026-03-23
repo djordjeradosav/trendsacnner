@@ -218,7 +218,7 @@ const RESOLUTION_MAP: Record<string, string> = {
 };
 
 // Finnhub free tier only supports resolution "60" and above for forex candles.
-const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
+const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
 
 function getEffectiveResolution(resolution: string): string {
   if (SUPPORTED_RESOLUTIONS.has(resolution)) return resolution;
