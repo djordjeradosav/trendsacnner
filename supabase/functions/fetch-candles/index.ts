@@ -33,7 +33,7 @@ const SYMBOL_MAP: Record<string, string> = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "15min": "15", "30min": "30",
+  "15min": "15",
   "1h": "60", "4h": "240", "1day": "D",
 };
 
@@ -42,7 +42,7 @@ const SUPPORTED_RESOLUTIONS = new Set(["60", "240", "D", "W"]);
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "15min": 900, "30min": 1800,
+    "15min": 900,
     "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
