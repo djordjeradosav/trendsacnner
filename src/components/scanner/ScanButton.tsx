@@ -3,7 +3,7 @@ import { Zap, Check } from "lucide-react";
 import type { TFStatus } from "@/hooks/useFastScan";
 
 const TF_LABELS: Record<string, string> = {
-  "15min": "15M", "1h": "1H", "4h": "4H", "1day": "1D",
+  "5min": "5M", "15min": "15M", "1h": "1H", "4h": "4H", "1day": "1D",
 };
 
 interface ScanButtonProps {
@@ -118,7 +118,7 @@ export function ScanButton({
           className="relative inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary/15 text-primary text-xs font-semibold font-display transition-all"
         >
           <Check className="w-3.5 h-3.5" />
-          ✓ {completeTotal} pairs · 4 TFs · {formatDuration(completeDuration)}
+          ✓ {completeTotal} pairs · 5 TFs · {formatDuration(completeDuration)}
         </button>
         {tfStatusRow}
       </div>
@@ -167,7 +167,7 @@ export function ScanButton({
         <Zap className="w-3.5 h-3.5" />
         Scan All
         <span className="px-1.5 py-0.5 rounded bg-primary-foreground/15 text-[10px] font-bold">
-          4 TFs
+          5 TFs
         </span>
       </button>
       {lastScanAt && agoText && (

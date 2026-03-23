@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 
-const ALL_TIMEFRAMES = ["15min", "1h", "4h", "1day"] as const;
+const ALL_TIMEFRAMES = ["5min", "15min", "1h", "4h", "1day"] as const;
 
 export type TFStatus = "pending" | "scanning" | "complete" | "error";
 
