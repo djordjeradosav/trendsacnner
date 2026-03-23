@@ -319,6 +319,8 @@ Deno.serve(async (req) => {
     });
   }
 
+  const avKey = Deno.env.get("ALPHA_VANTAGE_KEY") || "";
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
