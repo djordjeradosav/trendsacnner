@@ -414,49 +414,40 @@ Deno.serve(async (req) => {
           let pairCandles: CandleData[] | null = null;
           const pairId = pair.id;
           const symbol = pair.symbol;
-          const minCandles = getMinimumCandles(normalisedTimeframe);
+          const minCandles = 20;
 
-          if (r.status === "fulfilled" && r.value && r.value.candles.length >= 20) {
+          if (r.status === "fulfilled" && r.value && r.value.candles.length >= minCandles) {
             pairCandles = r.value.candles;
-            if (r.value.candles.length < minCandles) {
-              console.warn(`[SCAN] ${symbol}: only ${r.value.candles.length} candles (min=${minCandles}), scoring with partial data`);
-            }
-            // Store candles
+            // Store daily candles
             for (const c of pairCandles) {
               candleRows.push({
                 pair_id: pairId,
-                timeframe: effectiveTF,
+                timeframe: "1day",
                 open: c.open, high: c.high, low: c.low, close: c.close,
                 volume: c.volume ?? 0,
                 ts: (c as any).ts || new Date().toISOString(),
               });
             }
           } else if (r.status === "fulfilled" && r.value) {
-            console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum 20 — skipping`);
+            console.warn(`[SCAN] ${symbol}: fetched ${r.value.candles.length} candles, below minimum ${minCandles} — skipping`);
           }
 
-          // Fallback: load cached candles from DB
+          // Fallback: load cached daily candles from DB
           if (!pairCandles) {
-            const fallbackTFs = [normalisedTimeframe, "1h"];
-            for (const dbTf of fallbackTFs) {
-              const { data: dbCandles } = await supabase
-                .from("candles")
-                .select("open, high, low, close, volume")
-                .eq("pair_id", pairId)
-                .eq("timeframe", dbTf)
-                .order("ts", { ascending: true })
-                .limit(candleLimit);
+            const { data: dbCandles } = await supabase
+              .from("candles")
+              .select("open, high, low, close, volume")
+              .eq("pair_id", pairId)
+              .eq("timeframe", "1day")
+              .order("ts", { ascending: true })
+              .limit(365);
 
-              if (dbCandles && dbCandles.length >= 20) {
-                pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
-                  open: Number(c.open), high: Number(c.high), low: Number(c.low),
-                  close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
-                }));
-                if (dbTf !== normalisedTimeframe) {
-                  console.log(`[SCAN] ${symbol}: using cached ${dbTf} candles as fallback`);
-                }
-                break;
-              }
+            if (dbCandles && dbCandles.length >= minCandles) {
+              pairCandles = dbCandles.map((c: { open: number; high: number; low: number; close: number; volume: number | null }) => ({
+                open: Number(c.open), high: Number(c.high), low: Number(c.low),
+                close: Number(c.close), volume: c.volume ? Number(c.volume) : 0,
+              }));
+              console.log(`[SCAN] ${symbol}: using ${dbCandles.length} cached daily candles`);
             }
           }
 
