@@ -24,7 +24,8 @@ const mainNav = [
 { label: "News", icon: Newspaper, path: "/news" },
 { label: "Calendar", icon: Calendar, path: "/calendar" },
 { label: "Macro Desk", icon: Globe, path: "/scanner" },
-];
+
+{ label: "Scan History", icon: History, path: "/scan-history" }];
 
 
 const macroNav = [
