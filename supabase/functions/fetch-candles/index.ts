@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
+  "5min": "5",
   "15min": "15",
   "1h": "60", "4h": "240", "1day": "D",
 };
