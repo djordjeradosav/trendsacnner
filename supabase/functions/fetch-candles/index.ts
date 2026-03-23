@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe: effectiveTF }),
+      JSON.stringify({ success: true, count: upserted, pair: pair_symbol, timeframe: storedTF }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
