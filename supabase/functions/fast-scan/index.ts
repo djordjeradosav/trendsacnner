@@ -528,7 +528,7 @@ Deno.serve(async (req) => {
             // For ETF/index symbols, also try "1day" candles; for forex try requested TF then 1h
             const etfSym = getStockSymbolForPair(symbol);
             const fallbackTFs = etfSym ? ["1day", normalisedTimeframe, "1h"] : [normalisedTimeframe, "1h"];
-            for (const dbTf of [normalisedTimeframe, "1h"]) {
+            for (const dbTf of fallbackTFs) {
               const { data: dbCandles } = await supabase
                 .from("candles")
                 .select("open, high, low, close, volume")
