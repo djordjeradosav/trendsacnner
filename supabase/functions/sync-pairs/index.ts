@@ -10,8 +10,6 @@ const corsHeaders = {
 
 const FOREX_CURRENCIES = new Set([
   "EUR","GBP","USD","JPY","CHF","AUD","CAD","NZD",
-  "SEK","NOK","DKK","SGD","HKD","ZAR","MXN","TRY",
-  "PLN","HUF","CZK","CNH","THB","ILS",
 ]);
 
 const COMMODITY_BASES = new Set([
