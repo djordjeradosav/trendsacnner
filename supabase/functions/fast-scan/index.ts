@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
   console.log(`[SCAN] STARTING for timeframe: ${timeframe}`);
 
   // Load pairs
-  let query = supabase.from("pairs").select("id, symbol, category, base_currency").eq("is_active", true);
+  let query = supabase.from("pairs").select("id, symbol, finnhub_symbol, category, base_currency").eq("is_active", true).not("finnhub_symbol", "is", null);
   if (pairIds && pairIds.length > 0) {
     query = query.in("id", pairIds);
   }
