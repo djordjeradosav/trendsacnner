@@ -380,8 +380,11 @@ Deno.serve(async (req) => {
             try {
               // Use /stock/candle for index futures (ETF proxy), /forex/candle for everything else
               const etfSymbol = getStockSymbolForPair(pair.symbol);
+              // Finnhub free tier: stock candles only support "D" resolution
+              const stockResolution = "D";
+              const stockFrom = to - Math.floor(365 * 86400 * 1.3);
               const url = etfSymbol
-                ? `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(etfSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`
+                ? `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(etfSymbol)}&resolution=${stockResolution}&from=${stockFrom}&to=${to}&token=${apiKey}`
                 : `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
               let res = await fetch(url, { signal: abortCtl.signal });
 
@@ -399,7 +402,7 @@ Deno.serve(async (req) => {
                 return null;
               }
               if (res.status === 403) {
-                console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}${etfSymbol ? ` (ETF: ${etfSymbol})` : ''}`);
+                console.warn(`[SCAN] ${pair.symbol}: forbidden (403)${etfSymbol ? ` (ETF: ${etfSymbol})` : ''}`);
                 return null;
               }
 
