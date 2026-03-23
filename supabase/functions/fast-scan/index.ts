@@ -407,20 +407,33 @@ Deno.serve(async (req) => {
             }
 
             const abortCtl = new AbortController();
-            const timeout = setTimeout(() => abortCtl.abort(), 8000);
+            const timeout = setTimeout(() => abortCtl.abort(), 15000);
             try {
-              // Use /stock/candle for index futures (ETF proxy), /forex/candle for everything else
               const etfSymbol = getStockSymbolForPair(pair.symbol);
-              // Finnhub free tier: stock candles only support "D" resolution
-              const stockResolution = "D";
-              const stockFrom = to - Math.floor(365 * 86400 * 1.3);
-              const url = etfSymbol
-                ? `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(etfSymbol)}&resolution=${stockResolution}&from=${stockFrom}&to=${to}&token=${apiKey}`
-                : `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
-              let res = await fetch(url, { signal: abortCtl.signal });
+
+              // For index futures, use Alpha Vantage daily candles via ETF proxy
               if (etfSymbol) {
-                console.log(`[SCAN] ${pair.symbol}: fetching ETF=${etfSymbol} res=${stockResolution} status=${res.status}`);
+                if (!avKey) {
+                  console.warn(`[SCAN] ${pair.symbol}: ALPHA_VANTAGE_KEY not set, skipping`);
+                  return null;
+                }
+                console.log(`[SCAN] ${pair.symbol}: fetching via Alpha Vantage ETF=${etfSymbol}`);
+                const avCandles = await fetchAlphaVantageCandles(etfSymbol, avKey);
+                if (!avCandles || avCandles.length < 20) {
+                  console.warn(`[SCAN] ${pair.symbol}: AV returned ${avCandles?.length ?? 0} candles`);
+                  return null;
+                }
+                console.log(`[SCAN] ${pair.symbol}: ${avCandles.length} daily candles from AV`);
+                return {
+                  pairId: pair.id,
+                  symbol: pair.symbol,
+                  candles: avCandles,
+                };
               }
+
+              // For forex/commodities, use Finnhub
+              const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+              let res = await fetch(url, { signal: abortCtl.signal });
 
               // Retry once on 429
               if (res.status === 429) {
@@ -436,8 +449,7 @@ Deno.serve(async (req) => {
                 return null;
               }
               if (res.status === 403) {
-                const body = await res.text();
-                console.warn(`[SCAN] ${pair.symbol}: forbidden (403)${etfSymbol ? ` (ETF: ${etfSymbol})` : ''} body=${body.slice(0,200)}`);
+                console.warn(`[SCAN] ${pair.symbol}: forbidden (403) for resolution=${resolution}`);
                 return null;
               }
               if (!res.ok) {
