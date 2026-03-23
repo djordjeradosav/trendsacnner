@@ -39,8 +39,9 @@ import {
   type Time,
 } from "lightweight-charts";
 
-const TIMEFRAMES = ["15min", "1h", "4h", "1day"];
+const TIMEFRAMES = ["5min", "15min", "1h", "4h", "1day"];
 const TF_LABELS: Record<string, string> = {
+  "5min": "5M",
   "15min": "15M",
   "1h": "1H",
   "4h": "4H",
