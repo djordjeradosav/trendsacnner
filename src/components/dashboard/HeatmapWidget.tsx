@@ -62,7 +62,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
       .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50));
   }, [allScores, pairs]);
 
-  const hasData = pinnedCells.length > 0 || otherCells.length > 0;
+  
 
   if (cells.length === 0) {
     return (
