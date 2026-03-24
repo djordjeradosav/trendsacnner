@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
         const rate = rates[quote];
         // Use yesterday's rate from Frankfurter for real daily change
         const prevRate = prevForexRates[base]?.[quote] ?? prevPriceMap[pair.id] ?? null;
-        result = calcForexScore(rate, prevRate, forexRates, base, quote);
+        result = calcForexScore(rate, prevRate, forexRates, base, quote, timeframe);
         if (result) rateScored++;
       }
     }
