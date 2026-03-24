@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
+import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -62,6 +64,7 @@ export default function PairDetail() {
   const [relatedScores, setRelatedScores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const { user } = useAuth();
 
   const score = scores[selectedTF] ?? null;
   const trendColor = getTrendColor(score?.trend);
@@ -232,7 +235,7 @@ export default function PairDetail() {
           </div>
         </div>
 
-        {/* Right: Bias / Technical / AI Confidence */}
+        {/* Right: Bias / Technical / AI Confidence — desktop */}
         <div className="hidden md:flex gap-3">
           <HeaderCard label="Bias"
             value={score?.trend === "bullish" ? "Bullish" : score?.trend === "bearish" ? "Bearish" : "Neutral"}
@@ -244,6 +247,25 @@ export default function PairDetail() {
             value={score ? `${score.score.toFixed(0)}%` : "—"}
             color={score ? (score.score > 65 ? "hsl(var(--bullish))" : score.score < 35 ? "hsl(var(--bearish))" : "hsl(var(--caution))") : "hsl(var(--muted-foreground))"} />
         </div>
+      </div>
+
+      {/* ═══ MOBILE HEADER CARDS ═══ */}
+      <div className="flex md:hidden gap-2 px-4 py-2 border-b border-border overflow-x-auto">
+        <MobileHeaderChip label="Bias"
+          value={score?.trend === "bullish" ? "Bull" : score?.trend === "bearish" ? "Bear" : "Neutral"}
+          color={trendColor} />
+        <MobileHeaderChip label="Tech"
+          value={(score?.ema20 ?? 0) > (score?.ema50 ?? 0) ? "Buy" : (score?.ema20 ?? 0) < (score?.ema50 ?? 0) ? "Sell" : "Hold"}
+          color="hsl(var(--foreground))" />
+        <MobileHeaderChip label="AI"
+          value={score ? `${score.score.toFixed(0)}%` : "—"}
+          color={score ? (score.score > 65 ? "hsl(var(--bullish))" : score.score < 35 ? "hsl(var(--bearish))" : "hsl(var(--caution))") : "hsl(var(--muted-foreground))"} />
+        <MobileHeaderChip label="RSI"
+          value={score?.rsi ? score.rsi.toFixed(0) : "—"}
+          color={score?.rsi ? (score.rsi > 60 ? "hsl(var(--bullish))" : score.rsi < 40 ? "hsl(var(--bearish))" : "hsl(var(--muted-foreground))") : "hsl(var(--muted-foreground))"} />
+        <MobileHeaderChip label="ADX"
+          value={score?.adx ? score.adx.toFixed(0) : "—"}
+          color={score?.adx ? (score.adx > 30 ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))") : "hsl(var(--muted-foreground))"} />
       </div>
 
       {/* ═══ TIMEFRAME TABS ═══ */}
@@ -337,6 +359,15 @@ export default function PairDetail() {
 
         {/* RIGHT COLUMN */}
         <div className="flex flex-col gap-3 overflow-y-auto">
+          {/* AI Analysis */}
+          {pair && (
+            <PairAnalysisCard
+              pairId={pair.id}
+              timeframe={selectedTF}
+              isAuthenticated={!!user}
+            />
+          )}
+
           {/* Market Mood + Policy row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <MarketMoodCard score={score} />
@@ -373,6 +404,15 @@ function HeaderCard({ label, value, color }: { label: string; value: string; col
     <div className="rounded-xl border border-border bg-card px-5 py-3 text-center min-w-[100px]">
       <div className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1.5">{label}</div>
       <div className="text-lg font-semibold" style={{ color }}>{value}</div>
+    </div>
+  );
+}
+
+function MobileHeaderChip({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 shrink-0">
+      <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-xs font-bold font-mono" style={{ color }}>{value}</span>
     </div>
   );
 }
