@@ -391,14 +391,15 @@ Deno.serve(async (req) => {
       if (result) quoteScored++;
     }
 
-    // LAYER 3: Exchange rate scoring for forex pairs
+    // LAYER 3: Exchange rate scoring for forex pairs (today vs yesterday)
     if (!result && pair.category === "forex") {
       const base = pair.symbol.slice(0, 3);
       const quote = pair.symbol.slice(3);
       const rates = forexRates[base];
       if (rates && rates[quote]) {
         const rate = rates[quote];
-        const prevRate = prevPriceMap[pair.id] ?? null;
+        // Use yesterday's rate from Frankfurter for real daily change
+        const prevRate = prevForexRates[base]?.[quote] ?? prevPriceMap[pair.id] ?? null;
         result = calcForexScore(rate, prevRate, forexRates, base, quote);
         if (result) rateScored++;
       }
