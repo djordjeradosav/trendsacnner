@@ -187,14 +187,47 @@ function calcQuoteScore(q: QuoteData) {
 
 // ─── Forex rate-based scoring (from exchange rate data) ─────────────────────
 
-function calcForexScore(rate: number, prevRate: number | null) {
+function calcForexScore(rate: number, prevRate: number | null, allRates: Record<string, number> | null, base: string, quote: string) {
   if (!rate || rate <= 0) return null;
   const prev = prevRate ?? rate;
   const changePct = ((rate - prev) / prev) * 100;
-  const clampedChange = Math.max(-1.5, Math.min(1.5, changePct));
-  const score = Math.round(50 + clampedChange * 20);
-  const finalScore = Math.max(10, Math.min(90, score));
-  const pseudoRsi = Math.max(20, Math.min(80, 50 + changePct * 15));
+
+  // Forex moves are tiny (0.05-0.5%) so we need 80x sensitivity vs stocks
+  const clampedChange = Math.max(-0.8, Math.min(0.8, changePct));
+  const dirScore = Math.round(50 + clampedChange * 50);  // ±0.8% → ±40 points
+
+  // Cross-rate momentum: compare base vs quote strength using multiple crosses
+  let crossMomentum = 0;
+  if (allRates) {
+    const majors = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"];
+    let baseStrength = 0, quoteStrength = 0, count = 0;
+    for (const m of majors) {
+      if (m === base || m === quote) continue;
+      const baseVsM = allRates[base]?.[m];
+      const quoteVsM = allRates[quote]?.[m];
+      // We need to infer from available rates
+      const usdToBase = allRates["USD"]?.[base];
+      const usdToQuote = allRates["USD"]?.[quote];
+      const usdToM = allRates["USD"]?.[m];
+      if (usdToBase && usdToM) {
+        // base/M rate = usdToM / usdToBase
+        baseStrength += (usdToM / usdToBase) > 0 ? 1 : 0;
+      }
+      if (usdToQuote && usdToM) {
+        quoteStrength += (usdToM / usdToQuote) > 0 ? 1 : 0;
+      }
+      count++;
+    }
+    // Net strength differential adds noise/diversity
+    if (count > 0) {
+      crossMomentum = ((baseStrength - quoteStrength) / count) * 8;
+    }
+  }
+
+  const rawScore = dirScore + crossMomentum;
+  const finalScore = Math.round(Math.max(8, Math.min(92, rawScore)));
+  const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * 40));
+  const pseudoAdx = Math.min(55, Math.max(8, Math.abs(changePct) * 60));
 
   return {
     score: finalScore,
@@ -205,7 +238,7 @@ function calcForexScore(rate: number, prevRate: number | null) {
     emaMid: prev,
     emaLong: null,
     rsi: parseFloat(pseudoRsi.toFixed(2)),
-    adx: parseFloat(Math.abs(changePct * 20).toFixed(2)),
+    adx: parseFloat(pseudoAdx.toFixed(2)),
     macdHist: parseFloat((rate - prev).toFixed(6)),
   };
 }
@@ -250,22 +283,37 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Step 2A — Fetch forex exchange rates from free API
+  // Step 2A — Fetch forex rates: today + yesterday from Frankfurter API (free, no key)
   const forexRates: Record<string, Record<string, number>> = {};
+  const prevForexRates: Record<string, Record<string, number>> = {};
   const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
-  await Promise.allSettled(
-    bases.map(async (base) => {
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  await Promise.allSettled([
+    // Today's rates from Frankfurter
+    ...bases.map(async (base) => {
       try {
-        const res = await fetch(`https://open.er-api.com/v6/latest/${base}`, {
+        const res = await fetch(`https://api.frankfurter.app/latest?from=${base}`, {
           signal: AbortSignal.timeout(5000),
         });
         if (!res.ok) return;
         const data = await res.json();
         if (data.rates) forexRates[base] = data.rates;
       } catch { /* skip */ }
-    })
-  );
-  console.log("Forex rate bases fetched:", Object.keys(forexRates).length);
+    }),
+    // Yesterday's rates from Frankfurter
+    ...bases.map(async (base) => {
+      try {
+        const res = await fetch(`https://api.frankfurter.app/${yesterday}?from=${base}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.rates) prevForexRates[base] = data.rates;
+      } catch { /* skip */ }
+    }),
+  ]);
+  console.log("Forex rate bases fetched:", Object.keys(forexRates).length, "| prev:", Object.keys(prevForexRates).length);
 
   // Step 2B — Fetch ETF/stock quotes from Finnhub for commodities + indexes
   const etfQuotes: Record<string, QuoteData> = {};
@@ -343,15 +391,16 @@ Deno.serve(async (req) => {
       if (result) quoteScored++;
     }
 
-    // LAYER 3: Exchange rate scoring for forex pairs
+    // LAYER 3: Exchange rate scoring for forex pairs (today vs yesterday)
     if (!result && pair.category === "forex") {
       const base = pair.symbol.slice(0, 3);
       const quote = pair.symbol.slice(3);
       const rates = forexRates[base];
       if (rates && rates[quote]) {
         const rate = rates[quote];
-        const prevRate = prevPriceMap[pair.id] ?? null;
-        result = calcForexScore(rate, prevRate);
+        // Use yesterday's rate from Frankfurter for real daily change
+        const prevRate = prevForexRates[base]?.[quote] ?? prevPriceMap[pair.id] ?? null;
+        result = calcForexScore(rate, prevRate, forexRates, base, quote);
         if (result) rateScored++;
       }
     }
