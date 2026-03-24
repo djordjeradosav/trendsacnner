@@ -408,6 +408,15 @@ function HeaderCard({ label, value, color }: { label: string; value: string; col
   );
 }
 
+function MobileHeaderChip({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 shrink-0">
+      <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</span>
+      <span className="text-xs font-bold font-mono" style={{ color }}>{value}</span>
+    </div>
+  );
+}
+
 function MarketMoodCard({ score }: { score: DbScore | null }) {
   const s = score?.score ?? 50;
   const mood = s >= 75 ? { label: "RISK-ON", color: "hsl(var(--bullish))", desc: "Strong bullish momentum — traders positioned long aggressively." }
