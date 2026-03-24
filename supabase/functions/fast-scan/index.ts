@@ -428,7 +428,7 @@ Deno.serve(async (req) => {
 
     // LAYER 2: ETF quote scoring for commodities + indexes
     if (!result && etfQuotes[pair.symbol]) {
-      result = calcQuoteScore(etfQuotes[pair.symbol]);
+      result = calcQuoteScore(etfQuotes[pair.symbol], pair.symbol, timeframe);
       if (result) quoteScored++;
     }
 
