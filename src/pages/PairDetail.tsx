@@ -235,7 +235,7 @@ export default function PairDetail() {
           </div>
         </div>
 
-        {/* Right: Bias / Technical / AI Confidence */}
+        {/* Right: Bias / Technical / AI Confidence — desktop */}
         <div className="hidden md:flex gap-3">
           <HeaderCard label="Bias"
             value={score?.trend === "bullish" ? "Bullish" : score?.trend === "bearish" ? "Bearish" : "Neutral"}
@@ -247,6 +247,25 @@ export default function PairDetail() {
             value={score ? `${score.score.toFixed(0)}%` : "—"}
             color={score ? (score.score > 65 ? "hsl(var(--bullish))" : score.score < 35 ? "hsl(var(--bearish))" : "hsl(var(--caution))") : "hsl(var(--muted-foreground))"} />
         </div>
+      </div>
+
+      {/* ═══ MOBILE HEADER CARDS ═══ */}
+      <div className="flex md:hidden gap-2 px-4 py-2 border-b border-border overflow-x-auto">
+        <MobileHeaderChip label="Bias"
+          value={score?.trend === "bullish" ? "Bull" : score?.trend === "bearish" ? "Bear" : "Neutral"}
+          color={trendColor} />
+        <MobileHeaderChip label="Tech"
+          value={(score?.ema20 ?? 0) > (score?.ema50 ?? 0) ? "Buy" : (score?.ema20 ?? 0) < (score?.ema50 ?? 0) ? "Sell" : "Hold"}
+          color="hsl(var(--foreground))" />
+        <MobileHeaderChip label="AI"
+          value={score ? `${score.score.toFixed(0)}%` : "—"}
+          color={score ? (score.score > 65 ? "hsl(var(--bullish))" : score.score < 35 ? "hsl(var(--bearish))" : "hsl(var(--caution))") : "hsl(var(--muted-foreground))"} />
+        <MobileHeaderChip label="RSI"
+          value={score?.rsi ? score.rsi.toFixed(0) : "—"}
+          color={score?.rsi ? (score.rsi > 60 ? "hsl(var(--bullish))" : score.rsi < 40 ? "hsl(var(--bearish))" : "hsl(var(--muted-foreground))") : "hsl(var(--muted-foreground))"} />
+        <MobileHeaderChip label="ADX"
+          value={score?.adx ? score.adx.toFixed(0) : "—"}
+          color={score?.adx ? (score.adx > 30 ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))") : "hsl(var(--muted-foreground))"} />
       </div>
 
       {/* ═══ TIMEFRAME TABS ═══ */}
