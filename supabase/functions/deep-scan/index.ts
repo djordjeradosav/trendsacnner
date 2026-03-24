@@ -317,7 +317,7 @@ Deno.serve(async (req) => {
     console.log(`[${tf}] complete`);
   }
 
-  const duration = Math.round((Date.now() - Date.now()) / 1000);
+  const duration = Math.round((Date.now() - startTime) / 1000);
   console.log(`[DEEP-SCAN] DONE | ${successCount} pairs, ${totalCandles} candles`);
 
   return new Response(JSON.stringify({
