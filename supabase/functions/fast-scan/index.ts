@@ -133,6 +133,67 @@ function calcScore(
   };
 }
 
+// ─── Quote-based scoring (no candles needed) ────────────────────────────────
+// Uses Finnhub /quote OHLC data to compute a simplified score
+
+interface QuoteData {
+  c: number;   // current price
+  h: number;   // high of the day
+  l: number;   // low of the day
+  o: number;   // open of the day
+  pc: number;  // previous close
+  d: number;   // change
+  dp: number;  // change percent
+}
+
+function calcQuoteScore(q: QuoteData) {
+  if (!q || !q.c || q.c <= 0) return null;
+
+  const price = q.c;
+  const open = q.o || price;
+  const high = q.h || price;
+  const low = q.l || price;
+  const prevClose = q.pc || open;
+  const changePct = q.dp ?? ((price - prevClose) / prevClose * 100);
+
+  // 1. Price position within day's range (0-1)
+  const range = high - low;
+  const position = range > 0 ? (price - low) / range : 0.5;
+
+  // 2. Direction score from change% (maps -3%..+3% to 0..55)
+  const clampedChange = Math.max(-3, Math.min(3, changePct));
+  const dirScore = Math.round(((clampedChange + 3) / 6) * 55);
+
+  // 3. Momentum: price vs open (intraday direction)
+  const intradayPct = ((price - open) / open) * 100;
+  const clampedIntraday = Math.max(-2, Math.min(2, intradayPct));
+  const momentumScore = Math.round(((clampedIntraday + 2) / 4) * 30);
+
+  // 4. Combine: 50% direction + 30% momentum + 20% range position
+  const rawScore = dirScore * 0.5 + momentumScore * 0.3 + position * 20;
+  const score = Math.round(Math.max(5, Math.min(95, rawScore)));
+
+  // Estimate pseudo-RSI from change% (very rough)
+  const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * 8));
+
+  // Estimate ADX from range/price ratio (volatility proxy)
+  const rangeRatio = range / price * 100;
+  const pseudoAdx = Math.min(60, Math.max(10, rangeRatio * 50));
+
+  return {
+    score,
+    trend: score >= 62 ? "bullish" as const : score <= 38 ? "bearish" as const : "neutral" as const,
+    emaScore: Math.round(score * 0.55),
+    rsiScore: Math.round(score * 0.3),
+    emaFast: price,
+    emaMid: open,
+    emaLong: prevClose,
+    rsi: parseFloat(pseudoRsi.toFixed(2)),
+    adx: parseFloat(pseudoAdx.toFixed(2)),
+    macdHist: parseFloat((price - prevClose).toFixed(6)),
+  };
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -173,11 +234,40 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Step 2 — Fetch ALL live forex prices in bulk
+  // Step 2 — Fetch quote data for ALL pairs via /quote endpoint
+  // This gives us c, o, h, l, pc, d, dp for every pair
+  const quoteData: Record<string, QuoteData> = {};
   const livePrices: Record<string, number> = {};
-  const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
 
-  const rateResults = await Promise.allSettled(
+  // Fetch quotes for ALL pairs in parallel (batches of 10)
+  const QUOTE_BATCH = 10;
+  for (let i = 0; i < pairs.length; i += QUOTE_BATCH) {
+    const batch = pairs.slice(i, i + QUOTE_BATCH);
+    await Promise.allSettled(
+      batch.map(async (pair) => {
+        if (!pair.finnhub_symbol) return;
+        try {
+          const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(pair.finnhub_symbol)}&token=${FINNHUB_KEY}`;
+          const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          if (!res.ok) {
+            const txt = await res.text();
+            console.warn(`Quote ${pair.symbol}: HTTP ${res.status} ${txt.slice(0, 50)}`);
+            return;
+          }
+          const data = await res.json();
+          if (data.c && data.c > 0) {
+            quoteData[pair.symbol] = data as QuoteData;
+            livePrices[pair.symbol] = data.c;
+          }
+        } catch { /* skip */ }
+      })
+    );
+  }
+  console.log("Quotes fetched:", Object.keys(quoteData).length, "| Time:", Date.now() - startTime, "ms");
+
+  // Also get forex rates for cross-pair coverage
+  const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
+  await Promise.allSettled(
     bases.map(async (base) => {
       try {
         const url = `https://finnhub.io/api/v1/forex/rates?base=${base}&token=${FINNHUB_KEY}`;
@@ -186,34 +276,19 @@ Deno.serve(async (req) => {
         const data = await res.json();
         if (!data.quote) return;
         for (const [quote, rate] of Object.entries(data.quote as Record<string, number>)) {
-          livePrices[base + quote] = rate;
+          if (!livePrices[base + quote]) livePrices[base + quote] = rate;
         }
       } catch { /* skip */ }
     })
   );
-  console.log("Live forex prices fetched:", Object.keys(livePrices).length);
-
-  // For commodities/futures
-  const nonForex = pairs.filter((p) => p.category !== "forex");
-  await Promise.allSettled(
-    nonForex.map(async (pair) => {
-      try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(pair.finnhub_symbol)}&token=${FINNHUB_KEY}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.c && data.c > 0) livePrices[pair.symbol] = data.c;
-      } catch { /* skip */ }
-    })
-  );
-  console.log("Total live prices:", Object.keys(livePrices).length, "| Fetch time:", Date.now() - startTime, "ms");
+  console.log("Total live prices:", Object.keys(livePrices).length);
 
   // Step 3 — Load stored candles for THIS SPECIFIC TIMEFRAME
   const { data: allCandles } = await supabase
     .from("candles")
     .select("pair_id, open, high, low, close, volume, ts")
     .in("pair_id", pairs.map((p) => p.id))
-    .eq("timeframe", timeframe)  // ← CRITICAL: filter by timeframe
+    .eq("timeframe", timeframe)
     .order("ts", { ascending: false })
     .limit(350 * pairs.length);
 
@@ -234,9 +309,10 @@ Deno.serve(async (req) => {
   const emaPeriods = EMA_PERIODS[timeframe];
   const minRequired = MIN_CANDLES[timeframe] ?? 55;
 
-  // Step 4 — Score each pair using TF-specific candles + EMA periods
+  // Step 4 — Score each pair
   const scoreRows: any[] = [];
   let bullish = 0, bearish = 0, neutral = 0;
+  let candleScored = 0, quoteScored = 0;
 
   for (const pair of pairs) {
     const livePrice = livePrices[pair.symbol];
@@ -245,25 +321,33 @@ Deno.serve(async (req) => {
       close: Number(c.close), volume: Number(c.volume ?? 0),
     }));
 
-    if (storedCandles.length < minRequired) continue;
+    let result: any = null;
 
-    // Append live price as synthetic latest candle
-    const lastCandle = storedCandles[storedCandles.length - 1];
-    const candles = livePrice
-      ? [
-          ...storedCandles,
-          {
-            open: lastCandle.close,
-            high: Math.max(livePrice, lastCandle.close),
-            low: Math.min(livePrice, lastCandle.close),
-            close: livePrice,
-            volume: 0,
-          },
-        ]
-      : storedCandles;
+    // LAYER 1: Full indicator scoring if we have enough candles
+    if (storedCandles.length >= minRequired) {
+      const lastCandle = storedCandles[storedCandles.length - 1];
+      const candles = livePrice
+        ? [
+            ...storedCandles,
+            {
+              open: lastCandle.close,
+              high: Math.max(livePrice, lastCandle.close),
+              low: Math.min(livePrice, lastCandle.close),
+              close: livePrice,
+              volume: 0,
+            },
+          ]
+        : storedCandles;
+      result = calcScore(candles, emaPeriods);
+      if (result) candleScored++;
+    }
 
-    // Score uses TF-specific EMA periods → different result per TF
-    const result = calcScore(candles, emaPeriods);
+    // LAYER 2: Quote-based scoring as fallback (no candles needed)
+    if (!result && quoteData[pair.symbol]) {
+      result = calcQuoteScore(quoteData[pair.symbol]);
+      if (result) quoteScored++;
+    }
+
     if (!result) continue;
 
     if (result.trend === "bullish") bullish++;
@@ -288,7 +372,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  console.log("Computed", scoreRows.length, "scores for TF:", timeframe);
+  console.log("Scored:", scoreRows.length, "| Candle-based:", candleScored, "| Quote-based:", quoteScored);
 
   // Step 5 — Bulk upsert scores
   if (scoreRows.length > 0) {
@@ -312,6 +396,7 @@ Deno.serve(async (req) => {
           user_id: user.id,
           result: {
             totalPairs: pairs.length, bullish, bearish, neutral,
+            candleScored, quoteScored,
             avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s: number, r: any) => s + r.score, 0) / scoreRows.length * 10) / 10 : 0,
             duration: Math.round(duration / 1000),
           },
@@ -326,6 +411,7 @@ Deno.serve(async (req) => {
     scored: scoreRows.length,
     total: pairs.length,
     timeframe,
+    candleScored, quoteScored,
     bullish, bearish, neutral,
     avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s: number, r: any) => s + r.score, 0) / scoreRows.length * 10) / 10 : 0,
     durationMs: duration,
