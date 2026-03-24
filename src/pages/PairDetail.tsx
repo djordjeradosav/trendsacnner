@@ -359,6 +359,15 @@ export default function PairDetail() {
 
         {/* RIGHT COLUMN */}
         <div className="flex flex-col gap-3 overflow-y-auto">
+          {/* AI Analysis */}
+          {pair && (
+            <PairAnalysisCard
+              pairId={pair.id}
+              timeframe={selectedTF}
+              isAuthenticated={!!user}
+            />
+          )}
+
           {/* Market Mood + Policy row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <MarketMoodCard score={score} />
