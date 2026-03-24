@@ -384,7 +384,7 @@ Deno.serve(async (req) => {
       if (rates && rates[quote]) {
         const rate = rates[quote];
         const prevRate = prevPriceMap[pair.id] ?? null;
-        result = calcForexScore(rate, prevRate);
+        result = calcForexScore(rate, prevRate, forexRates, base, quote);
         if (result) rateScored++;
       }
     }
