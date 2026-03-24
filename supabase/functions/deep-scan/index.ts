@@ -198,12 +198,37 @@ Deno.serve(async (req) => {
 
       const results = await Promise.allSettled(
         chunk.map(async (pair) => {
-          const etfSym = INDEX_ETF_MAP[pair.symbol];
+          // Try Finnhub first for ALL pairs (forex, commodities, AND futures)
+          if (pair.finnhub_symbol) {
+            try {
+              const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(pair.finnhub_symbol)}&resolution=${resolution}&from=${from}&to=${now}&token=${apiKey}`;
+              let res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+              if (res.status === 429) {
+                await sleep(3000);
+                res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+              }
+              if (res.ok) {
+                const data = await res.json();
+                if (data.s === "ok" && data.c?.length) {
+                  const candles = data.c.map((close: number, i: number) => ({
+                    pair_id: pair.id, timeframe: tf,
+                    open: data.o[i], high: data.h[i], low: data.l[i], close,
+                    volume: data.v?.[i] ?? 0,
+                    ts: new Date(data.t[i] * 1000).toISOString(),
+                  }));
+                  return { symbol: pair.symbol, candles };
+                }
+              } else {
+                console.warn(`[${tf}] ${pair.symbol}: Finnhub HTTP ${res.status}`);
+              }
+            } catch (e) {
+              console.warn(`[${tf}] ${pair.symbol}: Finnhub error`, e);
+            }
+          }
 
-          // Index futures via Alpha Vantage (daily only)
-          if (etfSym) {
-            if (!avKey) return null;
-            if (tf !== "1day") return null; // AV only has daily data
+          // Fallback: Alpha Vantage for index futures (daily only)
+          const etfSym = INDEX_ETF_MAP[pair.symbol];
+          if (etfSym && tf === "1day" && avKey) {
             try {
               const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${etfSym}&outputsize=compact&apikey=${avKey}`;
               const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
@@ -224,28 +249,7 @@ Deno.serve(async (req) => {
             } catch { return null; }
           }
 
-          // Forex/commodities via Finnhub
-          try {
-            const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(pair.finnhub_symbol)}&resolution=${resolution}&from=${from}&to=${now}&token=${apiKey}`;
-            let res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-            if (res.status === 429) {
-              await sleep(3000);
-              res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-            }
-            if (!res.ok) { console.warn(`[${tf}] ${pair.symbol}: HTTP ${res.status}`); return null; }
-            const data = await res.json();
-            if (data.s !== "ok" || !data.c?.length) return null;
-            const candles = data.c.map((close: number, i: number) => ({
-              pair_id: pair.id, timeframe: tf,
-              open: data.o[i], high: data.h[i], low: data.l[i], close,
-              volume: data.v?.[i] ?? 0,
-              ts: new Date(data.t[i] * 1000).toISOString(),
-            }));
-            return { symbol: pair.symbol, candles };
-          } catch (e) {
-            console.warn(`[${tf}] ${pair.symbol}: error`, e);
-            return null;
-          }
+          return null;
         })
       );
 
