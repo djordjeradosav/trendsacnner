@@ -64,6 +64,7 @@ export default function PairDetail() {
   const [relatedScores, setRelatedScores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const { user } = useAuth();
 
   const score = scores[selectedTF] ?? null;
   const trendColor = getTrendColor(score?.trend);
