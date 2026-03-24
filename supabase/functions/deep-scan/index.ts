@@ -157,6 +157,7 @@ Deno.serve(async (req) => {
     }
   } catch { /* scan all */ }
 
+  const startTime = Date.now();
   console.log("[DEEP-SCAN] START | TFs:", tfsToScan);
 
   const { data: pairs, error } = await supabase
