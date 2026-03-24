@@ -283,22 +283,37 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Step 2A — Fetch forex exchange rates from free API
+  // Step 2A — Fetch forex rates: today + yesterday from Frankfurter API (free, no key)
   const forexRates: Record<string, Record<string, number>> = {};
+  const prevForexRates: Record<string, Record<string, number>> = {};
   const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
-  await Promise.allSettled(
-    bases.map(async (base) => {
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  await Promise.allSettled([
+    // Today's rates from Frankfurter
+    ...bases.map(async (base) => {
       try {
-        const res = await fetch(`https://open.er-api.com/v6/latest/${base}`, {
+        const res = await fetch(`https://api.frankfurter.app/latest?from=${base}`, {
           signal: AbortSignal.timeout(5000),
         });
         if (!res.ok) return;
         const data = await res.json();
         if (data.rates) forexRates[base] = data.rates;
       } catch { /* skip */ }
-    })
-  );
-  console.log("Forex rate bases fetched:", Object.keys(forexRates).length);
+    }),
+    // Yesterday's rates from Frankfurter
+    ...bases.map(async (base) => {
+      try {
+        const res = await fetch(`https://api.frankfurter.app/${yesterday}?from=${base}`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.rates) prevForexRates[base] = data.rates;
+      } catch { /* skip */ }
+    }),
+  ]);
+  console.log("Forex rate bases fetched:", Object.keys(forexRates).length, "| prev:", Object.keys(prevForexRates).length);
 
   // Step 2B — Fetch ETF/stock quotes from Finnhub for commodities + indexes
   const etfQuotes: Record<string, QuoteData> = {};
