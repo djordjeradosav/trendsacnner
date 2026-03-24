@@ -273,33 +273,67 @@ Deno.serve(async (req) => {
 
       for (const r of results) {
         if (r.status !== "fulfilled" || !r.value) { errorCount++; continue; }
-        const { symbol, candles } = r.value;
+        const { symbol, candles, quoteData } = r.value as any;
         successCount++;
         totalCandles += candles.length;
         candleRows.push(...candles);
 
+        let score: any = null;
+
+        // Full indicator scoring from candles
         if (candles.length >= minCandles) {
-          const score = calcScore(candles, emaPeriods);
-          if (score) {
-            const pairObj = chunk.find((p) => p.symbol === symbol);
-            scoreRows.push({
-              pair_id: pairObj!.id,
-              timeframe: tf,
-              score: score.score,
-              trend: score.trend,
-              ema_score: score.emaScore,
-              rsi_score: score.rsiScore,
-              news_score: 7,
-              ema20: score.emaFast,
-              ema50: score.emaMid,
-              ema200: score.emaLong ?? null,
-              rsi: score.rsi,
-              adx: score.adx,
-              macd_hist: score.macdHist,
-              scanned_at: new Date().toISOString(),
-            });
-          }
+          score = calcScore(candles, emaPeriods);
         }
+
+        // Quote-based fallback scoring
+        if (!score && quoteData && quoteData.c > 0) {
+          const q = quoteData;
+          const price = q.c, open = q.o || price, high = q.h || price, low = q.l || price;
+          const prevClose = q.pc || open;
+          const changePct = q.dp ?? ((price - prevClose) / prevClose * 100);
+          const range = high - low;
+          const position = range > 0 ? (price - low) / range : 0.5;
+          const clampedChange = Math.max(-3, Math.min(3, changePct));
+          const dirScore = Math.round(((clampedChange + 3) / 6) * 55);
+          const intradayPct = ((price - open) / open) * 100;
+          const clampedIntraday = Math.max(-2, Math.min(2, intradayPct));
+          const momentumScore = Math.round(((clampedIntraday + 2) / 4) * 30);
+          const rawScore = dirScore * 0.5 + momentumScore * 0.3 + position * 20;
+          const finalScore = Math.round(Math.max(5, Math.min(95, rawScore)));
+          const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * 8));
+          const pseudoAdx = Math.min(60, Math.max(10, (range / price * 100) * 50));
+          score = {
+            score: finalScore,
+            trend: finalScore >= 62 ? "bullish" : finalScore <= 38 ? "bearish" : "neutral",
+            emaScore: Math.round(finalScore * 0.55),
+            rsiScore: Math.round(finalScore * 0.3),
+            emaFast: price, emaMid: open, emaLong: prevClose,
+            rsi: parseFloat(pseudoRsi.toFixed(2)),
+            adx: parseFloat(pseudoAdx.toFixed(2)),
+            macdHist: parseFloat((price - prevClose).toFixed(6)),
+          };
+        }
+
+        if (score) {
+          const pairObj = chunk.find((p) => p.symbol === symbol);
+          scoreRows.push({
+            pair_id: pairObj!.id,
+            timeframe: tf,
+            score: score.score,
+            trend: score.trend,
+            ema_score: score.emaScore,
+            rsi_score: score.rsiScore,
+            news_score: 7,
+            ema20: score.emaFast,
+            ema50: score.emaMid,
+            ema200: score.emaLong ?? null,
+            rsi: score.rsi,
+            adx: score.adx,
+            macd_hist: score.macdHist,
+            scanned_at: new Date().toISOString(),
+          });
+        }
+      }
       }
 
       // Bulk upsert candles
