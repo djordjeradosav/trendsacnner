@@ -250,6 +250,20 @@ Deno.serve(async (req) => {
             } catch { return null; }
           }
 
+          // Fallback 2: Use /quote for a single-point score (no candle storage)
+          if (pair.finnhub_symbol) {
+            try {
+              const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(pair.finnhub_symbol)}&token=${apiKey}`;
+              const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+              if (res.ok) {
+                const q = await res.json();
+                if (q.c && q.c > 0) {
+                  return { symbol: pair.symbol, candles: [], quoteData: q };
+                }
+              }
+            } catch { /* skip */ }
+          }
+
           return null;
         })
       );
