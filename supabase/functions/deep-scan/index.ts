@@ -334,7 +334,6 @@ Deno.serve(async (req) => {
           });
         }
       }
-      }
 
       // Bulk upsert candles
       if (candleRows.length > 0) {
