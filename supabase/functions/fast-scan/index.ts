@@ -6,8 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ─── TF-specific config ─────────────────────────────────────────────────────
-
 const VALID_TFS = ["5min", "15min", "1h", "4h", "1day"];
 
 const EMA_PERIODS: Record<string, { fast: number; mid: number; slow: number; long: number | null }> = {
@@ -20,6 +18,21 @@ const EMA_PERIODS: Record<string, { fast: number; mid: number; slow: number; lon
 
 const MIN_CANDLES: Record<string, number> = {
   "5min": 35, "15min": 55, "1h": 60, "4h": 60, "1day": 100,
+};
+
+// ─── ETF/stock symbol map for Finnhub free tier ─────────────────────────────
+// Finnhub free tier supports US stock/ETF quotes — map our pairs to ETFs
+const ETF_MAP: Record<string, string> = {
+  // Index futures → ETF proxies
+  "US30USD": "DIA", "NAS100USD": "QQQ", "SPX500USD": "SPY", "US2000USD": "IWM",
+  "UK100GBP": "EWU", "JP225USD": "EWJ", "EU50EUR": "FEZ",
+  "GER40EUR": "EWG", "FR40EUR": "EWQ", "AUS200AUD": "EWA",
+  "HK33HKD": "EWH", "CN50USD": "FXI",
+  // Commodities → ETF proxies
+  "XAUUSD": "GLD", "XAGUSD": "SLV", "XPTUSD": "PPLT", "XPDUSD": "PALL",
+  "WTICOUSD": "USO", "BCOUSD": "BNO", "NATGASUSD": "UNG",
+  "CORNUSD": "CORN", "WHEATUSD": "WEAT", "SOYBNUSD": "SOYB",
+  "SUGARUSD": "CANE",
 };
 
 // ─── Indicator Math ─────────────────────────────────────────────────────────
@@ -68,7 +81,6 @@ function calcScore(
     else emaScore = 6;
   }
 
-  // RSI
   if (n < 15) return null;
   let avgG = 0, avgL = 0;
   for (let i = 1; i <= 14; i++) {
@@ -92,7 +104,6 @@ function calcScore(
   else if (rsi >= 30) rsiScore = 3;
   else rsiScore = 5;
 
-  // ADX
   const tr: number[] = [], dmp: number[] = [], dmm: number[] = [];
   for (let i = 1; i < n; i++) {
     tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
@@ -113,7 +124,6 @@ function calcScore(
   let adxVal = dx.slice(0, 14).reduce((a, b) => a + b, 0) / 14;
   for (let i = 14; i < dx.length; i++) adxVal = (adxVal * 13 + dx[i]) / 14;
 
-  // MACD
   const e12 = ema(closes, 12), e26 = ema(closes, 26);
   const macdLine = e12.map((v, i) => v - e26[i]);
   const sigLine = ema(macdLine, 9);
@@ -133,17 +143,10 @@ function calcScore(
   };
 }
 
-// ─── Quote-based scoring (no candles needed) ────────────────────────────────
-// Uses Finnhub /quote OHLC data to compute a simplified score
+// ─── Quote-based scoring (from Finnhub /quote data) ─────────────────────────
 
 interface QuoteData {
-  c: number;   // current price
-  h: number;   // high of the day
-  l: number;   // low of the day
-  o: number;   // open of the day
-  pc: number;  // previous close
-  d: number;   // change
-  dp: number;  // change percent
+  c: number; h: number; l: number; o: number; pc: number; d: number; dp: number;
 }
 
 function calcQuoteScore(q: QuoteData) {
@@ -156,29 +159,17 @@ function calcQuoteScore(q: QuoteData) {
   const prevClose = q.pc || open;
   const changePct = q.dp ?? ((price - prevClose) / prevClose * 100);
 
-  // 1. Price position within day's range (0-1)
   const range = high - low;
   const position = range > 0 ? (price - low) / range : 0.5;
-
-  // 2. Direction score from change% (maps -3%..+3% to 0..55)
   const clampedChange = Math.max(-3, Math.min(3, changePct));
   const dirScore = Math.round(((clampedChange + 3) / 6) * 55);
-
-  // 3. Momentum: price vs open (intraday direction)
   const intradayPct = ((price - open) / open) * 100;
   const clampedIntraday = Math.max(-2, Math.min(2, intradayPct));
   const momentumScore = Math.round(((clampedIntraday + 2) / 4) * 30);
-
-  // 4. Combine: 50% direction + 30% momentum + 20% range position
   const rawScore = dirScore * 0.5 + momentumScore * 0.3 + position * 20;
   const score = Math.round(Math.max(5, Math.min(95, rawScore)));
-
-  // Estimate pseudo-RSI from change% (very rough)
   const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * 8));
-
-  // Estimate ADX from range/price ratio (volatility proxy)
-  const rangeRatio = range / price * 100;
-  const pseudoAdx = Math.min(60, Math.max(10, rangeRatio * 50));
+  const pseudoAdx = Math.min(60, Math.max(10, (range / price * 100) * 50));
 
   return {
     score,
@@ -191,6 +182,31 @@ function calcQuoteScore(q: QuoteData) {
     rsi: parseFloat(pseudoRsi.toFixed(2)),
     adx: parseFloat(pseudoAdx.toFixed(2)),
     macdHist: parseFloat((price - prevClose).toFixed(6)),
+  };
+}
+
+// ─── Forex rate-based scoring (from exchange rate data) ─────────────────────
+
+function calcForexScore(rate: number, prevRate: number | null) {
+  if (!rate || rate <= 0) return null;
+  const prev = prevRate ?? rate;
+  const changePct = ((rate - prev) / prev) * 100;
+  const clampedChange = Math.max(-1.5, Math.min(1.5, changePct));
+  const score = Math.round(50 + clampedChange * 20);
+  const finalScore = Math.max(10, Math.min(90, score));
+  const pseudoRsi = Math.max(20, Math.min(80, 50 + changePct * 15));
+
+  return {
+    score: finalScore,
+    trend: finalScore >= 62 ? "bullish" as const : finalScore <= 38 ? "bearish" as const : "neutral" as const,
+    emaScore: Math.round(finalScore * 0.55),
+    rsiScore: Math.round(finalScore * 0.3),
+    emaFast: rate,
+    emaMid: prev,
+    emaLong: null,
+    rsi: parseFloat(pseudoRsi.toFixed(2)),
+    adx: parseFloat(Math.abs(changePct * 20).toFixed(2)),
+    macdHist: parseFloat((rate - prev).toFixed(6)),
   };
 }
 
@@ -234,54 +250,53 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Step 2 — Fetch quote data for ALL pairs via /quote endpoint
-  // This gives us c, o, h, l, pc, d, dp for every pair
-  const quoteData: Record<string, QuoteData> = {};
-  const livePrices: Record<string, number> = {};
-
-  // Fetch quotes for ALL pairs in parallel (batches of 10)
-  const QUOTE_BATCH = 10;
-  for (let i = 0; i < pairs.length; i += QUOTE_BATCH) {
-    const batch = pairs.slice(i, i + QUOTE_BATCH);
-    await Promise.allSettled(
-      batch.map(async (pair) => {
-        if (!pair.finnhub_symbol) return;
-        try {
-          const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(pair.finnhub_symbol)}&token=${FINNHUB_KEY}`;
-          const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-          if (!res.ok) {
-            const txt = await res.text();
-            console.warn(`Quote ${pair.symbol}: HTTP ${res.status} ${txt.slice(0, 50)}`);
-            return;
-          }
-          const data = await res.json();
-          if (data.c && data.c > 0) {
-            quoteData[pair.symbol] = data as QuoteData;
-            livePrices[pair.symbol] = data.c;
-          }
-        } catch { /* skip */ }
-      })
-    );
-  }
-  console.log("Quotes fetched:", Object.keys(quoteData).length, "| Time:", Date.now() - startTime, "ms");
-
-  // Also get forex rates for cross-pair coverage
+  // Step 2A — Fetch forex exchange rates from free API
+  const forexRates: Record<string, Record<string, number>> = {};
   const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
   await Promise.allSettled(
     bases.map(async (base) => {
       try {
-        const url = `https://finnhub.io/api/v1/forex/rates?base=${base}&token=${FINNHUB_KEY}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const res = await fetch(`https://open.er-api.com/v6/latest/${base}`, {
+          signal: AbortSignal.timeout(5000),
+        });
         if (!res.ok) return;
         const data = await res.json();
-        if (!data.quote) return;
-        for (const [quote, rate] of Object.entries(data.quote as Record<string, number>)) {
-          if (!livePrices[base + quote]) livePrices[base + quote] = rate;
-        }
+        if (data.rates) forexRates[base] = data.rates;
       } catch { /* skip */ }
     })
   );
-  console.log("Total live prices:", Object.keys(livePrices).length);
+  console.log("Forex rate bases fetched:", Object.keys(forexRates).length);
+
+  // Step 2B — Fetch ETF/stock quotes from Finnhub for commodities + indexes
+  const etfQuotes: Record<string, QuoteData> = {};
+  const etfPairs = pairs.filter((p) => ETF_MAP[p.symbol]);
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < etfPairs.length; i += BATCH_SIZE) {
+    const batch = etfPairs.slice(i, i + BATCH_SIZE);
+    await Promise.allSettled(
+      batch.map(async (pair) => {
+        const etfSym = ETF_MAP[pair.symbol];
+        if (!etfSym) return;
+        try {
+          const url = `https://finnhub.io/api/v1/quote?symbol=${etfSym}&token=${FINNHUB_KEY}`;
+          const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.c && data.c > 0) etfQuotes[pair.symbol] = data;
+        } catch { /* skip */ }
+      })
+    );
+  }
+  console.log("ETF quotes fetched:", Object.keys(etfQuotes).length, "| Time:", Date.now() - startTime, "ms");
+
+  // Step 2C — Load previous scores for comparison (forex rate scoring)
+  const { data: prevScores } = await supabase
+    .from("scores")
+    .select("pair_id, ema20")
+    .in("pair_id", pairs.map((p) => p.id))
+    .eq("timeframe", timeframe);
+  const prevPriceMap: Record<string, number> = {};
+  prevScores?.forEach((s) => { if (s.ema20) prevPriceMap[s.pair_id] = Number(s.ema20); });
 
   // Step 3 — Load stored candles for THIS SPECIFIC TIMEFRAME
   const { data: allCandles } = await supabase
@@ -292,18 +307,13 @@ Deno.serve(async (req) => {
     .order("ts", { ascending: false })
     .limit(350 * pairs.length);
 
-  // Group candles by pair_id
   const candlesByPair: Record<string, any[]> = {};
   allCandles?.forEach((c) => {
     if (!candlesByPair[c.pair_id]) candlesByPair[c.pair_id] = [];
     candlesByPair[c.pair_id].push(c);
   });
-
-  // Sort each pair's candles ASC
   Object.keys(candlesByPair).forEach((pid) => {
-    candlesByPair[pid].sort(
-      (a: any, b: any) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
-    );
+    candlesByPair[pid].sort((a: any, b: any) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
   });
 
   const emaPeriods = EMA_PERIODS[timeframe];
@@ -312,40 +322,38 @@ Deno.serve(async (req) => {
   // Step 4 — Score each pair
   const scoreRows: any[] = [];
   let bullish = 0, bearish = 0, neutral = 0;
-  let candleScored = 0, quoteScored = 0;
+  let candleScored = 0, quoteScored = 0, rateScored = 0;
 
   for (const pair of pairs) {
-    const livePrice = livePrices[pair.symbol];
+    let result: any = null;
+
+    // LAYER 1: Full indicator scoring if we have enough candles
     const storedCandles = (candlesByPair[pair.id] ?? []).map((c: any) => ({
       open: Number(c.open), high: Number(c.high), low: Number(c.low),
       close: Number(c.close), volume: Number(c.volume ?? 0),
     }));
-
-    let result: any = null;
-
-    // LAYER 1: Full indicator scoring if we have enough candles
     if (storedCandles.length >= minRequired) {
-      const lastCandle = storedCandles[storedCandles.length - 1];
-      const candles = livePrice
-        ? [
-            ...storedCandles,
-            {
-              open: lastCandle.close,
-              high: Math.max(livePrice, lastCandle.close),
-              low: Math.min(livePrice, lastCandle.close),
-              close: livePrice,
-              volume: 0,
-            },
-          ]
-        : storedCandles;
-      result = calcScore(candles, emaPeriods);
+      result = calcScore(storedCandles, emaPeriods);
       if (result) candleScored++;
     }
 
-    // LAYER 2: Quote-based scoring as fallback (no candles needed)
-    if (!result && quoteData[pair.symbol]) {
-      result = calcQuoteScore(quoteData[pair.symbol]);
+    // LAYER 2: ETF quote scoring for commodities + indexes
+    if (!result && etfQuotes[pair.symbol]) {
+      result = calcQuoteScore(etfQuotes[pair.symbol]);
       if (result) quoteScored++;
+    }
+
+    // LAYER 3: Exchange rate scoring for forex pairs
+    if (!result && pair.category === "forex") {
+      const base = pair.symbol.slice(0, 3);
+      const quote = pair.symbol.slice(3);
+      const rates = forexRates[base];
+      if (rates && rates[quote]) {
+        const rate = rates[quote];
+        const prevRate = prevPriceMap[pair.id] ?? null;
+        result = calcForexScore(rate, prevRate);
+        if (result) rateScored++;
+      }
     }
 
     if (!result) continue;
@@ -372,7 +380,7 @@ Deno.serve(async (req) => {
     });
   }
 
-  console.log("Scored:", scoreRows.length, "| Candle-based:", candleScored, "| Quote-based:", quoteScored);
+  console.log("Scored:", scoreRows.length, "| Candle:", candleScored, "| ETF-quote:", quoteScored, "| Rate:", rateScored);
 
   // Step 5 — Bulk upsert scores
   if (scoreRows.length > 0) {
@@ -396,7 +404,7 @@ Deno.serve(async (req) => {
           user_id: user.id,
           result: {
             totalPairs: pairs.length, bullish, bearish, neutral,
-            candleScored, quoteScored,
+            candleScored, quoteScored, rateScored,
             avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s: number, r: any) => s + r.score, 0) / scoreRows.length * 10) / 10 : 0,
             duration: Math.round(duration / 1000),
           },
@@ -411,7 +419,7 @@ Deno.serve(async (req) => {
     scored: scoreRows.length,
     total: pairs.length,
     timeframe,
-    candleScored, quoteScored,
+    candleScored, quoteScored, rateScored,
     bullish, bearish, neutral,
     avgScore: scoreRows.length > 0 ? Math.round(scoreRows.reduce((s: number, r: any) => s + r.score, 0) / scoreRows.length * 10) / 10 : 0,
     durationMs: duration,
