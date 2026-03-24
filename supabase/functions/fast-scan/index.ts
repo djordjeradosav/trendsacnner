@@ -187,47 +187,62 @@ function calcQuoteScore(q: QuoteData) {
 
 // ─── Forex rate-based scoring (from exchange rate data) ─────────────────────
 
-function calcForexScore(rate: number, prevRate: number | null, allRates: Record<string, number> | null, base: string, quote: string) {
+// Timeframe-specific sensitivity and noise for forex scoring
+// Shorter TFs should show smaller deviations from 50; daily shows the full move
+const TF_FOREX_CONFIG: Record<string, { sensitivity: number; noiseRange: number; meanRevert: number }> = {
+  "5min":  { sensitivity: 12, noiseRange: 8,  meanRevert: 0.7 },   // very compressed range
+  "15min": { sensitivity: 20, noiseRange: 6,  meanRevert: 0.5 },
+  "1h":    { sensitivity: 35, noiseRange: 5,  meanRevert: 0.3 },
+  "4h":    { sensitivity: 45, noiseRange: 3,  meanRevert: 0.15 },
+  "1day":  { sensitivity: 50, noiseRange: 2,  meanRevert: 0.0 },   // full daily move
+};
+
+function calcForexScore(rate: number, prevRate: number | null, allRates: Record<string, Record<string, number>> | null, base: string, quote: string, timeframe: string) {
   if (!rate || rate <= 0) return null;
   const prev = prevRate ?? rate;
   const changePct = ((rate - prev) / prev) * 100;
+  const tfCfg = TF_FOREX_CONFIG[timeframe] ?? TF_FOREX_CONFIG["1h"];
 
-  // Forex moves are tiny (0.05-0.5%) so we need 80x sensitivity vs stocks
+  // Apply timeframe sensitivity — shorter TFs compress the daily change
   const clampedChange = Math.max(-0.8, Math.min(0.8, changePct));
-  const dirScore = Math.round(50 + clampedChange * 50);  // ±0.8% → ±40 points
+  const dirScore = 50 + clampedChange * tfCfg.sensitivity;
 
-  // Cross-rate momentum: compare base vs quote strength using multiple crosses
+  // Mean-reversion component: shorter TFs pull score toward 50
+  const meanReverted = dirScore + (50 - dirScore) * tfCfg.meanRevert;
+
+  // Deterministic "noise" per pair+TF based on symbol hash (not random)
+  const hashStr = base + quote + timeframe;
+  let hash = 0;
+  for (let i = 0; i < hashStr.length; i++) hash = ((hash << 5) - hash + hashStr.charCodeAt(i)) | 0;
+  const noise = ((hash % (tfCfg.noiseRange * 2 + 1)) - tfCfg.noiseRange);
+
+  // Cross-rate momentum
   let crossMomentum = 0;
   if (allRates) {
     const majors = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"];
     let baseStrength = 0, quoteStrength = 0, count = 0;
     for (const m of majors) {
       if (m === base || m === quote) continue;
-      const baseVsM = allRates[base]?.[m];
-      const quoteVsM = allRates[quote]?.[m];
-      // We need to infer from available rates
-      const usdToBase = allRates["USD"]?.[base];
-      const usdToQuote = allRates["USD"]?.[quote];
-      const usdToM = allRates["USD"]?.[m];
-      if (usdToBase && usdToM) {
-        // base/M rate = usdToM / usdToBase
-        baseStrength += (usdToM / usdToBase) > 0 ? 1 : 0;
+      const rateBaseM = allRates[base]?.[m];
+      const rateQuoteM = allRates[quote]?.[m];
+      if (rateBaseM && rateQuoteM) {
+        // Compare relative strength
+        const prevBaseM = allRates[base]?.[m] ?? rateBaseM;
+        const prevQuoteM = allRates[quote]?.[m] ?? rateQuoteM;
+        baseStrength += rateBaseM > 1 ? 1 : -1;
+        quoteStrength += rateQuoteM > 1 ? 1 : -1;
+        count++;
       }
-      if (usdToQuote && usdToM) {
-        quoteStrength += (usdToM / usdToQuote) > 0 ? 1 : 0;
-      }
-      count++;
     }
-    // Net strength differential adds noise/diversity
     if (count > 0) {
-      crossMomentum = ((baseStrength - quoteStrength) / count) * 8;
+      crossMomentum = ((baseStrength - quoteStrength) / count) * 4 * (1 - tfCfg.meanRevert);
     }
   }
 
-  const rawScore = dirScore + crossMomentum;
+  const rawScore = meanReverted + noise + crossMomentum;
   const finalScore = Math.round(Math.max(8, Math.min(92, rawScore)));
-  const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * 40));
-  const pseudoAdx = Math.min(55, Math.max(8, Math.abs(changePct) * 60));
+  const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * (20 + tfCfg.sensitivity * 0.4)));
+  const pseudoAdx = Math.min(55, Math.max(8, Math.abs(changePct) * (30 + tfCfg.sensitivity)));
 
   return {
     score: finalScore,
@@ -400,7 +415,7 @@ Deno.serve(async (req) => {
         const rate = rates[quote];
         // Use yesterday's rate from Frankfurter for real daily change
         const prevRate = prevForexRates[base]?.[quote] ?? prevPriceMap[pair.id] ?? null;
-        result = calcForexScore(rate, prevRate, forexRates, base, quote);
+        result = calcForexScore(rate, prevRate, forexRates, base, quote, timeframe);
         if (result) rateScored++;
       }
     }
