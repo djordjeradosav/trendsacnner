@@ -528,10 +528,10 @@ export default function PairDetail() {
 
 function IndicatorChip({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 shrink-0">
-      <span className="text-muted-foreground">{icon}</span>
+    <div className="flex items-center gap-1 md:gap-1.5 rounded-lg border border-border bg-card px-2 md:px-3 py-1.5 md:py-2 shrink-0">
+      <span className="text-muted-foreground hidden md:inline">{icon}</span>
       <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</span>
-      <span className="text-xs font-bold font-mono" style={{ color }}>{value}</span>
+      <span className="text-[11px] md:text-xs font-bold font-mono" style={{ color }}>{value}</span>
     </div>
   );
 }
