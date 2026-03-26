@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { PairAnalysisCard } from "@/components/pair/PairAnalysisCard";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrendingUp, TrendingDown, Minus, Activity, BarChart3, Gauge, Target, Zap } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -19,9 +19,20 @@ const FRIENDLY_NAMES: Record<string, string> = {
   USDJPY: "US Dollar / Japanese Yen", USDCHF: "US Dollar / Swiss Franc",
   AUDUSD: "Australian Dollar / US Dollar", USDCAD: "US Dollar / Canadian Dollar",
   NZDUSD: "New Zealand Dollar / US Dollar", EURJPY: "Euro / Japanese Yen",
-  EURGBP: "Euro / British Pound", XAUUSD: "Gold / US Dollar",
-  XAGUSD: "Silver / US Dollar", US30USD: "Dow Jones 30",
-  NAS100USD: "Nasdaq 100", SPX500USD: "S&P 500",
+  EURGBP: "Euro / British Pound", XAUUSD: "Gold Spot / US Dollar",
+  XAGUSD: "Silver / US Dollar", US30USD: "Dow Jones Industrial Average",
+  NAS100USD: "Nasdaq 100 Index", SPX500USD: "S&P 500 Index",
+  EURAUD: "Euro / Australian Dollar", GBPJPY: "British Pound / Japanese Yen",
+  AUDJPY: "Australian Dollar / Japanese Yen", EURCHF: "Euro / Swiss Franc",
+  GBPAUD: "British Pound / Australian Dollar", NZDJPY: "New Zealand Dollar / Japanese Yen",
+  USDSGD: "US Dollar / Singapore Dollar", USDHKD: "US Dollar / Hong Kong Dollar",
+  WTICOUSD: "WTI Crude Oil", BCOUSD: "Brent Crude Oil",
+  NATGASUSD: "Natural Gas", XPTUSD: "Platinum / US Dollar",
+  XPDUSD: "Palladium / US Dollar", US2000USD: "Russell 2000",
+  UK100GBP: "FTSE 100", JP225USD: "Nikkei 225",
+  EU50EUR: "Euro Stoxx 50", GER40EUR: "DAX 40",
+  CORNUSD: "Corn Futures", WHEATUSD: "Wheat Futures",
+  SOYBNUSD: "Soybean Futures", SUGARUSD: "Sugar Futures",
 };
 
 interface PairInfo {
@@ -51,6 +62,28 @@ function getTrendColor(trend: string | null | undefined): string {
   if (trend === "bullish") return "hsl(var(--bullish))";
   if (trend === "bearish") return "hsl(var(--bearish))";
   return "hsl(var(--neutral-tone))";
+}
+
+function getScoreQuality(score: number): { label: string; color: string } {
+  if (score >= 75) return { label: "Strong / High Quality", color: "hsl(var(--bullish))" };
+  if (score >= 62) return { label: "Good / Above Average", color: "hsl(var(--bullish))" };
+  if (score >= 45) return { label: "Mixed / Low Quality", color: "hsl(var(--caution))" };
+  if (score >= 30) return { label: "Weak / Below Average", color: "hsl(var(--bearish))" };
+  return { label: "Poor / High Risk", color: "hsl(var(--bearish))" };
+}
+
+function getEdgeFactor(score: DbScore | null): string {
+  if (!score) return "Insufficient data to determine an edge. Run a scan to generate signals across all indicators.";
+  const s = score.score;
+  const rsi = score.rsi ?? 50;
+  const adx = score.adx ?? 20;
+  const trend = score.trend;
+
+  if (s >= 75 && adx > 30) return `Technicals and trend are fully aligned, providing strong directional clarity with healthy participation. ${trend === "bullish" ? "Bulls" : "Bears"} are in control with RSI at ${rsi.toFixed(0)} and ADX confirming trend strength at ${adx.toFixed(0)}.`;
+  if (s >= 62) return `Technicals show a ${trend} bias with moderate alignment. RSI at ${rsi.toFixed(0)} supports the move, but ADX at ${adx.toFixed(0)} suggests ${adx > 25 ? "decent" : "developing"} trend strength. Wait for confirmation before committing risk.`;
+  if (s >= 45) return `Technicals and trend are not fully aligned, reducing directional clarity. RSI is neutral at ${rsi.toFixed(0)} with ${adx > 25 ? "supportive" : "weak"} conditions. Preserve capital, stay patient, and wait for stronger directional agreement or better trading conditions before committing risk.`;
+  if (s >= 30) return `Bearish pressure building with RSI at ${rsi.toFixed(0)} and weakening trend structure. ADX at ${adx.toFixed(0)} ${adx > 25 ? "confirms directional conviction" : "shows low conviction"}. Watch for continuation signals.`;
+  return `Strong ${trend} conviction with momentum accelerating. RSI at ${rsi.toFixed(0)} is ${rsi < 30 ? "oversold — potential bounce risk" : "confirming bearish pressure"}. ADX at ${adx.toFixed(0)} supports the move.`;
 }
 
 export default function PairDetail() {
@@ -83,7 +116,6 @@ export default function PairDetail() {
     setLoading(true);
 
     const loadAll = async () => {
-      // Scores for all TFs
       const { data: allScores } = await supabase
         .from("scores")
         .select("score, trend, ema_score, rsi_score, news_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist, timeframe")
@@ -97,7 +129,6 @@ export default function PairDetail() {
       });
       setScores(scoreMap);
 
-      // Price candles for chart
       const { data: candles } = await supabase
         .from("candles").select("close, ts")
         .eq("pair_id", pair.id).eq("timeframe", selectedTF)
@@ -109,7 +140,6 @@ export default function PairDetail() {
         })));
       }
 
-      // News
       const base = pair.symbol.slice(0, 3);
       const { data: newsData } = await supabase
         .from("news_articles")
@@ -118,7 +148,6 @@ export default function PairDetail() {
         .order("published_at", { ascending: false }).limit(5);
       setNews(newsData ?? []);
 
-      // Related pair scores
       const quote = pair.symbol.slice(3, 6);
       const { data: relPairs } = await supabase
         .from("pairs").select("id, symbol").eq("is_active", true);
@@ -171,7 +200,6 @@ export default function PairDetail() {
         },
         body: JSON.stringify({ timeframe: selectedTF }),
       });
-      // Reload scores
       const { data: newScores } = await supabase
         .from("scores")
         .select("score, trend, ema_score, rsi_score, news_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist, timeframe")
@@ -185,14 +213,15 @@ export default function PairDetail() {
   }, [pair, selectedTF, scanning]);
 
   // Computed
-  const latest = priceData[priceData.length - 1]?.price;
-  const first = priceData[0]?.price;
+  const latest = priceData[priceData.length - 1]?.price ?? score?.ema20 ?? null;
+  const first = priceData[0]?.price ?? score?.ema50 ?? null;
   const change = latest && first ? latest - first : 0;
   const changePct = first ? (change / first * 100) : 0;
   const isUp = change >= 0;
   const lineColor = isUp ? "hsl(var(--bullish))" : "hsl(var(--bearish))";
   const decimals = pair?.category === "forex" ? 5 : 2;
-  const displaySymbol = pair?.symbol?.replace(/USD$/, "") ?? symbol ?? "";
+  const displaySymbol = pair?.symbol ?? symbol ?? "";
+  const quality = score ? getScoreQuality(score.score) : null;
 
   if (!pair && loading) {
     return (
@@ -206,77 +235,79 @@ export default function PairDetail() {
 
   return (
     <AppLayout>
-      {/* ═══ PAGE HEADER ═══ */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors bg-transparent border-none cursor-pointer">
-            ← Back
-          </button>
-          <div className="flex items-center gap-3">
-            {/* Score circle */}
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold font-mono border-2"
+      {/* ═══ HEADER ═══ */}
+      <div className="px-6 py-5 border-b border-border">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          {/* Left: back + symbol + score */}
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)}
+              className="text-xs text-primary hover:text-primary/80 transition-colors bg-transparent border-none cursor-pointer font-medium">
+              ← Back to Scanner
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-start justify-between gap-6 mt-4 flex-wrap">
+          {/* Symbol + Score */}
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold font-mono border-2 shrink-0"
               style={{
-                background: score?.trend === "bullish" ? "hsla(var(--bullish), 0.1)"
-                  : score?.trend === "bearish" ? "hsla(var(--bearish), 0.1)" : "hsl(var(--secondary))",
+                background: score?.trend === "bullish" ? "hsla(var(--bullish), 0.12)"
+                  : score?.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
                 borderColor: trendColor,
                 color: trendColor,
               }}>
               {score?.score?.toFixed(0) ?? "—"}
             </div>
             <div>
-              <div className="text-2xl font-bold text-foreground tracking-wide">
-                {displaySymbol}
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-foreground tracking-wide">{displaySymbol}</span>
+                {score && (
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md border"
+                    style={{
+                      background: score.trend === "bullish" ? "hsla(var(--bullish), 0.12)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
+                      borderColor: score.trend === "bullish" ? "hsla(var(--bullish), 0.3)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.3)" : "hsl(var(--border))",
+                      color: trendColor,
+                    }}>
+                    {score.trend === "bullish" ? "▲ Bullish" : score.trend === "bearish" ? "▼ Bearish" : "— Neutral"}
+                  </span>
+                )}
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5">
+              <div className="text-sm text-muted-foreground mt-0.5">
                 {FRIENDLY_NAMES[pair?.symbol ?? ""] ?? pair?.name ?? symbol}
               </div>
+              {quality && (
+                <div className="text-[11px] font-semibold mt-1" style={{ color: quality.color }}>
+                  {quality.label}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Edge Factor */}
+          <div className="flex-1 min-w-[300px] max-w-[600px]">
+            <div className="rounded-xl border border-border bg-card/50 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold text-primary uppercase tracking-wider">Edge Factor</span>
+              </div>
+              <p className="text-[12px] text-foreground/80 leading-relaxed">
+                {getEdgeFactor(score)}
+              </p>
             </div>
           </div>
         </div>
-
-        {/* Right: Bias / Technical / AI Confidence — desktop */}
-        <div className="hidden md:flex gap-3">
-          <HeaderCard label="Bias"
-            value={score?.trend === "bullish" ? "Bullish" : score?.trend === "bearish" ? "Bearish" : "Neutral"}
-            color={trendColor} />
-          <HeaderCard label="Technical"
-            value={(score?.ema20 ?? 0) > (score?.ema50 ?? 0) ? "Buy" : (score?.ema20 ?? 0) < (score?.ema50 ?? 0) ? "Sell" : "Hold"}
-            color="hsl(var(--foreground))" />
-          <HeaderCard label="AI Confidence"
-            value={score ? `${score.score.toFixed(0)}%` : "—"}
-            color={score ? (score.score > 65 ? "hsl(var(--bullish))" : score.score < 35 ? "hsl(var(--bearish))" : "hsl(var(--caution))") : "hsl(var(--muted-foreground))"} />
-        </div>
-      </div>
-
-      {/* ═══ MOBILE HEADER CARDS ═══ */}
-      <div className="flex md:hidden gap-2 px-4 py-2 border-b border-border overflow-x-auto">
-        <MobileHeaderChip label="Bias"
-          value={score?.trend === "bullish" ? "Bull" : score?.trend === "bearish" ? "Bear" : "Neutral"}
-          color={trendColor} />
-        <MobileHeaderChip label="Tech"
-          value={(score?.ema20 ?? 0) > (score?.ema50 ?? 0) ? "Buy" : (score?.ema20 ?? 0) < (score?.ema50 ?? 0) ? "Sell" : "Hold"}
-          color="hsl(var(--foreground))" />
-        <MobileHeaderChip label="AI"
-          value={score ? `${score.score.toFixed(0)}%` : "—"}
-          color={score ? (score.score > 65 ? "hsl(var(--bullish))" : score.score < 35 ? "hsl(var(--bearish))" : "hsl(var(--caution))") : "hsl(var(--muted-foreground))"} />
-        <MobileHeaderChip label="RSI"
-          value={score?.rsi ? score.rsi.toFixed(0) : "—"}
-          color={score?.rsi ? (score.rsi > 60 ? "hsl(var(--bullish))" : score.rsi < 40 ? "hsl(var(--bearish))" : "hsl(var(--muted-foreground))") : "hsl(var(--muted-foreground))"} />
-        <MobileHeaderChip label="ADX"
-          value={score?.adx ? score.adx.toFixed(0) : "—"}
-          color={score?.adx ? (score.adx > 30 ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))") : "hsl(var(--muted-foreground))"} />
       </div>
 
       {/* ═══ TIMEFRAME TABS ═══ */}
-      <div className="flex gap-1 px-6 py-3 border-b border-border">
+      <div className="flex items-center gap-1 px-6 py-3 border-b border-border overflow-x-auto">
         {TIMEFRAMES.map(tf => {
           const tfScore = scores[tf];
           const isActive = selectedTF === tf;
           const c = tfScore ? getTrendColor(tfScore.trend) : "hsl(var(--muted-foreground))";
           return (
             <button key={tf} onClick={() => setSelectedTF(tf)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer shrink-0 ${
                 isActive ? "border border-border bg-secondary" : "border border-transparent hover:bg-secondary/50"
               }`}
               style={{ color: isActive ? c : "hsl(var(--muted-foreground))", fontWeight: isActive ? 600 : 400 }}>
@@ -290,27 +321,55 @@ export default function PairDetail() {
           );
         })}
         <button onClick={triggerScan} disabled={scanning}
-          className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium bg-secondary border border-border text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5">
-          {scanning ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+          className="ml-auto px-3 py-1.5 rounded-lg text-xs font-medium bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0">
+          {scanning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
           {scanning ? "Scanning…" : "Scan"}
         </button>
       </div>
 
+      {/* ═══ PRICE + INDICATORS ROW ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-0 border-b border-border">
+        {/* Price */}
+        <div className="px-6 py-4 border-b md:border-b-0 md:border-r border-border">
+          <div className="flex items-baseline gap-4">
+            <span className="text-3xl font-bold font-mono text-foreground">
+              {latest?.toFixed(decimals) ?? "—"}
+            </span>
+            <span className="text-sm font-mono" style={{ color: lineColor }}>
+              {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(decimals > 2 ? 4 : 2)} ({isUp ? "+" : ""}{changePct.toFixed(2)}%)
+            </span>
+          </div>
+        </div>
+        {/* Indicator Stats */}
+        <div className="flex items-center gap-1 px-4 py-3 overflow-x-auto">
+          <IndicatorChip icon={<Gauge className="w-3 h-3" />} label="RSI" value={score?.rsi?.toFixed(1) ?? "—"}
+            color={score?.rsi ? (score.rsi > 60 ? "hsl(var(--bullish))" : score.rsi < 40 ? "hsl(var(--bearish))" : "hsl(var(--foreground))") : "hsl(var(--muted-foreground))"} />
+          <IndicatorChip icon={<BarChart3 className="w-3 h-3" />} label="ADX" value={score?.adx?.toFixed(1) ?? "—"}
+            color={score?.adx ? (score.adx > 30 ? "hsl(var(--bullish))" : score.adx > 20 ? "hsl(var(--caution))" : "hsl(var(--muted-foreground))") : "hsl(var(--muted-foreground))"} />
+          <IndicatorChip icon={<TrendingUp className="w-3 h-3" />} label="EMA20" value={score?.ema20?.toFixed(decimals > 2 ? 4 : 2) ?? "—"}
+            color="hsl(var(--foreground))" />
+          <IndicatorChip icon={<TrendingDown className="w-3 h-3" />} label="EMA50" value={score?.ema50?.toFixed(decimals > 2 ? 4 : 2) ?? "—"}
+            color="hsl(var(--foreground))" />
+          {score?.ema200 && (
+            <IndicatorChip icon={<Target className="w-3 h-3" />} label="EMA200" value={score.ema200.toFixed(decimals > 2 ? 4 : 2)}
+              color="hsl(var(--foreground))" />
+          )}
+          <IndicatorChip icon={<Activity className="w-3 h-3" />} label="MACD" value={score?.macd_hist?.toFixed(4) ?? "—"}
+            color={score?.macd_hist ? (score.macd_hist > 0 ? "hsl(var(--bullish))" : "hsl(var(--bearish))") : "hsl(var(--muted-foreground))"} />
+        </div>
+      </div>
+
       {/* ═══ TWO COLUMN BODY ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 p-6" style={{ minHeight: "calc(100vh - 200px)" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 p-6" style={{ minHeight: "calc(100vh - 320px)" }}>
         {/* LEFT COLUMN */}
         <div className="flex flex-col gap-3 overflow-y-auto">
           {/* Price Mini Chart */}
           <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3">
-              <div className="text-2xl font-bold font-mono text-foreground">
-                {latest?.toFixed(decimals) ?? "—"}
-              </div>
-              <div className="text-xs mt-1" style={{ color: lineColor }}>
-                {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(4)} ({isUp ? "+" : ""}{changePct.toFixed(2)}%)
-              </div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-foreground">Price Chart</span>
+              <span className="text-[10px] text-muted-foreground">{TF_LABELS[selectedTF]} · {priceData.length} candles</span>
             </div>
-            {priceData.length > 0 && (
+            {priceData.length > 0 ? (
               <ResponsiveContainer width="100%" height={160}>
                 <AreaChart data={priceData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
                   <defs>
@@ -332,7 +391,25 @@ export default function PairDetail() {
                     fill="url(#priceGrad)" dot={false} activeDot={{ r: 4, fill: lineColor }} />
                 </AreaChart>
               </ResponsiveContainer>
+            ) : (
+              <div className="h-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                No candle data — price from latest score
+              </div>
             )}
+          </div>
+
+          {/* Score Breakdown */}
+          <div className="rounded-xl border border-border bg-card p-4">
+            <div className="text-sm font-medium text-foreground mb-3">Score Breakdown</div>
+            <div className="space-y-2.5">
+              <ScoreBar label="EMA Trend" value={score?.ema_score ?? 0} max={55} color="hsl(var(--primary))" />
+              <ScoreBar label="RSI Momentum" value={score?.rsi_score ?? 0} max={30} color="hsl(var(--caution))" />
+              <ScoreBar label="News Sentiment" value={score?.news_score ?? 0} max={15} color="hsl(var(--bullish))" />
+              <div className="flex justify-between text-xs pt-1 border-t border-border mt-2">
+                <span className="text-muted-foreground">Composite</span>
+                <span className="font-bold font-mono" style={{ color: trendColor }}>{score?.score?.toFixed(0) ?? "—"} / 100</span>
+              </div>
+            </div>
           </div>
 
           {/* News Stories */}
@@ -341,7 +418,7 @@ export default function PairDetail() {
             {news.length === 0 && <p className="text-xs text-muted-foreground">No recent news</p>}
             {news.map((article, i) => (
               <div key={i} onClick={() => article.url && window.open(article.url, "_blank")}
-                className={`py-2.5 cursor-pointer ${i < news.length - 1 ? "border-b border-border" : ""}`}>
+                className={`py-2.5 cursor-pointer hover:bg-secondary/30 rounded-lg px-2 -mx-2 transition-colors ${i < news.length - 1 ? "border-b border-border" : ""}`}>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[10px] font-semibold text-muted-foreground uppercase">{article.source}</span>
                   <span className="text-[10px] text-muted-foreground/60">{timeAgo(article.published_at)}</span>
@@ -399,31 +476,38 @@ export default function PairDetail() {
 
 /* ═══ SUB-COMPONENTS ═══ */
 
-function HeaderCard({ label, value, color }: { label: string; value: string; color: string }) {
+function IndicatorChip({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-5 py-3 text-center min-w-[100px]">
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wider mb-1.5">{label}</div>
-      <div className="text-lg font-semibold" style={{ color }}>{value}</div>
-    </div>
-  );
-}
-
-function MobileHeaderChip({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 shrink-0">
+    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 shrink-0">
+      <span className="text-muted-foreground">{icon}</span>
       <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</span>
       <span className="text-xs font-bold font-mono" style={{ color }}>{value}</span>
     </div>
   );
 }
 
+function ScoreBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = Math.min(100, (value / max) * 100);
+  return (
+    <div>
+      <div className="flex justify-between text-[11px] mb-1">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono" style={{ color }}>{value} / {max}</span>
+      </div>
+      <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
 function MarketMoodCard({ score }: { score: DbScore | null }) {
   const s = score?.score ?? 50;
-  const mood = s >= 75 ? { label: "RISK-ON", color: "hsl(var(--bullish))", desc: "Strong bullish momentum — traders positioned long aggressively." }
-    : s >= 62 ? { label: "MILDLY BULLISH", color: "hsl(var(--bullish))", desc: "Positive bias — price action supports continuation higher." }
-    : s >= 45 ? { label: "RISK-NEUTRAL", color: "hsl(var(--caution))", desc: "Positioning is mixed. No clear directional bias." }
-    : s >= 35 ? { label: "MILDLY BEARISH", color: "hsl(var(--bearish))", desc: "Negative bias — price action suggests downside pressure." }
-    : { label: "RISK-OFF", color: "hsl(var(--bearish))", desc: "Strong bearish momentum — sellers in control." };
+  const mood = s >= 75 ? { label: "RISK-ON", color: "hsl(var(--bullish))", desc: `Strong bullish momentum — traders positioned long aggressively. RSI at ${(score?.rsi ?? 65).toFixed(0)} confirms overbought territory with ADX at ${(score?.adx ?? 30).toFixed(0)} showing strong trend.` }
+    : s >= 62 ? { label: "MILDLY BULLISH", color: "hsl(var(--bullish))", desc: `Positive bias — price action supports continuation higher. RSI at ${(score?.rsi ?? 58).toFixed(0)} with developing momentum.` }
+    : s >= 45 ? { label: "RISK-NEUTRAL", color: "hsl(var(--caution))", desc: `Positioning is mixed. RSI at ${(score?.rsi ?? 50).toFixed(0)} indicates neutral momentum with ADX at ${(score?.adx ?? 20).toFixed(0)} showing no clear directional bias.` }
+    : s >= 35 ? { label: "MILDLY BEARISH", color: "hsl(var(--bearish))", desc: `Negative bias — price action suggests downside pressure. RSI at ${(score?.rsi ?? 42).toFixed(0)} trending lower.` }
+    : { label: "RISK-OFF", color: "hsl(var(--bearish))", desc: `Strong bearish momentum — sellers in control. RSI at ${(score?.rsi ?? 30).toFixed(0)} near oversold with ADX at ${(score?.adx ?? 35).toFixed(0)} confirming strong downtrend.` };
 
   const angle = (s / 100) * 270 - 135;
 
@@ -457,16 +541,23 @@ function MarketMoodCard({ score }: { score: DbScore | null }) {
 
 function MarketPolicyCard({ score }: { score: DbScore | null }) {
   const s = score?.score ?? 50;
+  const rsi = score?.rsi ?? 50;
+  const adx = score?.adx ?? 20;
   const outlook = s >= 62 ? "POSITIVE" : s <= 38 ? "NEGATIVE" : "NEUTRAL";
-  const desc = s >= 62 ? "Macro conditions support risk-on positioning. Technical signals aligned bullish."
-    : s <= 38 ? "Macro conditions suggest caution. Technical signals point to downside risk."
-    : "Macro is balanced. Central banks maintaining a neutral stance on current pair.";
+  const desc = s >= 62 
+    ? `Macro conditions support risk-on positioning. Technical signals aligned bullish with RSI at ${rsi.toFixed(0)} and trend strength (ADX ${adx.toFixed(0)}) confirming the move.`
+    : s <= 38 
+    ? `Macro conditions suggest caution. Technical signals point to downside risk with RSI at ${rsi.toFixed(0)} and ADX at ${adx.toFixed(0)} ${adx > 25 ? "confirming bearish trend" : "showing weak direction"}.`
+    : `Macro is balanced. RSI at ${rsi.toFixed(0)} neutral with ADX at ${adx.toFixed(0)} suggesting low directional conviction. Central banks maintaining a neutral stance.`;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="text-sm font-medium text-foreground mb-3">Market Policy</div>
       <div className="text-[11px] text-muted-foreground uppercase tracking-wider mb-2">Global Economic Outlook</div>
-      <div className="text-base font-semibold text-muted-foreground uppercase tracking-widest mb-2">{outlook}</div>
+      <div className="text-base font-semibold uppercase tracking-widest mb-2"
+        style={{ color: outlook === "POSITIVE" ? "hsl(var(--bullish))" : outlook === "NEGATIVE" ? "hsl(var(--bearish))" : "hsl(var(--muted-foreground))" }}>
+        {outlook}
+      </div>
       <p className="text-[11px] text-muted-foreground leading-relaxed">{desc}</p>
     </div>
   );
@@ -477,8 +568,11 @@ function FlowCard({ score }: { score: DbScore | null }) {
   const vol = adx > 35 ? "Crowded" : adx > 20 ? "Healthy" : "Thin";
   const volColor = vol === "Healthy" ? "hsl(var(--bullish))" : vol === "Crowded" ? "hsl(var(--bearish))" : "hsl(var(--caution))";
   const sliderPct = vol === "Thin" ? 15 : vol === "Healthy" ? 50 : 85;
-  const desc = vol === "Healthy" ? "Normal participation — tape is well-structured."
-    : vol === "Crowded" ? "Heavy positioning — risk of sharp reversals." : "Low participation — spreads may widen.";
+  const desc = vol === "Healthy" 
+    ? `Normal participation — tape is well-structured. ADX at ${adx.toFixed(0)} indicates healthy trend.`
+    : vol === "Crowded" 
+    ? `Heavy positioning — risk of sharp reversals. ADX at ${adx.toFixed(0)} shows extreme trend strength.` 
+    : `Low participation — spreads may widen. ADX at ${adx.toFixed(0)} confirms weak trend.`;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -499,6 +593,7 @@ function FlowCard({ score }: { score: DbScore | null }) {
 
 function BearingCard({ score }: { score: DbScore | null }) {
   const s = score?.score ?? 50;
+  const rsi = score?.rsi ?? 50;
   const bearing = s >= 62 ? { label: "IMPULSE UP", color: "hsl(var(--bullish))" }
     : s >= 50 ? { label: "DRIFTING UP", color: "hsl(var(--bullish))" }
     : s >= 38 ? { label: "CHOPPY", color: "hsl(var(--caution))" }
@@ -517,9 +612,9 @@ function BearingCard({ score }: { score: DbScore | null }) {
     return "M " + points.join(" L ");
   };
 
-  const desc = s >= 62 ? "Clean directional move up. RSI and EMAs aligned."
-    : s <= 38 ? "Downward drift — exercise caution. Bearish bias."
-    : "Choppy conditions — wait for cleaner impulse.";
+  const desc = s >= 62 ? `Clean directional move up. RSI at ${rsi.toFixed(0)} and EMAs aligned bullish.`
+    : s <= 38 ? `Downward drift — exercise caution. RSI at ${rsi.toFixed(0)} confirms bearish bias.`
+    : `Choppy conditions — RSI at ${rsi.toFixed(0)} neutral. Wait for cleaner impulse.`;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -547,9 +642,9 @@ function PulseCard({ score }: { score: DbScore | null }) {
     ? "M0,25 Q15,12 30,25 Q45,38 60,25 Q75,12 100,25"
     : "M0,25 Q25,22 50,25 Q75,28 100,25";
 
-  const desc = pulse.label === "TRADABLE" ? "Volatility in normal range — setups have room to breathe."
-    : pulse.label === "MODERATE" ? "ATR within average range. Risk-reward achievable."
-    : "Very low volatility — consider waiting for expansion.";
+  const desc = pulse.label === "TRADABLE" ? `Volatility in normal range — setups have room to breathe. ADX at ${adx.toFixed(0)} confirms.`
+    : pulse.label === "MODERATE" ? `ATR within average range. ADX at ${adx.toFixed(0)} shows moderate momentum.`
+    : `Very low volatility — ADX at ${adx.toFixed(0)}. Consider waiting for expansion.`;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -613,7 +708,7 @@ function MarketSessionsCard({ symbol }: { symbol: string }) {
                 <div className="w-1.5 h-1.5 rounded-full" style={{ background: open ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }} />
                 <span className="text-[11px] font-medium" style={{ color: open ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }}>{s.name}</span>
               </div>
-              <div className="text-[10px]" style={{ color: open ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))/60" }}>
+              <div className="text-[10px]" style={{ color: open ? "hsl(var(--bullish))" : "hsl(var(--muted-foreground))" }}>
                 {open ? "OPEN" : "CLOSED"}
               </div>
               <div className="text-[9px] text-muted-foreground/60 mt-0.5">{s.currencies.join(" · ")}</div>
@@ -632,7 +727,7 @@ function RelativeStrengthCard({
   navigate: (path: string) => void;
 }) {
   const avgRelated = relatedScores.length
-    ? relatedScores.reduce((sum, s) => sum + s.score, 0) / relatedScores.length : 50;
+    ? relatedScores.reduce((sum: number, s: any) => sum + s.score, 0) / relatedScores.length : 50;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -643,12 +738,12 @@ function RelativeStrengthCard({
       {relatedScores.length === 0 ? (
         <p className="text-xs text-muted-foreground">Run a scan to load relative strength</p>
       ) : (
-        relatedScores.map(s => {
+        relatedScores.map((s: any) => {
           const barColor = s.trend === "bullish" ? "hsl(var(--bullish))" : s.trend === "bearish" ? "hsl(var(--bearish))" : "hsl(var(--neutral-tone))";
           return (
             <div key={s.symbol} className="flex items-center gap-2.5 mb-2 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => navigate("/pair/" + s.symbol)}>
-              <span className="text-[11px] text-muted-foreground font-mono w-16">{s.symbol}</span>
+              <span className="text-[11px] text-muted-foreground font-mono w-20">{s.symbol}</span>
               <div className="flex-1 h-1 rounded-full bg-secondary">
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${s.score}%`, background: barColor }} />
               </div>
