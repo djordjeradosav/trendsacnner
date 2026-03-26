@@ -292,78 +292,71 @@ export default function PairDetail() {
   return (
     <AppLayout>
       {/* ═══ HEADER ═══ */}
-      <div className="px-6 py-5 border-b border-border">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          {/* Left: back + symbol + score */}
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate(-1)}
-              className="text-xs text-primary hover:text-primary/80 transition-colors bg-transparent border-none cursor-pointer font-medium">
-              ← Back to Scanner
-            </button>
+      <div className="px-4 md:px-6 py-4 md:py-5 border-b border-border">
+        <button onClick={() => navigate(-1)}
+          className="text-xs text-primary hover:text-primary/80 transition-colors bg-transparent border-none cursor-pointer font-medium mb-3">
+          ← Back to Scanner
+        </button>
+
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-lg md:text-xl font-bold font-mono border-2 shrink-0"
+            style={{
+              background: score?.trend === "bullish" ? "hsla(var(--bullish), 0.12)"
+                : score?.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
+              borderColor: trendColor,
+              color: trendColor,
+            }}>
+            {score?.score?.toFixed(0) ?? "—"}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl md:text-2xl font-bold text-foreground tracking-wide">{displaySymbol}</span>
+              {score && (
+                <span className="text-[10px] md:text-[11px] font-semibold px-2 py-0.5 rounded-md border"
+                  style={{
+                    background: score.trend === "bullish" ? "hsla(var(--bullish), 0.12)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
+                    borderColor: score.trend === "bullish" ? "hsla(var(--bullish), 0.3)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.3)" : "hsl(var(--border))",
+                    color: trendColor,
+                  }}>
+                  {score.trend === "bullish" ? "▲ Bullish" : score.trend === "bearish" ? "▼ Bearish" : "— Neutral"}
+                </span>
+              )}
+            </div>
+            <div className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate">
+              {FRIENDLY_NAMES[pair?.symbol ?? ""] ?? pair?.name ?? symbol}
+            </div>
+            {quality && (
+              <div className="text-[11px] font-semibold mt-0.5" style={{ color: quality.color }}>
+                {quality.label}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex items-start justify-between gap-6 mt-4 flex-wrap">
-          {/* Symbol + Score */}
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold font-mono border-2 shrink-0"
-              style={{
-                background: score?.trend === "bullish" ? "hsla(var(--bullish), 0.12)"
-                  : score?.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
-                borderColor: trendColor,
-                color: trendColor,
-              }}>
-              {score?.score?.toFixed(0) ?? "—"}
+        {/* Edge Factor — full width on mobile */}
+        <div className="mt-3 md:mt-4">
+          <div className="rounded-xl border border-border bg-card/50 p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Zap className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
+              <span className="text-[10px] md:text-xs font-semibold text-primary uppercase tracking-wider">Edge Factor</span>
             </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-bold text-foreground tracking-wide">{displaySymbol}</span>
-                {score && (
-                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md border"
-                    style={{
-                      background: score.trend === "bullish" ? "hsla(var(--bullish), 0.12)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
-                      borderColor: score.trend === "bullish" ? "hsla(var(--bullish), 0.3)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.3)" : "hsl(var(--border))",
-                      color: trendColor,
-                    }}>
-                    {score.trend === "bullish" ? "▲ Bullish" : score.trend === "bearish" ? "▼ Bearish" : "— Neutral"}
-                  </span>
-                )}
-              </div>
-              <div className="text-sm text-muted-foreground mt-0.5">
-                {FRIENDLY_NAMES[pair?.symbol ?? ""] ?? pair?.name ?? symbol}
-              </div>
-              {quality && (
-                <div className="text-[11px] font-semibold mt-1" style={{ color: quality.color }}>
-                  {quality.label}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Edge Factor */}
-          <div className="flex-1 min-w-[300px] max-w-[600px]">
-            <div className="rounded-xl border border-border bg-card/50 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-primary uppercase tracking-wider">Edge Factor</span>
-              </div>
-              <p className="text-[12px] text-foreground/80 leading-relaxed">
-                {getEdgeFactor(score)}
-              </p>
-            </div>
+            <p className="text-[11px] md:text-[12px] text-foreground/80 leading-relaxed">
+              {getEdgeFactor(score)}
+            </p>
           </div>
         </div>
       </div>
 
       {/* ═══ TIMEFRAME TABS ═══ */}
-      <div className="flex items-center gap-1 px-6 py-3 border-b border-border overflow-x-auto">
+      <div className="flex items-center gap-1 px-4 md:px-6 py-2.5 md:py-3 border-b border-border overflow-x-auto scrollbar-none"
+        style={{ WebkitOverflowScrolling: 'touch' }}>
         {TIMEFRAMES.map(tf => {
           const tfScore = scores[tf];
           const isActive = selectedTF === tf;
           const c = tfScore ? getTrendColor(tfScore.trend) : "hsl(var(--muted-foreground))";
           return (
             <button key={tf} onClick={() => setSelectedTF(tf)}
-              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer shrink-0 ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs font-medium transition-all cursor-pointer shrink-0 ${
                 isActive ? "border border-border bg-secondary" : "border border-transparent hover:bg-secondary/50"
               }`}
               style={{ color: isActive ? c : "hsl(var(--muted-foreground))", fontWeight: isActive ? 600 : 400 }}>
@@ -386,18 +379,19 @@ export default function PairDetail() {
       {/* ═══ PRICE + INDICATORS ROW ═══ */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-0 border-b border-border">
         {/* Price */}
-        <div className="px-6 py-4 border-b md:border-b-0 md:border-r border-border">
-          <div className="flex items-baseline gap-4">
-            <span className="text-3xl font-bold font-mono text-foreground">
+        <div className="px-4 md:px-6 py-3 md:py-4 border-b md:border-b-0 md:border-r border-border">
+          <div className="flex items-baseline gap-2 md:gap-4 flex-wrap">
+            <span className="text-2xl md:text-3xl font-bold font-mono text-foreground">
               {latest?.toFixed(decimals) ?? "—"}
             </span>
-            <span className="text-sm font-mono" style={{ color: lineColor }}>
+            <span className="text-xs md:text-sm font-mono" style={{ color: lineColor }}>
               {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(decimals > 2 ? 4 : 2)} ({isUp ? "+" : ""}{changePct.toFixed(2)}%)
             </span>
           </div>
         </div>
         {/* Indicator Stats */}
-        <div className="flex items-center gap-1 px-4 py-3 overflow-x-auto">
+        <div className="flex items-center gap-1 px-3 md:px-4 py-2.5 md:py-3 overflow-x-auto scrollbar-none"
+          style={{ WebkitOverflowScrolling: 'touch' }}>
           <IndicatorChip icon={<Gauge className="w-3 h-3" />} label="RSI" value={score?.rsi?.toFixed(1) ?? "—"}
             color={score?.rsi ? (score.rsi > 60 ? "hsl(var(--bullish))" : score.rsi < 40 ? "hsl(var(--bearish))" : "hsl(var(--foreground))") : "hsl(var(--muted-foreground))"} />
           <IndicatorChip icon={<BarChart3 className="w-3 h-3" />} label="ADX" value={score?.adx?.toFixed(1) ?? "—"}
@@ -416,7 +410,7 @@ export default function PairDetail() {
       </div>
 
       {/* ═══ TWO COLUMN BODY ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 p-6" style={{ minHeight: "calc(100vh - 320px)" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-3 md:gap-4 p-4 md:p-6" style={{ minHeight: "calc(100vh - 320px)" }}>
         {/* LEFT COLUMN */}
         <div className="flex flex-col gap-3 overflow-y-auto">
           {/* Price Mini Chart */}
@@ -502,13 +496,13 @@ export default function PairDetail() {
           )}
 
           {/* Market Mood + Policy row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <MarketMoodCard score={score} />
             <MarketPolicyCard score={score} />
           </div>
 
           {/* Flow / Bearing / Pulse */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <FlowCard score={score} />
             <BearingCard score={score} />
             <PulseCard score={score} />
@@ -534,10 +528,10 @@ export default function PairDetail() {
 
 function IndicatorChip({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 shrink-0">
-      <span className="text-muted-foreground">{icon}</span>
+    <div className="flex items-center gap-1 md:gap-1.5 rounded-lg border border-border bg-card px-2 md:px-3 py-1.5 md:py-2 shrink-0">
+      <span className="text-muted-foreground hidden md:inline">{icon}</span>
       <span className="text-[9px] text-muted-foreground uppercase tracking-wider">{label}</span>
-      <span className="text-xs font-bold font-mono" style={{ color }}>{value}</span>
+      <span className="text-[11px] md:text-xs font-bold font-mono" style={{ color }}>{value}</span>
     </div>
   );
 }
