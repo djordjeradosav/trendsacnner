@@ -379,18 +379,19 @@ export default function PairDetail() {
       {/* ═══ PRICE + INDICATORS ROW ═══ */}
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-0 border-b border-border">
         {/* Price */}
-        <div className="px-6 py-4 border-b md:border-b-0 md:border-r border-border">
-          <div className="flex items-baseline gap-4">
-            <span className="text-3xl font-bold font-mono text-foreground">
+        <div className="px-4 md:px-6 py-3 md:py-4 border-b md:border-b-0 md:border-r border-border">
+          <div className="flex items-baseline gap-2 md:gap-4 flex-wrap">
+            <span className="text-2xl md:text-3xl font-bold font-mono text-foreground">
               {latest?.toFixed(decimals) ?? "—"}
             </span>
-            <span className="text-sm font-mono" style={{ color: lineColor }}>
+            <span className="text-xs md:text-sm font-mono" style={{ color: lineColor }}>
               {isUp ? "▲" : "▼"} {Math.abs(change).toFixed(decimals > 2 ? 4 : 2)} ({isUp ? "+" : ""}{changePct.toFixed(2)}%)
             </span>
           </div>
         </div>
         {/* Indicator Stats */}
-        <div className="flex items-center gap-1 px-4 py-3 overflow-x-auto">
+        <div className="flex items-center gap-1 px-3 md:px-4 py-2.5 md:py-3 overflow-x-auto scrollbar-none"
+          style={{ WebkitOverflowScrolling: 'touch' }}>
           <IndicatorChip icon={<Gauge className="w-3 h-3" />} label="RSI" value={score?.rsi?.toFixed(1) ?? "—"}
             color={score?.rsi ? (score.rsi > 60 ? "hsl(var(--bullish))" : score.rsi < 40 ? "hsl(var(--bearish))" : "hsl(var(--foreground))") : "hsl(var(--muted-foreground))"} />
           <IndicatorChip icon={<BarChart3 className="w-3 h-3" />} label="ADX" value={score?.adx?.toFixed(1) ?? "—"}
@@ -409,7 +410,7 @@ export default function PairDetail() {
       </div>
 
       {/* ═══ TWO COLUMN BODY ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 p-6" style={{ minHeight: "calc(100vh - 320px)" }}>
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-3 md:gap-4 p-4 md:p-6" style={{ minHeight: "calc(100vh - 320px)" }}>
         {/* LEFT COLUMN */}
         <div className="flex flex-col gap-3 overflow-y-auto">
           {/* Price Mini Chart */}
