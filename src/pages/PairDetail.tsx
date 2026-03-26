@@ -292,65 +292,57 @@ export default function PairDetail() {
   return (
     <AppLayout>
       {/* ═══ HEADER ═══ */}
-      <div className="px-6 py-5 border-b border-border">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          {/* Left: back + symbol + score */}
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate(-1)}
-              className="text-xs text-primary hover:text-primary/80 transition-colors bg-transparent border-none cursor-pointer font-medium">
-              ← Back to Scanner
-            </button>
+      <div className="px-4 md:px-6 py-4 md:py-5 border-b border-border">
+        <button onClick={() => navigate(-1)}
+          className="text-xs text-primary hover:text-primary/80 transition-colors bg-transparent border-none cursor-pointer font-medium mb-3">
+          ← Back to Scanner
+        </button>
+
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center text-lg md:text-xl font-bold font-mono border-2 shrink-0"
+            style={{
+              background: score?.trend === "bullish" ? "hsla(var(--bullish), 0.12)"
+                : score?.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
+              borderColor: trendColor,
+              color: trendColor,
+            }}>
+            {score?.score?.toFixed(0) ?? "—"}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xl md:text-2xl font-bold text-foreground tracking-wide">{displaySymbol}</span>
+              {score && (
+                <span className="text-[10px] md:text-[11px] font-semibold px-2 py-0.5 rounded-md border"
+                  style={{
+                    background: score.trend === "bullish" ? "hsla(var(--bullish), 0.12)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
+                    borderColor: score.trend === "bullish" ? "hsla(var(--bullish), 0.3)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.3)" : "hsl(var(--border))",
+                    color: trendColor,
+                  }}>
+                  {score.trend === "bullish" ? "▲ Bullish" : score.trend === "bearish" ? "▼ Bearish" : "— Neutral"}
+                </span>
+              )}
+            </div>
+            <div className="text-xs md:text-sm text-muted-foreground mt-0.5 truncate">
+              {FRIENDLY_NAMES[pair?.symbol ?? ""] ?? pair?.name ?? symbol}
+            </div>
+            {quality && (
+              <div className="text-[11px] font-semibold mt-0.5" style={{ color: quality.color }}>
+                {quality.label}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex items-start justify-between gap-6 mt-4 flex-wrap">
-          {/* Symbol + Score */}
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold font-mono border-2 shrink-0"
-              style={{
-                background: score?.trend === "bullish" ? "hsla(var(--bullish), 0.12)"
-                  : score?.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
-                borderColor: trendColor,
-                color: trendColor,
-              }}>
-              {score?.score?.toFixed(0) ?? "—"}
+        {/* Edge Factor — full width on mobile */}
+        <div className="mt-3 md:mt-4">
+          <div className="rounded-xl border border-border bg-card/50 p-3 md:p-4">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Zap className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
+              <span className="text-[10px] md:text-xs font-semibold text-primary uppercase tracking-wider">Edge Factor</span>
             </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-bold text-foreground tracking-wide">{displaySymbol}</span>
-                {score && (
-                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md border"
-                    style={{
-                      background: score.trend === "bullish" ? "hsla(var(--bullish), 0.12)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.12)" : "hsl(var(--secondary))",
-                      borderColor: score.trend === "bullish" ? "hsla(var(--bullish), 0.3)" : score.trend === "bearish" ? "hsla(var(--bearish), 0.3)" : "hsl(var(--border))",
-                      color: trendColor,
-                    }}>
-                    {score.trend === "bullish" ? "▲ Bullish" : score.trend === "bearish" ? "▼ Bearish" : "— Neutral"}
-                  </span>
-                )}
-              </div>
-              <div className="text-sm text-muted-foreground mt-0.5">
-                {FRIENDLY_NAMES[pair?.symbol ?? ""] ?? pair?.name ?? symbol}
-              </div>
-              {quality && (
-                <div className="text-[11px] font-semibold mt-1" style={{ color: quality.color }}>
-                  {quality.label}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Edge Factor */}
-          <div className="flex-1 min-w-[300px] max-w-[600px]">
-            <div className="rounded-xl border border-border bg-card/50 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-primary uppercase tracking-wider">Edge Factor</span>
-              </div>
-              <p className="text-[12px] text-foreground/80 leading-relaxed">
-                {getEdgeFactor(score)}
-              </p>
-            </div>
+            <p className="text-[11px] md:text-[12px] text-foreground/80 leading-relaxed">
+              {getEdgeFactor(score)}
+            </p>
           </div>
         </div>
       </div>
