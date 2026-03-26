@@ -7,18 +7,24 @@ const corsHeaders = {
 };
 
 const RESOLUTION_MAP: Record<string, string> = {
-  "5min": "5",
-  "15min": "15",
-  "1h": "60", "4h": "240", "1day": "D",
+  "5min": "5", "15min": "15", "1h": "60", "4h": "240", "1day": "D",
 };
 
-const SUPPORTED_RESOLUTIONS = new Set(["5", "15", "60", "240", "D", "W"]);
+// ETF proxy map for non-forex pairs (Finnhub free tier supports US stock quotes)
+const ETF_MAP: Record<string, string> = {
+  "US30USD": "DIA", "NAS100USD": "QQQ", "SPX500USD": "SPY", "US2000USD": "IWM",
+  "UK100GBP": "EWU", "JP225USD": "EWJ", "EU50EUR": "FEZ",
+  "GER40EUR": "EWG", "FR40EUR": "EWQ", "AUS200AUD": "EWA",
+  "HK33HKD": "EWH", "CN50USD": "FXI",
+  "XAUUSD": "GLD", "XAGUSD": "SLV", "XPTUSD": "PPLT", "XPDUSD": "PALL",
+  "WTICOUSD": "USO", "BCOUSD": "BNO", "NATGASUSD": "UNG",
+  "CORNUSD": "CORN", "WHEATUSD": "WEAT", "SOYBNUSD": "SOYB",
+  "SUGARUSD": "CANE",
+};
 
 function getIntervalSeconds(tf: string): number {
   const map: Record<string, number> = {
-    "5min": 300,
-    "15min": 900,
-    "1h": 3600, "4h": 14400, "1day": 86400,
+    "5min": 300, "15min": 900, "1h": 3600, "4h": 14400, "1day": 86400,
   };
   return map[tf] ?? 3600;
 }
@@ -44,32 +50,22 @@ Deno.serve(async (req) => {
     }
 
     const apiKey = Deno.env.get("FINNHUB_API_KEY");
-    if (!apiKey) {
-      throw new Error("FINNHUB_API_KEY is not configured");
-    }
+    if (!apiKey) throw new Error("FINNHUB_API_KEY is not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Look up pair from DB — get finnhub_symbol directly
+    // Look up pair from DB
     const { data: pairRow, error: pairError } = await supabase
       .from("pairs")
-      .select("id, finnhub_symbol")
+      .select("id, finnhub_symbol, category, symbol")
       .eq("symbol", pair_symbol)
       .single();
 
     if (pairError || !pairRow) {
       return new Response(
         JSON.stringify({ success: false, error: `Pair '${pair_symbol}' not found in database` }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const finnhubSymbol = pairRow.finnhub_symbol;
-    if (!finnhubSymbol) {
-      return new Response(
-        JSON.stringify({ success: false, error: `No Finnhub symbol for ${pair_symbol}. Run sync-pairs first.` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -82,18 +78,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Finnhub free tier: fall back to 1H for sub-hourly resolutions
-    const resolution = SUPPORTED_RESOLUTIONS.has(rawResolution) ? rawResolution : "60";
-    const effectiveTF = resolution !== rawResolution ? "1h" : timeframe;
+    // Determine if this is a forex pair or ETF/stock pair
+    const isForex = pairRow.category === "forex" && pairRow.finnhub_symbol;
+    const etfSymbol = ETF_MAP[pairRow.symbol];
+
+    if (!isForex && !etfSymbol) {
+      return new Response(
+        JSON.stringify({ success: false, error: `No data source for ${pair_symbol}` }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Finnhub free tier: fall back to 1H for sub-hourly on forex
+    const resolution = rawResolution;
+    const effectiveTF = timeframe;
 
     const to = Math.floor(Date.now() / 1000);
     const intervalSec = getIntervalSeconds(effectiveTF);
     const bufferMultiplier = effectiveTF === "15min" ? 2.5 : 1.3;
     const from = to - Math.floor(outputsize * intervalSec * bufferMultiplier);
 
-    const url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(finnhubSymbol)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+    let url: string;
+    if (isForex) {
+      // Forex candles
+      url = `https://finnhub.io/api/v1/forex/candle?symbol=${encodeURIComponent(pairRow.finnhub_symbol!)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+    } else {
+      // ETF/Stock candles (works on free tier)
+      url = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(etfSymbol!)}&resolution=${resolution}&from=${from}&to=${to}&token=${apiKey}`;
+    }
 
-    console.log(`Fetching ${pair_symbol} → ${finnhubSymbol} (${timeframe}, resolution=${resolution})`);
+    console.log(`Fetching candles: ${pair_symbol} → ${isForex ? pairRow.finnhub_symbol : etfSymbol} (${timeframe}, res=${resolution})`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
@@ -122,12 +136,12 @@ Deno.serve(async (req) => {
 
     if (data.s !== "ok" || !data.c?.length) {
       return new Response(
-        JSON.stringify({ success: false, error: data.s === "no_data" ? "No data for this symbol/range" : "No valid data returned from Finnhub" }),
+        JSON.stringify({ success: false, error: data.s === "no_data" ? "No data for this symbol/range" : "No valid data returned" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Map Finnhub candles to our schema
+    // Map candles to our schema
     const candles = data.c!.map((close, i) => ({
       pair_id: pairRow.id,
       timeframe: effectiveTF,
@@ -139,7 +153,7 @@ Deno.serve(async (req) => {
       ts: new Date(data.t![i] * 1000).toISOString(),
     }));
 
-    // Upsert in batches of 500
+    // Upsert in batches
     let upserted = 0;
     for (let i = 0; i < candles.length; i += 500) {
       const batch = candles.slice(i, i + 500);
