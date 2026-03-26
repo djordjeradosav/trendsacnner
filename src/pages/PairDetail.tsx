@@ -348,7 +348,8 @@ export default function PairDetail() {
       </div>
 
       {/* ═══ TIMEFRAME TABS ═══ */}
-      <div className="flex items-center gap-1 px-6 py-3 border-b border-border overflow-x-auto">
+      <div className="flex items-center gap-1 px-4 md:px-6 py-2.5 md:py-3 border-b border-border overflow-x-auto scrollbar-none"
+        style={{ WebkitOverflowScrolling: 'touch' }}>
         {TIMEFRAMES.map(tf => {
           const tfScore = scores[tf];
           const isActive = selectedTF === tf;
