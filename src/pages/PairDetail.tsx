@@ -356,7 +356,7 @@ export default function PairDetail() {
           const c = tfScore ? getTrendColor(tfScore.trend) : "hsl(var(--muted-foreground))";
           return (
             <button key={tf} onClick={() => setSelectedTF(tf)}
-              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer shrink-0 ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs font-medium transition-all cursor-pointer shrink-0 ${
                 isActive ? "border border-border bg-secondary" : "border border-transparent hover:bg-secondary/50"
               }`}
               style={{ color: isActive ? c : "hsl(var(--muted-foreground))", fontWeight: isActive ? 600 : 400 }}>
