@@ -496,13 +496,13 @@ export default function PairDetail() {
           )}
 
           {/* Market Mood + Policy row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <MarketMoodCard score={score} />
             <MarketPolicyCard score={score} />
           </div>
 
           {/* Flow / Bearing / Pulse */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <FlowCard score={score} />
             <BearingCard score={score} />
             <PulseCard score={score} />
