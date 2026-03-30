@@ -14,6 +14,7 @@ export interface ScoreRow {
   macd_score: number | null;
   news_score: number | null;
   social_score: number | null;
+  macro_score: number | null;
   ema20: number | null;
   ema50: number | null;
   ema200: number | null;
