@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllScores } from "@/hooks/useScores";
 import { useSparklineData } from "@/hooks/useSparklineData";
 import { ScoreSparkline } from "@/components/scanner/ScoreSparkline";
 import { useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface PairMap {
   [id: string]: { symbol: string; category: string };
@@ -32,10 +34,14 @@ function scoreToBorder(score: number): string {
   return "hsl(0 70% 42%)";
 }
 
+const CATEGORIES = ["All", "Forex", "Futures", "Commodity"] as const;
+
 export function HeatmapWidget({ timeframe }: { timeframe: string }) {
   const { data: allScores } = useAllScores(timeframe);
   const { data: sparklines } = useSparklineData(timeframe);
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<typeof CATEGORIES[number]>("All");
 
   const { data: pairs } = useQuery<PairMap>({
     queryKey: ["pairs-map"],
@@ -58,9 +64,14 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
         score: s.score,
         trend: s.trend,
       }))
-      .filter((c) => c.symbol !== "?")
+      .filter((c) => {
+        if (c.symbol === "?") return false;
+        if (category !== "All" && c.category.toLowerCase() !== category.toLowerCase()) return false;
+        if (search && !c.symbol.toLowerCase().includes(search.toLowerCase())) return false;
+        return true;
+      })
       .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50));
-  }, [allScores, pairs]);
+  }, [allScores, pairs, category, search]);
 
   
 
@@ -74,16 +85,46 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
 
   return (
     <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-display font-semibold text-foreground uppercase tracking-wider">
+      {/* Header row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        <h3 className="text-xs font-display font-semibold text-foreground uppercase tracking-wider shrink-0">
           Market Heatmap
         </h3>
-        <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(0 70% 33%)" }} />
-          <span className="text-[9px] text-muted-foreground font-mono">Bearish</span>
-          <div className="w-8 h-1.5 rounded-full mx-1" style={{ background: "linear-gradient(90deg, hsl(0 70% 33%), hsl(200 15% 18%), hsl(142 70% 35%))" }} />
-          <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(142 70% 35%)" }} />
-          <span className="text-[9px] text-muted-foreground font-mono">Bullish</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Category pills */}
+          <div className="flex items-center gap-1">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-display font-semibold transition-colors ${
+                  category === c
+                    ? "bg-primary/15 text-primary border border-primary/30"
+                    : "text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+            <Input
+              placeholder="Filter..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-7 h-7 w-28 text-[10px] font-mono bg-background/50 border-border/50"
+            />
+          </div>
+          {/* Legend */}
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(0 70% 33%)" }} />
+            <span className="text-[9px] text-muted-foreground font-mono">Bear</span>
+            <div className="w-6 h-1.5 rounded-full mx-0.5" style={{ background: "linear-gradient(90deg, hsl(0 70% 33%), hsl(200 15% 18%), hsl(142 70% 35%))" }} />
+            <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(142 70% 35%)" }} />
+            <span className="text-[9px] text-muted-foreground font-mono">Bull</span>
+          </div>
         </div>
       </div>
 
@@ -99,23 +140,23 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
               <button
                 key={cell.pairId}
                 onClick={() => navigate(`/pair/${cell.symbol}`)}
-                className="group rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer flex flex-col items-center gap-0.5"
+                className="group rounded-md p-2 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer flex flex-col items-center gap-0.5"
                 style={{
                   background: cell.score === null ? "hsl(200 10% 15%)" : scoreToColor(cell.score),
                   border: `1px solid ${cell.score === null ? "hsl(200 10% 22%)" : scoreToBorder(cell.score)}`,
-                  minHeight: "90px",
+                  minHeight: "94px",
                 }}
                 title={cell.score === null ? `${cell.symbol}: Insufficient data` : `${cell.symbol}: Score ${cell.score} (${cell.trend})`}
               >
-                {/* Top row: symbol + change badge */}
+                {/* Symbol name — large & pronounced */}
                 <div className="flex items-center justify-between w-full gap-0.5">
-                  <span className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
+                  <span className="text-[12px] sm:text-[13px] font-display font-extrabold text-white tracking-wide drop-shadow-sm truncate leading-tight">
                     {cell.symbol.replace("/", "")}
                   </span>
                   {showChange && (
                     <span
-                      className="text-[7px] font-mono font-semibold leading-none px-0.5 rounded"
-                      style={{ color: change > 0 ? "#4ade80" : "#f87171" }}
+                      className="text-[8px] font-mono font-bold leading-none px-1 py-0.5 rounded-sm"
+                      style={{ color: change > 0 ? "#4ade80" : "#f87171", background: "rgba(0,0,0,0.3)" }}
                     >
                       {change > 0 ? "+" : ""}{change.toFixed(1)}
                     </span>
@@ -123,12 +164,12 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
                 </div>
 
                 {/* Score */}
-                <div className="text-sm font-mono font-bold text-white/90 leading-tight">
+                <div className="text-base sm:text-lg font-display font-bold text-white leading-tight drop-shadow-sm">
                   {cell.score === null ? "—" : cell.score}
                 </div>
 
                 {/* Trend label */}
-                <div className="text-[7px] font-mono uppercase text-white/50 leading-tight">
+                <div className="text-[8px] font-display font-semibold uppercase text-white/60 tracking-wider leading-tight">
                   {cell.trend}
                 </div>
 
