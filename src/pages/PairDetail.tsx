@@ -164,7 +164,7 @@ export default function PairDetail() {
     const loadAll = async () => {
       const { data: allScores } = await supabase
         .from("scores")
-        .select("score, trend, ema_score, rsi_score, news_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist, timeframe")
+        .select("score, trend, ema_score, rsi_score, macd_score, adx_score, news_score, macro_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist, timeframe")
         .eq("pair_id", pair.id)
         .order("scanned_at", { ascending: false });
 
