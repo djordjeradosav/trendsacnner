@@ -41,7 +41,9 @@ interface PairInfo {
 
 interface DbScore {
   score: number; trend: string; ema_score: number | null;
-  rsi_score: number | null; news_score: number | null;
+  rsi_score: number | null; macd_score: number | null;
+  adx_score: number | null; news_score: number | null;
+  macro_score: number | null;
   scanned_at: string; ema20: number | null; ema50: number | null;
   ema200: number | null; adx: number | null; rsi: number | null;
   macd_hist: number | null;
