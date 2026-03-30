@@ -260,7 +260,7 @@ export default function PairDetail() {
       });
       const { data: newScores } = await supabase
         .from("scores")
-        .select("score, trend, ema_score, rsi_score, news_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist, timeframe")
+        .select("score, trend, ema_score, rsi_score, macd_score, adx_score, news_score, macro_score, scanned_at, ema20, ema50, ema200, adx, rsi, macd_hist, timeframe")
         .eq("pair_id", pair.id).eq("timeframe", selectedTF)
         .order("scanned_at", { ascending: false }).limit(1);
       if (newScores?.[0]) {
