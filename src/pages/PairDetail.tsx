@@ -831,3 +831,104 @@ function RelativeStrengthCard({
     </div>
   );
 }
+
+function ConfidenceFlagsChips({ score }: { score: DbScore }) {
+  const s = score.score;
+  const rsi = score.rsi ?? 50;
+  const adx = score.adx ?? 20;
+  const macdHist = score.macd_hist ?? 0;
+  const emaAligned = (s > 50 && (score.ema_score ?? 0) >= 16) || (s < 50 && (score.ema_score ?? 0) <= 10);
+  const rsiInRange = rsi >= 50 && rsi <= 70;
+  const macdConfirms = (macdHist > 0) === (s > 50);
+  const trendStrong = adx > 25;
+  const newsSupports = (score.news_score ?? 6) >= 8 || (score.news_score ?? 6) <= 4;
+  const macroAligned = (score.macro_score ?? 4) >= 6 || (score.macro_score ?? 4) <= 2;
+
+  const flags = [
+    { label: "EMA Aligned", ok: emaAligned },
+    { label: "RSI In Range", ok: rsiInRange },
+    { label: "MACD Confirms", ok: macdConfirms },
+    { label: "Strong Trend", ok: trendStrong },
+    { label: "News Support", ok: newsSupports },
+    { label: "Macro Aligned", ok: macroAligned },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3 pt-2.5 border-t border-border">
+      {flags.map(f => (
+        <span key={f.label} className="text-[9px] md:text-[10px] px-2 py-0.5 rounded-md border font-medium"
+          style={{
+            background: f.ok ? "hsla(var(--bullish), 0.08)" : "hsla(var(--bearish), 0.08)",
+            borderColor: f.ok ? "hsla(var(--bullish), 0.25)" : "hsla(var(--bearish), 0.25)",
+            color: f.ok ? "hsl(var(--bullish))" : "hsl(var(--bearish))",
+          }}>
+          {f.ok ? "✓" : "✗"} {f.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function BiasCard({ score }: { score: DbScore | null }) {
+  const s = score?.score ?? 50;
+  const label = s >= 65 ? "Bullish" : s >= 55 ? "Mild Bull" : s >= 45 ? "Neutral" : s >= 35 ? "Mild Bear" : "Bearish";
+  const color = s >= 55 ? "hsl(var(--bullish))" : s >= 45 ? "hsl(var(--caution))" : "hsl(var(--bearish))";
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 text-center">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Bias</div>
+      <div className="text-sm font-bold" style={{ color }}>{label}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{s.toFixed(0)}/100</div>
+    </div>
+  );
+}
+
+function TechnicalCard({ score }: { score: DbScore | null }) {
+  const emaScore = score?.ema_score ?? 0;
+  const macdScore = score?.macd_score ?? 0;
+  const emaBull = emaScore >= 16;
+  const macdBull = macdScore >= 10;
+  let label: string, color: string;
+  if (emaBull && macdBull) { label = "Strong Buy"; color = "hsl(var(--bullish))"; }
+  else if (emaBull) { label = "Buy"; color = "hsl(var(--bullish))"; }
+  else if (macdBull) { label = "Caution Buy"; color = "hsl(var(--caution))"; }
+  else if (emaScore <= 6 && macdScore <= 5) { label = "Strong Sell"; color = "hsl(var(--bearish))"; }
+  else { label = "Hold"; color = "hsl(var(--muted-foreground))"; }
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 text-center">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Technical</div>
+      <div className="text-sm font-bold" style={{ color }}>{label}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">EMA+MACD</div>
+    </div>
+  );
+}
+
+function AIConfidenceCard({ score }: { score: DbScore | null }) {
+  if (!score) return (
+    <div className="rounded-xl border border-border bg-card p-3 text-center">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Confidence</div>
+      <div className="text-sm font-bold text-muted-foreground">—</div>
+    </div>
+  );
+  const s = score.score;
+  const rsi = score.rsi ?? 50;
+  const adx = score.adx ?? 20;
+  const macdHist = score.macd_hist ?? 0;
+  const checks = [
+    (s > 50 && (score.ema_score ?? 0) >= 16) || (s < 50 && (score.ema_score ?? 0) <= 10),
+    rsi >= 50 && rsi <= 70,
+    (macdHist > 0) === (s > 50),
+    adx > 25,
+    (score.news_score ?? 6) >= 8 || (score.news_score ?? 6) <= 4,
+    (score.macro_score ?? 4) >= 6 || (score.macro_score ?? 4) <= 2,
+  ];
+  const agree = checks.filter(Boolean).length;
+  const label = agree >= 6 ? "Very High" : agree >= 4 ? "High" : agree >= 3 ? "Moderate" : "Low";
+  const color = agree >= 5 ? "hsl(var(--bullish))" : agree >= 3 ? "hsl(var(--caution))" : "hsl(var(--bearish))";
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 text-center">
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">AI Confidence</div>
+      <div className="text-sm font-bold" style={{ color }}>{label}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{agree}/6 aligned</div>
+    </div>
+  );
+}
