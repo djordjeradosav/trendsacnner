@@ -453,15 +453,28 @@ export default function PairDetail() {
           {/* Score Breakdown */}
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="text-sm font-medium text-foreground mb-3">Score Breakdown</div>
-            <div className="space-y-2.5">
-              <ScoreBar label="EMA Trend" value={score?.ema_score ?? 0} max={55} color="hsl(var(--primary))" />
-              <ScoreBar label="RSI Momentum" value={score?.rsi_score ?? 0} max={30} color="hsl(var(--caution))" />
-              <ScoreBar label="News Sentiment" value={score?.news_score ?? 0} max={15} color="hsl(var(--bullish))" />
-              <div className="flex justify-between text-xs pt-1 border-t border-border mt-2">
+            <div className="space-y-2">
+              <ScoreBar label="EMA Alignment" value={score?.ema_score ?? 0} max={30} color="hsl(var(--primary))" />
+              <ScoreBar label="RSI Momentum" value={score?.rsi_score ?? 0} max={20} color="hsl(var(--caution))" />
+              <ScoreBar label="MACD" value={score?.macd_score ?? 0} max={15} color="hsl(var(--bullish))" />
+              <ScoreBar label="Trend Strength" value={score?.adx_score ?? 0} max={15} color="hsl(142 71% 45%)" />
+              <ScoreBar label="News Sentiment" value={score?.news_score ?? 0} max={12} color="hsl(221 83% 53%)" />
+              <ScoreBar label="Macro Bias" value={score?.macro_score ?? 0} max={8} color="hsl(270 70% 60%)" />
+              <div className="flex justify-between text-xs pt-1.5 border-t border-border mt-2">
                 <span className="text-muted-foreground">Composite</span>
                 <span className="font-bold font-mono" style={{ color: trendColor }}>{score?.score?.toFixed(0) ?? "—"} / 100</span>
               </div>
             </div>
+
+            {/* Confidence Flags */}
+            {score && <ConfidenceFlagsChips score={score} />}
+          </div>
+
+          {/* Bias / Technical / Confidence Cards */}
+          <div className="grid grid-cols-3 gap-2">
+            <BiasCard score={score} />
+            <TechnicalCard score={score} />
+            <AIConfidenceCard score={score} />
           </div>
 
           {/* News Stories */}
