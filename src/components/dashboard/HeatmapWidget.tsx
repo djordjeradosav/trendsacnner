@@ -99,23 +99,23 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
               <button
                 key={cell.pairId}
                 onClick={() => navigate(`/pair/${cell.symbol}`)}
-                className="group rounded-md p-1.5 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer flex flex-col items-center gap-0.5"
+                className="group rounded-md p-2 text-center transition-transform hover:scale-105 hover:z-10 cursor-pointer flex flex-col items-center gap-0.5"
                 style={{
                   background: cell.score === null ? "hsl(200 10% 15%)" : scoreToColor(cell.score),
                   border: `1px solid ${cell.score === null ? "hsl(200 10% 22%)" : scoreToBorder(cell.score)}`,
-                  minHeight: "90px",
+                  minHeight: "94px",
                 }}
                 title={cell.score === null ? `${cell.symbol}: Insufficient data` : `${cell.symbol}: Score ${cell.score} (${cell.trend})`}
               >
-                {/* Top row: symbol + change badge */}
+                {/* Symbol name — large & pronounced */}
                 <div className="flex items-center justify-between w-full gap-0.5">
-                  <span className="text-[9px] font-display font-bold text-white/90 truncate leading-tight">
+                  <span className="text-[12px] sm:text-[13px] font-display font-extrabold text-white tracking-wide drop-shadow-sm truncate leading-tight">
                     {cell.symbol.replace("/", "")}
                   </span>
                   {showChange && (
                     <span
-                      className="text-[7px] font-mono font-semibold leading-none px-0.5 rounded"
-                      style={{ color: change > 0 ? "#4ade80" : "#f87171" }}
+                      className="text-[8px] font-mono font-bold leading-none px-1 py-0.5 rounded-sm"
+                      style={{ color: change > 0 ? "#4ade80" : "#f87171", background: "rgba(0,0,0,0.3)" }}
                     >
                       {change > 0 ? "+" : ""}{change.toFixed(1)}
                     </span>
@@ -123,12 +123,12 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
                 </div>
 
                 {/* Score */}
-                <div className="text-sm font-mono font-bold text-white/90 leading-tight">
+                <div className="text-base sm:text-lg font-display font-bold text-white leading-tight drop-shadow-sm">
                   {cell.score === null ? "—" : cell.score}
                 </div>
 
                 {/* Trend label */}
-                <div className="text-[7px] font-mono uppercase text-white/50 leading-tight">
+                <div className="text-[8px] font-display font-semibold uppercase text-white/60 tracking-wider leading-tight">
                   {cell.trend}
                 </div>
 
