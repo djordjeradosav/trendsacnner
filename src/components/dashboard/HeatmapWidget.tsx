@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAllScores } from "@/hooks/useScores";
 import { useSparklineData } from "@/hooks/useSparklineData";
 import { ScoreSparkline } from "@/components/scanner/ScoreSparkline";
 import { useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface PairMap {
   [id: string]: { symbol: string; category: string };
