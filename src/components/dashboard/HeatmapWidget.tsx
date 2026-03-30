@@ -34,10 +34,14 @@ function scoreToBorder(score: number): string {
   return "hsl(0 70% 42%)";
 }
 
+const CATEGORIES = ["All", "Forex", "Futures", "Commodity"] as const;
+
 export function HeatmapWidget({ timeframe }: { timeframe: string }) {
   const { data: allScores } = useAllScores(timeframe);
   const { data: sparklines } = useSparklineData(timeframe);
   const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<typeof CATEGORIES[number]>("All");
 
   const { data: pairs } = useQuery<PairMap>({
     queryKey: ["pairs-map"],
@@ -60,9 +64,14 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
         score: s.score,
         trend: s.trend,
       }))
-      .filter((c) => c.symbol !== "?")
+      .filter((c) => {
+        if (c.symbol === "?") return false;
+        if (category !== "All" && c.category.toLowerCase() !== category.toLowerCase()) return false;
+        if (search && !c.symbol.toLowerCase().includes(search.toLowerCase())) return false;
+        return true;
+      })
       .sort((a, b) => Math.abs(b.score - 50) - Math.abs(a.score - 50));
-  }, [allScores, pairs]);
+  }, [allScores, pairs, category, search]);
 
   
 
