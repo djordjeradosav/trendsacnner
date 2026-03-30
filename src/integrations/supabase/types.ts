@@ -677,6 +677,7 @@ export type Database = {
           id: string
           macd_hist: number | null
           macd_score: number | null
+          macro_score: number | null
           news_score: number | null
           pair_id: string
           rsi: number | null
@@ -697,6 +698,7 @@ export type Database = {
           id?: string
           macd_hist?: number | null
           macd_score?: number | null
+          macro_score?: number | null
           news_score?: number | null
           pair_id: string
           rsi?: number | null
@@ -717,6 +719,7 @@ export type Database = {
           id?: string
           macd_hist?: number | null
           macd_score?: number | null
+          macro_score?: number | null
           news_score?: number | null
           pair_id?: string
           rsi?: number | null
