@@ -19,28 +19,28 @@ export interface Candle {
 }
 
 export interface ScoreBreakdown {
-  // Technical Layer (0-55)
-  emaScore: number;       // 0-22
-  adxScore: number;       // 0-11
-  rsiScore: number;       // 0-11
-  macdScore: number;      // 0-11
-  technicalTotal: number; // 0-55
+  emaScore: number;    // 0-30
+  rsiScore: number;    // 0-20
+  macdScore: number;   // 0-15
+  adxScore: number;    // 0-15
+  newsScore: number;   // 0-12
+  macroScore: number;  // 0-8
+}
 
-  // Fundamental Layer (0-25)
-  newsScore: number;          // 0-13
-  eventRiskScore: number;     // 0-12
-  fundamentalTotal: number;   // 0-25
-
-  // Social Layer (0-20)
-  stocktwitsScore: number;    // 0-10
-  redditScore: number;        // 0-10
-  socialTotal: number;        // 0-20
+export interface ConfidenceFlags {
+  emaAligned: boolean;
+  rsiInRange: boolean;
+  macdConfirms: boolean;
+  trendStrong: boolean;
+  newsSupports: boolean;
+  macroAligned: boolean;
 }
 
 export interface EnhancedScoreResult {
   score: number;
   trend: "bullish" | "neutral" | "bearish";
   breakdown: ScoreBreakdown;
+  confidenceFlags: ConfidenceFlags;
 
   // Raw indicator values
   ema20: number;
@@ -51,17 +51,6 @@ export interface EnhancedScoreResult {
   macdHist: number;
   macdHistPrev: number;
 
-  // Event risk
-  eventRiskFlag: boolean;
-  upcomingEvent: string | null;
-  upcomingEventTime: string | null;
-  scoreBeforeEventRisk: number;
-
-  // Data quality
-  dataQuality: "full" | "no-social" | "no-news" | "technical-only";
-  lastNewsUpdate: string | null;
-  lastSocialUpdate: string | null;
-
   // Legacy compat
   emaScore: number;
   adxScore: number;
@@ -69,320 +58,302 @@ export interface EnhancedScoreResult {
   macdScore: number;
   newsScore: number | null;
   socialScore: number | null;
+  macroScore: number;
 
   // Explanation lines
   explanationLines: string[];
 }
 
-// Keep old interface for backwards compat
 export type ScoreResult = EnhancedScoreResult;
 
-// ─── EMA Alignment (0–22) ───────────────────────────────────────────────────
-function scoreEMA(price: number, ema20: number, ema50: number, ema200: number, timeframe?: string): { score: number; line: string } {
-  const isShortTF = timeframe === "15min";
-  if (isShortTF) {
-    if (price > ema20 && ema20 > ema50 && ema50 > ema200)
-      return { score: 22, line: "✓ EMA Stack: Full bullish alignment (+22)" };
-    if (price < ema20 && ema20 < ema50 && ema50 < ema200)
-      return { score: 0, line: "✗ EMA Stack: Full bearish alignment (+0)" };
-    if (price > ema20 && ema20 > ema50)
-      return { score: 16, line: "~ EMA: Price > Fast > Mid (+16)" };
-    if (price > ema20)
-      return { score: 10, line: "~ EMA: Price above fast EMA only (+10)" };
-    if (price < ema20 && ema20 < ema50)
-      return { score: 6, line: "~ EMA: Partial bearish (+6)" };
-    return { score: 11, line: "~ EMA: Mixed/choppy (+11)" };
+// ─── COMPONENT 1: EMA Alignment (0–30) ─────────────────────────────────────
+function calcEMAScore(
+  price: number, ef: number, em: number, es: number, el: number | null
+): { score: number; line: string } {
+  if (el !== null) {
+    // 4-EMA system (4h, 1day)
+    if (price > ef && ef > em && em > es && es > el)
+      return { score: 30, line: "✓ EMA: Perfect bull stack (price>9>21>50>200) (+30/30)" };
+    if (price > ef && ef > em && em > es)
+      return { score: 22, line: "~ EMA: Bull (price>9>21>50) (+22/30)" };
+    if (price > ef && ef > em)
+      return { score: 16, line: "~ EMA: Price>9>21 (+16/30)" };
+    if (price > ef)
+      return { score: 10, line: "~ EMA: Price>9 only (+10/30)" };
+    if (price < ef && ef < em && em < es && es < el)
+      return { score: 0, line: "✗ EMA: Perfect bear stack (+0/30)" };
+    if (price < ef && ef < em && em < es)
+      return { score: 2, line: "✗ EMA: Bear (price<9<21<50) (+2/30)" };
+    if (price < ef)
+      return { score: 6, line: "~ EMA: Price below fast EMA (+6/30)" };
+    return { score: 8, line: "~ EMA: Mixed/choppy (+8/30)" };
   }
-  if (price > ema20 && ema20 > ema50 && ema50 > ema200)
-    return { score: 22, line: "✓ EMA Stack: Price > EMA20 > EMA50 > EMA200 (+22)" };
-  if (price > ema20 && ema20 > ema50)
-    return { score: 15, line: "~ EMA: Price > EMA20 > EMA50 (+15)" };
-  if (price > ema20)
-    return { score: 8, line: "~ EMA: Price above EMA20 only (+8)" };
-  if (price < ema20 && ema20 < ema50 && ema50 < ema200)
-    return { score: 0, line: "✗ EMA Stack: Full bearish alignment (+0)" };
-  return { score: 11, line: "~ EMA: Mixed/choppy (+11)" };
+  // 3-EMA system (5min, 15min, 1h)
+  if (price > ef && ef > em && em > es)
+    return { score: 30, line: "✓ EMA: Perfect bull stack (+30/30)" };
+  if (price > ef && ef > em)
+    return { score: 22, line: "~ EMA: Price>9>21 (+22/30)" };
+  if (price > ef)
+    return { score: 14, line: "~ EMA: Price>9 only (+14/30)" };
+  if (price < ef && ef < em && em < es)
+    return { score: 0, line: "✗ EMA: Perfect bear stack (+0/30)" };
+  if (price < ef && ef < em)
+    return { score: 6, line: "~ EMA: Partial bear (+6/30)" };
+  if (price < ef)
+    return { score: 10, line: "~ EMA: Mixed bearish (+10/30)" };
+  return { score: 10, line: "~ EMA: Mixed/choppy (+10/30)" };
 }
 
-// ─── ADX Strength (0–11) ────────────────────────────────────────────────────
-function scoreADX(adx: number): { score: number; line: string } {
-  if (adx >= 40) return { score: 11, line: `✓ ADX ${adx.toFixed(0)} — very strong trend (+11)` };
-  if (adx >= 25) return { score: 8, line: `✓ ADX ${adx.toFixed(0)} — strong trend (+8)` };
-  if (adx >= 15) return { score: 4, line: `~ ADX ${adx.toFixed(0)} — weak trend (+4)` };
-  return { score: 2, line: `✗ ADX ${adx.toFixed(0)} — no trend (+2)` };
+// ─── COMPONENT 2: RSI (0–20) ────────────────────────────────────────────────
+function calcRSIScore(rsi: number): { score: number; line: string } {
+  let score: number;
+  if      (rsi >= 60 && rsi < 70) score = 20;
+  else if (rsi >= 70 && rsi < 80) score = 18;
+  else if (rsi >= 80)             score = 12;
+  else if (rsi >= 55)             score = 16;
+  else if (rsi >= 50)             score = 12;
+  else if (rsi >= 45)             score = 8;
+  else if (rsi >= 40)             score = 5;
+  else if (rsi >= 30)             score = 3;
+  else                            score = 6; // oversold bounce
+  const label = score >= 16 ? "✓" : score >= 8 ? "~" : "✗";
+  return { score, line: `${label} RSI ${rsi.toFixed(0)} — (+${score}/20)` };
 }
 
-// ─── RSI Bias (0–11) ────────────────────────────────────────────────────────
-function scoreRSI(rsi: number): { score: number; line: string } {
-  const raw = ((rsi - 50) / 50) * 11;
-  const score = Math.max(0, Math.min(11, Math.round(raw)));
-  const label = rsi > 60 ? "✓" : rsi < 40 ? "✗" : "~";
-  return { score, line: `${label} RSI ${rsi.toFixed(0)} — ${rsi > 60 ? "bullish" : rsi < 40 ? "bearish" : "neutral"} bias (+${score}/11)` };
-}
-
-// ─── MACD Momentum (0–11) ───────────────────────────────────────────────────
-function scoreMACD(hist: number, histPrev: number): { score: number; line: string } {
-  const increasing = hist > histPrev;
+// ─── COMPONENT 3: MACD (0–15) ───────────────────────────────────────────────
+function calcMACDScore(histCurr: number, histPrev: number): { score: number; line: string } {
+  const accelerating = Math.abs(histCurr) > Math.abs(histPrev);
   let score: number;
   let desc: string;
-  if (hist > 0 && increasing) { score = 11; desc = "positive & rising"; }
-  else if (hist > 0 && !increasing) { score = 7; desc = "positive but weakening"; }
-  else if (hist <= 0 && increasing) { score = 4; desc = "negative but improving"; }
-  else { score = 0; desc = "negative & falling"; }
-  const label = score >= 7 ? "✓" : score >= 4 ? "~" : "✗";
-  return { score, line: `${label} MACD histogram ${desc} (+${score}/11)` };
+  if (histCurr > 0 && accelerating)       { score = 15; desc = "bullish & accelerating"; }
+  else if (histCurr > 0 && !accelerating) { score = 10; desc = "bullish but weakening"; }
+  else if (Math.abs(histCurr) < 0.00001)  { score = 8;  desc = "crossover zone"; }
+  else if (histCurr < 0 && accelerating)  { score = 2;  desc = "bearish & accelerating"; }
+  else if (histCurr < 0 && !accelerating) { score = 5;  desc = "bearish but improving"; }
+  else                                    { score = 7;  desc = "neutral"; }
+  const label = score >= 10 ? "✓" : score >= 5 ? "~" : "✗";
+  return { score, line: `${label} MACD: ${desc} (+${score}/15)` };
 }
 
-// ─── News Score (0–13) ──────────────────────────────────────────────────────
-function scaleNewsScore(rawScore: number | null | undefined): { score: number; line: string } {
-  if (rawScore == null) return { score: 7, line: "— News: no data available (+7/13 default)" };
-  // rawScore is 0-11, scale to 0-13
-  const score = Math.round((rawScore / 11) * 13);
-  const label = score >= 9 ? "✓" : score <= 4 ? "✗" : "~";
-  return { score: Math.max(0, Math.min(13, score)), line: `${label} News sentiment (+${score}/13)` };
-}
-
-// ─── Event Risk (0–12) ─────────────────────────────────────────────────────
-interface EventRiskInfo {
-  score: number;
-  flag: boolean;
-  eventName: string | null;
-  eventTime: string | null;
-  multiplier: number;
-  line: string;
-}
-
-async function calcEventRisk(currency: string): Promise<EventRiskInfo> {
-  const now = new Date();
-  const fourHoursFromNow = new Date(now.getTime() + 4 * 3600 * 1000);
-
-  const { data: events } = await supabase
-    .from("economic_events")
-    .select("event_name, scheduled_at, impact")
-    .eq("impact", "high")
-    .eq("currency", currency)
-    .is("actual", null)
-    .gte("scheduled_at", now.toISOString())
-    .lte("scheduled_at", fourHoursFromNow.toISOString())
-    .order("scheduled_at", { ascending: true })
-    .limit(1);
-
-  if (!events || events.length === 0) {
-    return { score: 12, flag: false, eventName: null, eventTime: null, multiplier: 1.0, line: "✓ No upcoming high-impact events (+12/12)" };
+// ─── COMPONENT 4: ADX Trend Strength (0–15) ─────────────────────────────────
+function calcADXScore(adx: number, emaDir: "bullish" | "bearish" | "neutral"): { score: number; line: string } {
+  let score: number;
+  if (emaDir === "neutral") {
+    score = adx < 15 ? 5 : 8;
+  } else {
+    if      (adx >= 50) score = 10; // extreme — possible exhaustion
+    else if (adx >= 35) score = 15;
+    else if (adx >= 25) score = 13;
+    else if (adx >= 20) score = 10;
+    else if (adx >= 15) score = 7;
+    else                score = 3;
   }
-
-  const evt = events[0];
-  const hoursAway = (new Date(evt.scheduled_at).getTime() - now.getTime()) / 3600000;
-
-  let multiplier: number;
-  let penalty: number;
-  if (hoursAway < 1) { multiplier = 0.6; penalty = 12; }
-  else if (hoursAway < 2) { multiplier = 0.7; penalty = 9; }
-  else { multiplier = 0.8; penalty = 6; }
-
-  const score = 12 - penalty;
-  return {
-    score: Math.max(0, score),
-    flag: hoursAway < 1,
-    eventName: evt.event_name,
-    eventTime: evt.scheduled_at,
-    multiplier,
-    line: `⚠ ${evt.event_name} in ${hoursAway.toFixed(1)}h — uncertainty penalty (-${penalty})`,
-  };
+  const label = score >= 13 ? "✓" : score >= 7 ? "~" : "✗";
+  return { score, line: `${label} ADX ${adx.toFixed(0)} — (+${score}/15)` };
 }
 
-// ─── Social Scores (0–10 each) ──────────────────────────────────────────────
-function scaleSocialScore(rawScore: number | null | undefined, source: string): { score: number; line: string } {
-  if (rawScore == null) return { score: 5, line: `— ${source}: no data available (+5/10 default)` };
-  // rawScore is 0-11, scale to 0-10
-  const score = Math.round((rawScore / 11) * 10);
-  const label = score >= 7 ? "✓" : score <= 3 ? "✗" : "~";
-  return { score: Math.max(0, Math.min(10, score)), line: `${label} ${source} sentiment (+${score}/10)` };
+// ─── COMPONENT 5: News Sentiment (0–12) ─────────────────────────────────────
+function calcNewsScoreFromRaw(rawNewsScore: number | null | undefined): { score: number; line: string } {
+  if (rawNewsScore == null) return { score: 6, line: "— News: no data (+6/12 default)" };
+  // rawNewsScore is 0-11 from newsSentimentScore.ts, scale to 0-12
+  const ratio = rawNewsScore / 11;
+  let score: number;
+  if      (ratio >= 0.8) score = 12;
+  else if (ratio >= 0.65) score = 10;
+  else if (ratio >= 0.55) score = 8;
+  else if (ratio >= 0.45) score = 6;
+  else if (ratio >= 0.35) score = 4;
+  else if (ratio >= 0.2) score = 2;
+  else                    score = 0;
+  const label = score >= 8 ? "✓" : score >= 4 ? "~" : "✗";
+  return { score, line: `${label} News sentiment (+${score}/12)` };
 }
 
-// ─── Composite ──────────────────────────────────────────────────────────────
+// ─── COMPONENT 6: Macro Bias (0–8) ──────────────────────────────────────────
+const MACRO_CURRENCY_MAP: Record<string, string[]> = {
+  USD: ["NFP", "CPI", "INTEREST_RATE"],
+  EUR: ["EUR_CPI", "EUR_GDP"],
+  GBP: ["GBP_CPI", "GBP_GDP"],
+  JPY: ["BOJ_RATE", "JP_CPI"],
+  AUD: ["AUD_CPI", "RBA_RATE"],
+  CAD: ["CAD_GDP", "BOC_RATE"],
+  CHF: ["SNB_RATE"],
+  NZD: ["RBNZ_RATE"],
+};
+
+interface MacroRow {
+  indicator: string;
+  beat_miss: string | null;
+  release_date: string;
+}
+
+function calcCurrencyMacroStrength(indicators: string[], macroData: MacroRow[]): number {
+  if (!indicators.length) return 0.5;
+  const relevant = macroData
+    .filter(r => indicators.includes(r.indicator))
+    .sort((a, b) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime())
+    .slice(0, 3);
+  if (!relevant.length) return 0.5;
+  const beats = relevant.filter(r => r.beat_miss === "beat").length;
+  return beats / relevant.length;
+}
+
+function calcMacroScoreValue(
+  baseCurrency: string, quoteCurrency: string, macroData: MacroRow[]
+): { score: number; line: string } {
+  const baseIndicators = MACRO_CURRENCY_MAP[baseCurrency] ?? [];
+  const quoteIndicators = MACRO_CURRENCY_MAP[quoteCurrency] ?? [];
+  const baseStrength = calcCurrencyMacroStrength(baseIndicators, macroData);
+  const quoteStrength = calcCurrencyMacroStrength(quoteIndicators, macroData);
+  const net = baseStrength - quoteStrength; // -1 to +1
+
+  let score: number;
+  if      (net >= 0.5)  score = 8;
+  else if (net >= 0.2)  score = 6;
+  else if (net >= -0.2) score = 4;
+  else if (net >= -0.5) score = 2;
+  else                  score = 0;
+
+  const label = score >= 6 ? "✓" : score >= 2 ? "~" : "✗";
+  return { score, line: `${label} Macro bias ${baseCurrency}/${quoteCurrency}: net=${net.toFixed(2)} (+${score}/8)` };
+}
+
+// ─── Composite Score ────────────────────────────────────────────────────────
 
 export function calcTrendScore(
   candles: Candle[],
   newsScore?: number | null,
   socialScore?: number | null,
-  timeframe?: string
+  timeframe?: string,
+  macroData?: MacroRow[],
+  symbol?: string,
 ): EnhancedScoreResult {
   const sorted = [...candles].sort(
     (a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()
   );
 
-  const closes = sorted.map((c) => c.close);
-  const highs = sorted.map((c) => c.high);
-  const lows = sorted.map((c) => c.low);
+  const closes = sorted.map(c => c.close);
+  const highs = sorted.map(c => c.high);
+  const lows = sorted.map(c => c.low);
+  const n = closes.length;
 
-  // Timeframe-specific indicator periods
-  const isShortTF = timeframe === "15min";
-  const emaFastP = isShortTF ? 9 : 20;
-  const emaMidP = isShortTF ? 21 : 50;
-  const emaSlowP = isShortTF ? 50 : 200;
+  // Timeframe-specific EMA periods
+  const useLongEMA = timeframe === "4h" || timeframe === "1day";
+  const emaFastP = 9, emaMidP = 21, emaSlowP = 50;
+  const emaLongP = useLongEMA ? 200 : null;
 
-  const ema20Arr = calcEMA(closes, emaFastP);
-  const ema50Arr = calcEMA(closes, emaMidP);
-  const ema200Arr = calcEMA(closes, emaSlowP);
+  const efArr = calcEMA(closes, emaFastP);
+  const emArr = calcEMA(closes, emaMidP);
+  const esArr = calcEMA(closes, emaSlowP);
+  const elArr = emaLongP ? calcEMA(closes, emaLongP) : null;
   const rsiArr = calcRSI(closes, 14);
   const adxArr = calcADX(highs, lows, closes, 14);
   const { histogram } = calcMACD(closes, 12, 26, 9);
 
-  const price = closes[closes.length - 1];
-  const ema20 = getLatestValue(ema20Arr);
-  const ema50 = getLatestValue(ema50Arr);
-  const ema200 = getLatestValue(ema200Arr);
+  const price = closes[n - 1];
+  const ef = getLatestValue(efArr);
+  const em = getLatestValue(emArr);
+  const es = getLatestValue(esArr);
+  const el = elArr ? getLatestValue(elArr) : null;
   const rsi = getLatestValue(rsiArr);
   const adx = getLatestValue(adxArr);
   const macdHist = getLatestValue(histogram);
-
   let macdHistPrev = NaN;
   for (let i = histogram.length - 2; i >= 0; i--) {
     if (!isNaN(histogram[i])) { macdHistPrev = histogram[i]; break; }
   }
 
-  const ema = !isNaN(ema20) && !isNaN(ema50) && !isNaN(ema200) ? scoreEMA(price, ema20, ema50, ema200, timeframe) : { score: 11, line: "~ EMA: insufficient data (+11)" };
-  const adxR = !isNaN(adx) ? scoreADX(adx) : { score: 2, line: "— ADX: insufficient data (+2)" };
-  const rsiR = !isNaN(rsi) ? scoreRSI(rsi) : { score: 6, line: "— RSI: insufficient data (+6)" };
-  const macdR = !isNaN(macdHist) && !isNaN(macdHistPrev) ? scoreMACD(macdHist, macdHistPrev) : { score: 6, line: "— MACD: insufficient data (+6)" };
+  // Determine EMA direction for ADX scoring
+  const emaDir: "bullish" | "bearish" | "neutral" = (() => {
+    if (isNaN(ef) || isNaN(em)) return "neutral";
+    if (price > ef && ef > em) return "bullish";
+    if (price < ef && ef < em) return "bearish";
+    return "neutral";
+  })();
 
-  const technicalTotal = ema.score + adxR.score + rsiR.score + macdR.score;
+  // Component scores
+  const ema = (!isNaN(ef) && !isNaN(em) && !isNaN(es))
+    ? calcEMAScore(price, ef, em, es, !isNaN(el ?? NaN) ? el : null)
+    : { score: 10, line: "~ EMA: insufficient data (+10/30)" };
 
-  // Fundamental
-  const newsR = scaleNewsScore(newsScore);
-  // Event risk computed async, use full score here (sync version)
-  const eventRiskScore = 12;
-  const fundamentalTotal = newsR.score + eventRiskScore;
+  const rsiR = !isNaN(rsi)
+    ? calcRSIScore(rsi)
+    : { score: 12, line: "— RSI: insufficient data (+12/20)" };
 
-  // Social — split raw socialScore evenly between stocktwits and reddit
-  const stocktwitsR = scaleSocialScore(socialScore, "StockTwits");
-  const redditR = scaleSocialScore(socialScore != null ? Math.max(0, socialScore - 1) : null, "Reddit/Social");
-  const socialTotal = stocktwitsR.score + redditR.score;
+  const macdR = (!isNaN(macdHist) && !isNaN(macdHistPrev))
+    ? calcMACDScore(macdHist, macdHistPrev)
+    : { score: 7, line: "— MACD: insufficient data (+7/15)" };
 
-  const rawScore = Math.round(Math.max(0, Math.min(100, technicalTotal + fundamentalTotal + socialTotal)));
+  const adxR = !isNaN(adx)
+    ? calcADXScore(adx, emaDir)
+    : { score: 7, line: "— ADX: insufficient data (+7/15)" };
 
-  // Data quality
-  let dataQuality: "full" | "no-social" | "no-news" | "technical-only" = "full";
-  if (newsScore == null && socialScore == null) dataQuality = "technical-only";
-  else if (socialScore == null) dataQuality = "no-social";
-  else if (newsScore == null) dataQuality = "no-news";
+  const newsR = calcNewsScoreFromRaw(newsScore);
 
+  // Macro score
+  const sym = symbol ?? (candles[0]?.pair_id ?? "");
+  const baseCurrency = sym.slice(0, 3);
+  const quoteCurrency = sym.slice(3, 6);
+  const macroR = (macroData && macroData.length > 0)
+    ? calcMacroScoreValue(baseCurrency, quoteCurrency, macroData)
+    : { score: 4, line: "— Macro: no data (+4/8 default)" };
+
+  const total = ema.score + rsiR.score + macdR.score + adxR.score + newsR.score + macroR.score;
+  const score = Math.min(100, Math.max(0, Math.round(total)));
   const trend: "bullish" | "neutral" | "bearish" =
-    rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
+    score >= 62 ? "bullish" : score <= 38 ? "bearish" : "neutral";
+
+  const confidenceFlags: ConfidenceFlags = {
+    emaAligned: emaDir !== "neutral",
+    rsiInRange: rsi >= 50 && rsi <= 70,
+    macdConfirms: (macdHist > 0) === (score > 50),
+    trendStrong: adx > 25,
+    newsSupports: newsR.score >= 8 || newsR.score <= 4,
+    macroAligned: macroR.score >= 6 || macroR.score <= 2,
+  };
 
   const explanationLines = [
-    `Technical signals: ${technicalTotal}/55`,
+    `EMA Alignment: ${ema.score}/30`,
     `  ${ema.line}`,
-    `  ${adxR.line}`,
+    `RSI Momentum: ${rsiR.score}/20`,
     `  ${rsiR.line}`,
+    `MACD: ${macdR.score}/15`,
     `  ${macdR.line}`,
-    `Fundamental signals: ${fundamentalTotal}/25`,
+    `ADX Trend Strength: ${adxR.score}/15`,
+    `  ${adxR.line}`,
+    `News Sentiment: ${newsR.score}/12`,
     `  ${newsR.line}`,
-    `  ✓ No upcoming event risk (+12/12)`,
-    `Social signals: ${socialTotal}/20`,
-    `  ${stocktwitsR.line}`,
-    `  ${redditR.line}`,
-    `Score quality: ${dataQuality === "full" ? "Full data ✓" : dataQuality === "no-social" ? "Missing social data" : dataQuality === "no-news" ? "Missing news data" : "Technical only"}`,
+    `Macro Bias: ${macroR.score}/8`,
+    `  ${macroR.line}`,
+    `TOTAL: ${score}/100 → ${trend}`,
   ];
 
   return {
-    score: rawScore,
+    score,
     trend,
     breakdown: {
       emaScore: ema.score,
-      adxScore: adxR.score,
       rsiScore: rsiR.score,
       macdScore: macdR.score,
-      technicalTotal,
+      adxScore: adxR.score,
       newsScore: newsR.score,
-      eventRiskScore,
-      fundamentalTotal,
-      stocktwitsScore: stocktwitsR.score,
-      redditScore: redditR.score,
-      socialTotal,
+      macroScore: macroR.score,
     },
-    ema20: isNaN(ema20) ? 0 : ema20,
-    ema50: isNaN(ema50) ? 0 : ema50,
-    ema200: isNaN(ema200) ? 0 : ema200,
+    confidenceFlags,
+    ema20: isNaN(ef) ? 0 : ef,
+    ema50: isNaN(em) ? 0 : em,
+    ema200: isNaN(el ?? NaN) ? (isNaN(es) ? 0 : es) : el!,
     adx: isNaN(adx) ? 0 : adx,
     rsi: isNaN(rsi) ? 50 : rsi,
     macdHist: isNaN(macdHist) ? 0 : macdHist,
     macdHistPrev: isNaN(macdHistPrev) ? 0 : macdHistPrev,
-    eventRiskFlag: false,
-    upcomingEvent: null,
-    upcomingEventTime: null,
-    scoreBeforeEventRisk: rawScore,
-    dataQuality,
-    lastNewsUpdate: null,
-    lastSocialUpdate: null,
-    // Legacy compat
     emaScore: ema.score,
     adxScore: adxR.score,
     rsiScore: rsiR.score,
     macdScore: macdR.score,
     newsScore: newsScore ?? null,
     socialScore: socialScore ?? null,
-    explanationLines,
-  };
-}
-
-// ─── Enhanced Score with Event Risk (async) ─────────────────────────────────
-
-export async function calcEnhancedScore(
-  candles: Candle[],
-  currency: string,
-  newsScore?: number | null,
-  socialScore?: number | null
-): Promise<EnhancedScoreResult> {
-  const base = calcTrendScore(candles, newsScore, socialScore);
-
-  // Compute event risk
-  const eventRisk = await calcEventRisk(currency);
-
-  // Recalculate fundamental total with actual event risk
-  const newsR = scaleNewsScore(newsScore);
-  const fundamentalTotal = newsR.score + eventRisk.score;
-  const socialTotal = base.breakdown.socialTotal;
-  const technicalTotal = base.breakdown.technicalTotal;
-
-  let rawScore = Math.round(Math.max(0, Math.min(100, technicalTotal + fundamentalTotal + socialTotal)));
-  const scoreBeforeEventRisk = rawScore;
-
-  // Apply event risk multiplier to total score
-  if (eventRisk.multiplier < 1.0) {
-    rawScore = Math.round(rawScore * eventRisk.multiplier);
-  }
-
-  const trend: "bullish" | "neutral" | "bearish" =
-    rawScore >= 65 ? "bullish" : rawScore <= 35 ? "bearish" : "neutral";
-
-  // Update explanation
-  const explanationLines = [
-    ...base.explanationLines.slice(0, 5),
-    `Fundamental signals: ${fundamentalTotal}/25`,
-    `  ${base.explanationLines[6]?.replace(/  /, "")}`,
-    `  ${eventRisk.line}`,
-    ...base.explanationLines.slice(8),
-  ];
-
-  if (eventRisk.multiplier < 1.0) {
-    explanationLines.push(`⚡ Event risk multiplier: ${eventRisk.multiplier}x applied`);
-  }
-
-  return {
-    ...base,
-    score: rawScore,
-    trend,
-    scoreBeforeEventRisk,
-    eventRiskFlag: eventRisk.flag,
-    upcomingEvent: eventRisk.eventName,
-    upcomingEventTime: eventRisk.eventTime,
-    breakdown: {
-      ...base.breakdown,
-      eventRiskScore: eventRisk.score,
-      fundamentalTotal,
-    },
+    macroScore: macroR.score,
     explanationLines,
   };
 }
@@ -394,9 +365,11 @@ export async function scorePair(
   candles: Candle[],
   timeframe: string,
   newsScore?: number | null,
-  socialScore?: number | null
+  socialScore?: number | null,
+  macroData?: MacroRow[],
+  symbol?: string,
 ): Promise<EnhancedScoreResult> {
-  const result = calcTrendScore(candles, newsScore, socialScore, timeframe);
+  const result = calcTrendScore(candles, newsScore, socialScore, timeframe, macroData, symbol);
 
   const { error } = await supabase.from("scores").upsert(
     {
@@ -410,6 +383,7 @@ export async function scorePair(
       macd_score: result.macdScore,
       news_score: result.newsScore,
       social_score: result.socialScore,
+      macro_score: result.macroScore,
       ema20: result.ema20,
       ema50: result.ema50,
       ema200: result.ema200,
