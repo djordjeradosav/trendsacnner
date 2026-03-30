@@ -67,11 +67,11 @@ function getTrendColor(trend: string | null | undefined): string {
 }
 
 function getScoreQuality(score: number): { label: string; color: string } {
-  if (score >= 75) return { label: "Strong / High Quality", color: "hsl(var(--bullish))" };
-  if (score >= 62) return { label: "Good / Above Average", color: "hsl(var(--bullish))" };
-  if (score >= 45) return { label: "Mixed / Low Quality", color: "hsl(var(--caution))" };
-  if (score >= 30) return { label: "Weak / Below Average", color: "hsl(var(--bearish))" };
-  return { label: "Poor / High Risk", color: "hsl(var(--bearish))" };
+  if (score >= 65) return { label: "Bullish", color: "hsl(var(--bullish))" };
+  if (score >= 55) return { label: "Mild Bull", color: "hsl(var(--bullish))" };
+  if (score >= 45) return { label: "Neutral", color: "hsl(var(--caution))" };
+  if (score >= 35) return { label: "Mild Bear", color: "hsl(var(--bearish))" };
+  return { label: "Bearish", color: "hsl(var(--bearish))" };
 }
 
 function getEdgeFactor(score: DbScore | null): string {
