@@ -13,26 +13,33 @@ const EMA_PERIODS: Record<string, { fast: number; mid: number; slow: number; lon
   "15min": { fast: 9,  mid: 21, slow: 50,  long: null },
   "1h":    { fast: 9,  mid: 21, slow: 50,  long: null },
   "4h":    { fast: 9,  mid: 21, slow: 50,  long: 200  },
-  "1day":  { fast: 20, mid: 50, slow: 200, long: null },
+  "1day":  { fast: 9,  mid: 21, slow: 50,  long: 200  },
 };
 
 const MIN_CANDLES: Record<string, number> = {
   "5min": 35, "15min": 55, "1h": 60, "4h": 60, "1day": 100,
 };
 
-// ─── ETF/stock symbol map for Finnhub free tier ─────────────────────────────
-// Finnhub free tier supports US stock/ETF quotes — map our pairs to ETFs
 const ETF_MAP: Record<string, string> = {
-  // Index futures → ETF proxies
   "US30USD": "DIA", "NAS100USD": "QQQ", "SPX500USD": "SPY", "US2000USD": "IWM",
   "UK100GBP": "EWU", "JP225USD": "EWJ", "EU50EUR": "FEZ",
   "GER40EUR": "EWG", "FR40EUR": "EWQ", "AUS200AUD": "EWA",
   "HK33HKD": "EWH", "CN50USD": "FXI",
-  // Commodities → ETF proxies
   "XAUUSD": "GLD", "XAGUSD": "SLV", "XPTUSD": "PPLT", "XPDUSD": "PALL",
   "WTICOUSD": "USO", "BCOUSD": "BNO", "NATGASUSD": "UNG",
   "CORNUSD": "CORN", "WHEATUSD": "WEAT", "SOYBNUSD": "SOYB",
   "SUGARUSD": "CANE",
+};
+
+const MACRO_CURRENCY_MAP: Record<string, string[]> = {
+  USD: ["NFP", "CPI", "INTEREST_RATE"],
+  EUR: ["EUR_CPI", "EUR_GDP"],
+  GBP: ["GBP_CPI", "GBP_GDP"],
+  JPY: ["BOJ_RATE", "JP_CPI"],
+  AUD: ["AUD_CPI", "RBA_RATE"],
+  CAD: ["CAD_GDP", "BOC_RATE"],
+  CHF: ["SNB_RATE"],
+  NZD: ["RBNZ_RATE"],
 };
 
 // ─── Indicator Math ─────────────────────────────────────────────────────────
@@ -43,13 +50,122 @@ function ema(closes: number[], period: number): number[] {
   return closes.map((v) => { e = v * k + e * (1 - k); return e; });
 }
 
-function calcScore(
+// ─── Component scoring functions (mirror client-side scoreEngine.ts) ────────
+
+function calcEMAScore(price: number, ef: number, em: number, es: number, el: number | null): number {
+  if (el !== null) {
+    if (price > ef && ef > em && em > es && es > el) return 30;
+    if (price > ef && ef > em && em > es) return 22;
+    if (price > ef && ef > em) return 16;
+    if (price > ef) return 10;
+    if (price < ef && ef < em && em < es && es < el) return 0;
+    if (price < ef && ef < em && em < es) return 2;
+    if (price < ef) return 6;
+    return 8;
+  }
+  if (price > ef && ef > em && em > es) return 30;
+  if (price > ef && ef > em) return 22;
+  if (price > ef) return 14;
+  if (price < ef && ef < em && em < es) return 0;
+  if (price < ef && ef < em) return 6;
+  if (price < ef) return 10;
+  return 10;
+}
+
+function calcRSIScore(rsi: number): number {
+  if      (rsi >= 60 && rsi < 70) return 20;
+  else if (rsi >= 70 && rsi < 80) return 18;
+  else if (rsi >= 80)             return 12;
+  else if (rsi >= 55)             return 16;
+  else if (rsi >= 50)             return 12;
+  else if (rsi >= 45)             return 8;
+  else if (rsi >= 40)             return 5;
+  else if (rsi >= 30)             return 3;
+  else                            return 6;
+}
+
+function calcMACDScore(histCurr: number, histPrev: number): number {
+  const accelerating = Math.abs(histCurr) > Math.abs(histPrev);
+  if (histCurr > 0 && accelerating) return 15;
+  if (histCurr > 0 && !accelerating) return 10;
+  if (Math.abs(histCurr) < 0.00001) return 8;
+  if (histCurr < 0 && accelerating) return 2;
+  if (histCurr < 0 && !accelerating) return 5;
+  return 7;
+}
+
+function calcADXScore(adx: number, emaDir: string): number {
+  if (emaDir === "neutral") {
+    return adx < 15 ? 5 : 8;
+  }
+  if      (adx >= 50) return 10;
+  else if (adx >= 35) return 15;
+  else if (adx >= 25) return 13;
+  else if (adx >= 20) return 10;
+  else if (adx >= 15) return 7;
+  else                return 3;
+}
+
+function calcNewsScore(symbol: string, recentNews: any[]): number {
+  if (!recentNews || recentNews.length === 0) return 6;
+  const base = symbol.slice(0, 3);
+  const quote = symbol.slice(3, 6);
+  const relevant = recentNews.filter((a: any) =>
+    a.relevant_pairs?.includes(symbol) ||
+    a.relevant_pairs?.includes(base) ||
+    a.relevant_pairs?.includes(quote)
+  );
+  if (relevant.length === 0) return 6;
+  const pos = relevant.filter((a: any) => a.sentiment === "positive").length;
+  const neg = relevant.filter((a: any) => a.sentiment === "negative").length;
+  const tot = relevant.length;
+  const ratio = (pos - neg) / tot;
+  if      (ratio >= 0.6)  return 12;
+  else if (ratio >= 0.3)  return 10;
+  else if (ratio >= 0.1)  return 8;
+  else if (ratio >= -0.1) return 6;
+  else if (ratio >= -0.3) return 4;
+  else if (ratio >= -0.6) return 2;
+  else                    return 0;
+}
+
+function calcCurrencyMacroStrength(indicators: string[], macroData: any[]): number {
+  if (!indicators.length) return 0.5;
+  const relevant = macroData
+    .filter((r: any) => indicators.includes(r.indicator))
+    .sort((a: any, b: any) => new Date(b.release_date).getTime() - new Date(a.release_date).getTime())
+    .slice(0, 3);
+  if (!relevant.length) return 0.5;
+  const beats = relevant.filter((r: any) => r.beat_miss === "beat").length;
+  return beats / relevant.length;
+}
+
+function calcMacroScore(baseCurrency: string, quoteCurrency: string, macroData: any[]): number {
+  if (!macroData || macroData.length === 0) return 4;
+  const baseIndicators = MACRO_CURRENCY_MAP[baseCurrency] ?? [];
+  const quoteIndicators = MACRO_CURRENCY_MAP[quoteCurrency] ?? [];
+  const baseStr = calcCurrencyMacroStrength(baseIndicators, macroData);
+  const quoteStr = calcCurrencyMacroStrength(quoteIndicators, macroData);
+  const net = baseStr - quoteStr;
+  if      (net >= 0.5)  return 8;
+  else if (net >= 0.2)  return 6;
+  else if (net >= -0.2) return 4;
+  else if (net >= -0.5) return 2;
+  else                  return 0;
+}
+
+// ─── Full candle-based scoring ──────────────────────────────────────────────
+
+function calcFullScore(
   candles: { open: number; high: number; low: number; close: number }[],
-  periods: { fast: number; mid: number; slow: number; long: number | null }
+  periods: { fast: number; mid: number; slow: number; long: number | null },
+  symbol: string,
+  recentNews: any[],
+  macroData: any[],
 ) {
-  const closes = candles.map((c) => c.close);
-  const highs = candles.map((c) => c.high);
-  const lows = candles.map((c) => c.low);
+  const closes = candles.map(c => c.close);
+  const highs = candles.map(c => c.high);
+  const lows = candles.map(c => c.low);
   const n = closes.length;
   if (n < 30) return null;
 
@@ -57,30 +173,11 @@ function calcScore(
   const emArr = ema(closes, periods.mid);
   const esArr = ema(closes, periods.slow);
   const elArr = periods.long ? ema(closes, periods.long) : null;
-
   const ef = efArr[n - 1], em = emArr[n - 1], es = esArr[n - 1];
   const el = elArr ? elArr[n - 1] : null;
   const price = closes[n - 1];
 
-  let emaScore = 22;
-  if (el !== null) {
-    if (price > ef && ef > em && em > es && es > el) emaScore = 55;
-    else if (price < ef && ef < em && em < es && es < el) emaScore = 0;
-    else if (price > ef && ef > em && em > es) emaScore = 40;
-    else if (price > ef && ef > em) emaScore = 28;
-    else if (price > ef) emaScore = 16;
-    else if (price < ef && ef < em && em < es) emaScore = 14;
-    else if (price < ef && ef < em) emaScore = 8;
-    else emaScore = 4;
-  } else {
-    if (price > ef && ef > em && em > es) emaScore = 55;
-    else if (price < ef && ef < em && em < es) emaScore = 0;
-    else if (price > ef && ef > em) emaScore = 40;
-    else if (price > ef) emaScore = 22;
-    else if (price < ef && ef < em) emaScore = 10;
-    else emaScore = 6;
-  }
-
+  // RSI
   if (n < 15) return null;
   let avgG = 0, avgL = 0;
   for (let i = 1; i <= 14; i++) {
@@ -94,16 +191,8 @@ function calcScore(
     avgL = (avgL * 13 + (d < 0 ? -d : 0)) / 14;
   }
   const rsi = avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL);
-  let rsiScore = 15;
-  if (rsi >= 60 && rsi < 70) rsiScore = 30;
-  else if (rsi >= 70) rsiScore = 24;
-  else if (rsi >= 55) rsiScore = 22;
-  else if (rsi >= 50) rsiScore = 18;
-  else if (rsi >= 45) rsiScore = 12;
-  else if (rsi >= 40) rsiScore = 7;
-  else if (rsi >= 30) rsiScore = 3;
-  else rsiScore = 5;
 
+  // ADX
   const tr: number[] = [], dmp: number[] = [], dmm: number[] = [];
   for (let i = 1; i < n; i++) {
     tr.push(Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i - 1]), Math.abs(lows[i] - closes[i - 1])));
@@ -124,32 +213,47 @@ function calcScore(
   let adxVal = dx.slice(0, 14).reduce((a, b) => a + b, 0) / 14;
   for (let i = 14; i < dx.length; i++) adxVal = (adxVal * 13 + dx[i]) / 14;
 
+  // MACD
   const e12 = ema(closes, 12), e26 = ema(closes, 26);
   const macdLine = e12.map((v, i) => v - e26[i]);
   const sigLine = ema(macdLine, 9);
-  const hist = macdLine[n - 1] - sigLine[n - 1];
+  const histCurr = macdLine[n - 1] - sigLine[n - 1];
+  const histPrev = n >= 2 ? macdLine[n - 2] - sigLine[n - 2] : histCurr;
 
-  const composite = Math.min(100, Math.max(0, emaScore + rsiScore + 7));
+  // EMA direction
+  const emaDir = (price > ef && ef > em) ? "bullish" : (price < ef && ef < em) ? "bearish" : "neutral";
+
+  // 6 component scores
+  const emaScore = calcEMAScore(price, ef, em, es, el);
+  const rsiScore = calcRSIScore(rsi);
+  const macdScore = calcMACDScore(histCurr, histPrev);
+  const adxScore = calcADXScore(adxVal, emaDir);
+  const newsScore = calcNewsScore(symbol, recentNews);
+  const base = symbol.slice(0, 3), quote = symbol.slice(3, 6);
+  const macroScoreVal = calcMacroScore(base, quote, macroData);
+
+  const total = emaScore + rsiScore + macdScore + adxScore + newsScore + macroScoreVal;
+  const score = Math.min(100, Math.max(0, Math.round(total)));
+
   return {
-    score: Math.round(composite),
-    trend: composite >= 62 ? "bullish" as const : composite <= 38 ? "bearish" as const : "neutral" as const,
-    emaScore, rsiScore,
+    score,
+    trend: score >= 62 ? "bullish" as const : score <= 38 ? "bearish" as const : "neutral" as const,
+    emaScore, rsiScore, macdScore, adxScore, newsScore, macroScore: macroScoreVal,
     emaFast: parseFloat(ef.toFixed(6)),
     emaMid: parseFloat(em.toFixed(6)),
     emaLong: el ? parseFloat(el.toFixed(6)) : null,
     rsi: parseFloat(rsi.toFixed(2)),
     adx: parseFloat(adxVal.toFixed(2)),
-    macdHist: parseFloat(hist.toFixed(6)),
+    macdHist: parseFloat(histCurr.toFixed(6)),
   };
 }
 
-// ─── Quote-based scoring (from Finnhub /quote data) ─────────────────────────
+// ─── Quote-based scoring (ETF/stock data) ───────────────────────────────────
 
 interface QuoteData {
   c: number; h: number; l: number; o: number; pc: number; d: number; dp: number;
 }
 
-// Timeframe-specific config for ETF/quote scoring (indexes, commodities, metals, energy)
 const TF_QUOTE_CONFIG: Record<string, { sensitivity: number; noiseRange: number; meanRevert: number }> = {
   "5min":  { sensitivity: 0.15, noiseRange: 10, meanRevert: 0.65 },
   "15min": { sensitivity: 0.25, noiseRange: 8,  meanRevert: 0.45 },
@@ -158,123 +262,116 @@ const TF_QUOTE_CONFIG: Record<string, { sensitivity: number; noiseRange: number;
   "1day":  { sensitivity: 1.00, noiseRange: 2,  meanRevert: 0.00 },
 };
 
-function calcQuoteScore(q: QuoteData, pairSymbol: string, timeframe: string) {
+function calcQuoteScore(q: QuoteData, pairSymbol: string, timeframe: string, recentNews: any[], macroData: any[]) {
   if (!q || !q.c || q.c <= 0) return null;
-
-  const price = q.c;
-  const open = q.o || price;
-  const high = q.h || price;
-  const low = q.l || price;
+  const price = q.c, open = q.o || price, high = q.h || price, low = q.l || price;
   const prevClose = q.pc || open;
   const changePct = q.dp ?? ((price - prevClose) / prevClose * 100);
   const tfCfg = TF_QUOTE_CONFIG[timeframe] ?? TF_QUOTE_CONFIG["1h"];
 
   const range = high - low;
   const position = range > 0 ? (price - low) / range : 0.5;
-
-  // Scale the daily change by TF sensitivity — shorter TFs see less of the move
   const scaledChange = changePct * tfCfg.sensitivity;
   const clampedChange = Math.max(-3, Math.min(3, scaledChange));
-  const dirScore = ((clampedChange + 3) / 6) * 55;
 
-  const intradayPct = ((price - open) / open) * 100;
-  const scaledIntraday = intradayPct * tfCfg.sensitivity;
-  const clampedIntraday = Math.max(-2, Math.min(2, scaledIntraday));
-  const momentumScore = ((clampedIntraday + 2) / 4) * 30;
+  // Derive pseudo-indicators from quote data
+  const pseudoRsi = Math.max(15, Math.min(85, 50 + scaledChange * 8));
+  const pseudoAdx = Math.min(60, Math.max(10, (range / price * 100) * 50 * tfCfg.sensitivity));
+  const histCurr = price - prevClose;
 
-  const rawComposite = dirScore * 0.5 + momentumScore * 0.3 + position * 20;
-
-  // Mean-reversion: shorter TFs pull toward 50
-  const meanReverted = rawComposite + (50 - rawComposite) * tfCfg.meanRevert;
-
-  // Deterministic noise per pair+TF so each timeframe gives a unique score
+  // Deterministic noise
   const hashStr = pairSymbol + timeframe;
   let hash = 0;
   for (let i = 0; i < hashStr.length; i++) hash = ((hash << 5) - hash + hashStr.charCodeAt(i)) | 0;
   const noise = ((hash % (tfCfg.noiseRange * 2 + 1)) - tfCfg.noiseRange);
 
-  const score = Math.round(Math.max(5, Math.min(95, meanReverted + noise)));
-  const pseudoRsi = Math.max(15, Math.min(85, 50 + scaledChange * 8));
-  const pseudoAdx = Math.min(60, Math.max(10, (range / price * 100) * 50 * tfCfg.sensitivity + Math.abs(noise)));
+  // EMA direction from price vs open
+  const emaDir = price > open ? "bullish" : price < open ? "bearish" : "neutral";
+
+  // 6 component scores
+  const emaScore = clampedChange > 0.5 ? 30 : clampedChange > 0 ? 22 : clampedChange > -0.5 ? 14 : clampedChange > -1 ? 6 : 0;
+  const rsiScore = calcRSIScore(pseudoRsi);
+  const macdScore = histCurr > 0 ? (Math.abs(histCurr) > Math.abs(prevClose * 0.001) ? 15 : 10) : (Math.abs(histCurr) > Math.abs(prevClose * 0.001) ? 2 : 5);
+  const adxScore = calcADXScore(pseudoAdx, emaDir);
+  const newsScoreVal = calcNewsScore(pairSymbol, recentNews);
+  const base = pairSymbol.slice(0, 3), quote = pairSymbol.slice(3, 6);
+  const macroScoreVal = calcMacroScore(base, quote, macroData);
+
+  let total = emaScore + rsiScore + macdScore + adxScore + newsScoreVal + macroScoreVal;
+  // Apply mean reversion and noise for TF differentiation
+  total = total + (50 - total) * tfCfg.meanRevert + noise;
+  const score = Math.round(Math.max(5, Math.min(95, total)));
 
   return {
     score,
     trend: score >= 62 ? "bullish" as const : score <= 38 ? "bearish" as const : "neutral" as const,
-    emaScore: Math.round(score * 0.55),
-    rsiScore: Math.round(score * 0.3),
+    emaScore: Math.min(30, Math.max(0, emaScore)),
+    rsiScore,
+    macdScore: Math.min(15, Math.max(0, macdScore)),
+    adxScore,
+    newsScore: newsScoreVal,
+    macroScore: macroScoreVal,
     emaFast: price,
     emaMid: open,
     emaLong: prevClose,
     rsi: parseFloat(pseudoRsi.toFixed(2)),
     adx: parseFloat(pseudoAdx.toFixed(2)),
-    macdHist: parseFloat((price - prevClose).toFixed(6)),
+    macdHist: parseFloat(histCurr.toFixed(6)),
   };
 }
 
-// ─── Forex rate-based scoring (from exchange rate data) ─────────────────────
+// ─── Forex rate-based scoring ───────────────────────────────────────────────
 
-// Timeframe-specific sensitivity and noise for forex scoring
-// Shorter TFs should show smaller deviations from 50; daily shows the full move
 const TF_FOREX_CONFIG: Record<string, { sensitivity: number; noiseRange: number; meanRevert: number }> = {
-  "5min":  { sensitivity: 12, noiseRange: 8,  meanRevert: 0.7 },   // very compressed range
+  "5min":  { sensitivity: 12, noiseRange: 8,  meanRevert: 0.7 },
   "15min": { sensitivity: 20, noiseRange: 6,  meanRevert: 0.5 },
   "1h":    { sensitivity: 35, noiseRange: 5,  meanRevert: 0.3 },
   "4h":    { sensitivity: 45, noiseRange: 3,  meanRevert: 0.15 },
-  "1day":  { sensitivity: 50, noiseRange: 2,  meanRevert: 0.0 },   // full daily move
+  "1day":  { sensitivity: 50, noiseRange: 2,  meanRevert: 0.0 },
 };
 
-function calcForexScore(rate: number, prevRate: number | null, allRates: Record<string, Record<string, number>> | null, base: string, quote: string, timeframe: string) {
+function calcForexScore(rate: number, prevRate: number | null, allRates: Record<string, Record<string, number>> | null, base: string, quote: string, timeframe: string, recentNews: any[], macroData: any[]) {
   if (!rate || rate <= 0) return null;
   const prev = prevRate ?? rate;
   const changePct = ((rate - prev) / prev) * 100;
   const tfCfg = TF_FOREX_CONFIG[timeframe] ?? TF_FOREX_CONFIG["1h"];
-
-  // Apply timeframe sensitivity — shorter TFs compress the daily change
   const clampedChange = Math.max(-0.8, Math.min(0.8, changePct));
-  const dirScore = 50 + clampedChange * tfCfg.sensitivity;
 
-  // Mean-reversion component: shorter TFs pull score toward 50
-  const meanReverted = dirScore + (50 - dirScore) * tfCfg.meanRevert;
+  // Pseudo-indicators
+  const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * (20 + tfCfg.sensitivity * 0.4)));
+  const pseudoAdx = Math.min(55, Math.max(8, Math.abs(changePct) * (30 + tfCfg.sensitivity)));
+  const emaDir = changePct > 0.05 ? "bullish" : changePct < -0.05 ? "bearish" : "neutral";
 
-  // Deterministic "noise" per pair+TF based on symbol hash (not random)
+  // Deterministic noise
   const hashStr = base + quote + timeframe;
   let hash = 0;
   for (let i = 0; i < hashStr.length; i++) hash = ((hash << 5) - hash + hashStr.charCodeAt(i)) | 0;
   const noise = ((hash % (tfCfg.noiseRange * 2 + 1)) - tfCfg.noiseRange);
 
-  // Cross-rate momentum
-  let crossMomentum = 0;
-  if (allRates) {
-    const majors = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD"];
-    let baseStrength = 0, quoteStrength = 0, count = 0;
-    for (const m of majors) {
-      if (m === base || m === quote) continue;
-      const rateBaseM = allRates[base]?.[m];
-      const rateQuoteM = allRates[quote]?.[m];
-      if (rateBaseM && rateQuoteM) {
-        // Compare relative strength
-        const prevBaseM = allRates[base]?.[m] ?? rateBaseM;
-        const prevQuoteM = allRates[quote]?.[m] ?? rateQuoteM;
-        baseStrength += rateBaseM > 1 ? 1 : -1;
-        quoteStrength += rateQuoteM > 1 ? 1 : -1;
-        count++;
-      }
-    }
-    if (count > 0) {
-      crossMomentum = ((baseStrength - quoteStrength) / count) * 4 * (1 - tfCfg.meanRevert);
-    }
-  }
+  // 6 component scores
+  const dirScore = 50 + clampedChange * tfCfg.sensitivity;
+  const scaledEma = Math.round(Math.max(0, Math.min(30, (dirScore / 100) * 30)));
+  const rsiScore = calcRSIScore(pseudoRsi);
+  const histCurr = rate - prev;
+  const macdScore = histCurr > 0 ? 10 : histCurr < 0 ? 5 : 8;
+  const adxScore = calcADXScore(pseudoAdx, emaDir);
+  const symbol = base + quote;
+  const newsScoreVal = calcNewsScore(symbol, recentNews);
+  const macroScoreVal = calcMacroScore(base, quote, macroData);
 
-  const rawScore = meanReverted + noise + crossMomentum;
-  const finalScore = Math.round(Math.max(8, Math.min(92, rawScore)));
-  const pseudoRsi = Math.max(15, Math.min(85, 50 + changePct * (20 + tfCfg.sensitivity * 0.4)));
-  const pseudoAdx = Math.min(55, Math.max(8, Math.abs(changePct) * (30 + tfCfg.sensitivity)));
+  let total = scaledEma + rsiScore + macdScore + adxScore + newsScoreVal + macroScoreVal;
+  total = total + (50 - total) * tfCfg.meanRevert + noise;
+  const score = Math.round(Math.max(8, Math.min(92, total)));
 
   return {
-    score: finalScore,
-    trend: finalScore >= 62 ? "bullish" as const : finalScore <= 38 ? "bearish" as const : "neutral" as const,
-    emaScore: Math.round(finalScore * 0.55),
-    rsiScore: Math.round(finalScore * 0.3),
+    score,
+    trend: score >= 62 ? "bullish" as const : score <= 38 ? "bearish" as const : "neutral" as const,
+    emaScore: scaledEma,
+    rsiScore,
+    macdScore: Math.min(15, Math.max(0, macdScore)),
+    adxScore,
+    newsScore: newsScoreVal,
+    macroScore: macroScoreVal,
     emaFast: rate,
     emaMid: prev,
     emaLong: null,
@@ -315,7 +412,7 @@ Deno.serve(async (req) => {
   // Step 1 — Load all active pairs
   const { data: pairs, error: pairsError } = await supabase
     .from("pairs")
-    .select("id, symbol, finnhub_symbol, category")
+    .select("id, symbol, finnhub_symbol, category, base_currency, quote_currency")
     .eq("is_active", true);
 
   if (pairsError || !pairs?.length) {
@@ -324,30 +421,24 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Step 2A — Fetch forex rates: today + yesterday from Frankfurter API (free, no key)
+  // Step 2A — Fetch forex rates
   const forexRates: Record<string, Record<string, number>> = {};
   const prevForexRates: Record<string, Record<string, number>> = {};
   const bases = ["USD", "EUR", "GBP", "AUD", "CAD", "CHF", "NZD", "JPY"];
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 
   await Promise.allSettled([
-    // Today's rates from Frankfurter
     ...bases.map(async (base) => {
       try {
-        const res = await fetch(`https://api.frankfurter.app/latest?from=${base}`, {
-          signal: AbortSignal.timeout(5000),
-        });
+        const res = await fetch(`https://api.frankfurter.app/latest?from=${base}`, { signal: AbortSignal.timeout(5000) });
         if (!res.ok) return;
         const data = await res.json();
         if (data.rates) forexRates[base] = data.rates;
       } catch { /* skip */ }
     }),
-    // Yesterday's rates from Frankfurter
     ...bases.map(async (base) => {
       try {
-        const res = await fetch(`https://api.frankfurter.app/${yesterday}?from=${base}`, {
-          signal: AbortSignal.timeout(5000),
-        });
+        const res = await fetch(`https://api.frankfurter.app/${yesterday}?from=${base}`, { signal: AbortSignal.timeout(5000) });
         if (!res.ok) return;
         const data = await res.json();
         if (data.rates) prevForexRates[base] = data.rates;
@@ -356,9 +447,9 @@ Deno.serve(async (req) => {
   ]);
   console.log("Forex rate bases fetched:", Object.keys(forexRates).length, "| prev:", Object.keys(prevForexRates).length);
 
-  // Step 2B — Fetch ETF/stock quotes from Finnhub for commodities + indexes
+  // Step 2B — Fetch ETF/stock quotes
   const etfQuotes: Record<string, QuoteData> = {};
-  const etfPairs = pairs.filter((p) => ETF_MAP[p.symbol]);
+  const etfPairs = pairs.filter(p => ETF_MAP[p.symbol]);
   const BATCH_SIZE = 10;
   for (let i = 0; i < etfPairs.length; i += BATCH_SIZE) {
     const batch = etfPairs.slice(i, i + BATCH_SIZE);
@@ -376,37 +467,54 @@ Deno.serve(async (req) => {
       })
     );
   }
-  console.log("ETF quotes fetched:", Object.keys(etfQuotes).length, "| Time:", Date.now() - startTime, "ms");
+  console.log("ETF quotes fetched:", Object.keys(etfQuotes).length);
 
-  // Step 2C — Load previous scores for comparison (forex rate scoring)
+  // Step 2C — Load previous scores for fallback
   const { data: prevScores } = await supabase
     .from("scores")
     .select("pair_id, ema20")
-    .in("pair_id", pairs.map((p) => p.id))
+    .in("pair_id", pairs.map(p => p.id))
     .eq("timeframe", timeframe);
   const prevPriceMap: Record<string, number> = {};
-  prevScores?.forEach((s) => { if (s.ema20) prevPriceMap[s.pair_id] = Number(s.ema20); });
+  prevScores?.forEach(s => { if (s.ema20) prevPriceMap[s.pair_id] = Number(s.ema20); });
 
-  // Step 3 — Load stored candles for THIS SPECIFIC TIMEFRAME
+  // Step 2D — Load recent news (once for all pairs)
+  const { data: recentNews } = await supabase
+    .from("news_articles")
+    .select("headline, sentiment, relevant_pairs, published_at")
+    .gte("published_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+    .order("published_at", { ascending: false })
+    .limit(500);
+
+  // Step 2E — Load macro data (once for all pairs)
+  const { data: macroRows } = await supabase
+    .from("macro_indicators")
+    .select("indicator, beat_miss, release_date, country")
+    .order("release_date", { ascending: false })
+    .limit(200);
+
+  // Step 3 — Load stored candles
   const { data: allCandles } = await supabase
     .from("candles")
     .select("pair_id, open, high, low, close, volume, ts")
-    .in("pair_id", pairs.map((p) => p.id))
+    .in("pair_id", pairs.map(p => p.id))
     .eq("timeframe", timeframe)
     .order("ts", { ascending: false })
     .limit(350 * pairs.length);
 
   const candlesByPair: Record<string, any[]> = {};
-  allCandles?.forEach((c) => {
+  allCandles?.forEach(c => {
     if (!candlesByPair[c.pair_id]) candlesByPair[c.pair_id] = [];
     candlesByPair[c.pair_id].push(c);
   });
-  Object.keys(candlesByPair).forEach((pid) => {
+  Object.keys(candlesByPair).forEach(pid => {
     candlesByPair[pid].sort((a: any, b: any) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
   });
 
   const emaPeriods = EMA_PERIODS[timeframe];
   const minRequired = MIN_CANDLES[timeframe] ?? 55;
+  const newsArr = recentNews ?? [];
+  const macroArr = macroRows ?? [];
 
   // Step 4 — Score each pair
   const scoreRows: any[] = [];
@@ -416,55 +524,54 @@ Deno.serve(async (req) => {
   for (const pair of pairs) {
     let result: any = null;
 
-    // LAYER 1: Full indicator scoring if we have enough candles
+    // LAYER 1: Full indicator scoring from candles
     const storedCandles = (candlesByPair[pair.id] ?? []).map((c: any) => ({
       open: Number(c.open), high: Number(c.high), low: Number(c.low),
       close: Number(c.close), volume: Number(c.volume ?? 0),
     }));
     if (storedCandles.length >= minRequired) {
-      result = calcScore(storedCandles, emaPeriods);
+      result = calcFullScore(storedCandles, emaPeriods, pair.symbol, newsArr, macroArr);
       if (result) candleScored++;
     }
 
-    // LAYER 2: ETF quote scoring for commodities + indexes
+    // LAYER 2: ETF quote scoring
     if (!result && etfQuotes[pair.symbol]) {
-      result = calcQuoteScore(etfQuotes[pair.symbol], pair.symbol, timeframe);
+      result = calcQuoteScore(etfQuotes[pair.symbol], pair.symbol, timeframe, newsArr, macroArr);
       if (result) quoteScored++;
     }
 
-    // LAYER 3: Exchange rate scoring for forex pairs (today vs yesterday)
+    // LAYER 3: Forex rate scoring
     if (!result && pair.category === "forex") {
       const base = pair.symbol.slice(0, 3);
       const quote = pair.symbol.slice(3);
       const rates = forexRates[base];
       if (rates && rates[quote]) {
         const rate = rates[quote];
-        // Use yesterday's rate from Frankfurter for real daily change
         const prevRate = prevForexRates[base]?.[quote] ?? prevPriceMap[pair.id] ?? null;
-        result = calcForexScore(rate, prevRate, forexRates, base, quote, timeframe);
+        result = calcForexScore(rate, prevRate, forexRates, base, quote, timeframe, newsArr, macroArr);
         if (result) rateScored++;
       }
     }
 
-    // LAYER 4: Fallback for commodity/futures with no quote — use previous score + TF adjustment
+    // LAYER 4: Fallback
     if (!result && (pair.category === "commodity" || pair.category === "futures")) {
       const prevPrice = prevPriceMap[pair.id];
       if (prevPrice && prevPrice > 0) {
-        // Create a synthetic quote from previous data
         result = calcQuoteScore(
           { c: prevPrice, h: prevPrice * 1.002, l: prevPrice * 0.998, o: prevPrice * 0.999, pc: prevPrice * 0.998, d: 0, dp: 0.1 },
-          pair.symbol, timeframe
+          pair.symbol, timeframe, newsArr, macroArr
         );
         if (result) quoteScored++;
       } else {
-        // Absolute last resort: generate deterministic score from symbol+TF hash
         const hashStr = pair.symbol + timeframe + "fallback";
         let h = 0;
         for (let i = 0; i < hashStr.length; i++) h = ((h << 5) - h + hashStr.charCodeAt(i)) | 0;
-        const baseScore = 30 + Math.abs(h % 40); // 30-70 range
+        const baseScore = 30 + Math.abs(h % 40);
         result = {
           score: baseScore, trend: baseScore >= 62 ? "bullish" as const : baseScore <= 38 ? "bearish" as const : "neutral" as const,
-          emaScore: Math.round(baseScore * 0.55), rsiScore: Math.round(baseScore * 0.3),
+          emaScore: Math.round(baseScore * 0.3), rsiScore: Math.round(baseScore * 0.2),
+          macdScore: Math.round(baseScore * 0.15), adxScore: Math.round(baseScore * 0.15),
+          newsScore: 6, macroScore: 4,
           emaFast: 0, emaMid: 0, emaLong: null,
           rsi: 50 + (h % 20) - 10, adx: 20 + Math.abs(h % 25), macdHist: 0,
         };
@@ -485,7 +592,10 @@ Deno.serve(async (req) => {
       trend: result.trend,
       ema_score: result.emaScore,
       rsi_score: result.rsiScore,
-      news_score: 7,
+      macd_score: result.macdScore,
+      adx_score: result.adxScore,
+      news_score: result.newsScore,
+      macro_score: result.macroScore,
       ema20: result.emaFast,
       ema50: result.emaMid,
       ema200: result.emaLong ?? null,
@@ -496,9 +606,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  console.log("Scored:", scoreRows.length, "| Candle:", candleScored, "| ETF-quote:", quoteScored, "| Rate:", rateScored);
+  console.log("Scored:", scoreRows.length, "| Candle:", candleScored, "| ETF:", quoteScored, "| Rate:", rateScored);
 
-  // Step 5 — Bulk upsert scores
+  // Step 5 — Bulk upsert
   if (scoreRows.length > 0) {
     const { error } = await supabase
       .from("scores")
@@ -507,7 +617,7 @@ Deno.serve(async (req) => {
   }
 
   const duration = Date.now() - startTime;
-  console.log("FAST SCAN COMPLETE |", scoreRows.length, "pairs scored |", duration, "ms");
+  console.log("FAST SCAN COMPLETE |", scoreRows.length, "pairs |", duration, "ms");
 
   // Store scan history
   try {

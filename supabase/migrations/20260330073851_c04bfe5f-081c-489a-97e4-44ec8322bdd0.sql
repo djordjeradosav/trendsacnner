@@ -1,0 +1,1 @@
+ALTER TABLE scores ADD COLUMN IF NOT EXISTS macro_score numeric DEFAULT 0;
