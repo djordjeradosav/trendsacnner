@@ -370,14 +370,14 @@ function MacroTabContent({ tab }: {tab: typeof TABS[number];}) {
       <DateRangeFilter value={range} onChange={setRange} />
 
       {chartData.length > 0 &&
-      <div className="rounded-lg p-4 bg-card border border-border">
-          <ResponsiveContainer width="100%" height={320}>
-            <ComposedChart data={chartData} margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+      <div className="rounded-lg p-2 sm:p-4 bg-card border border-border overflow-x-auto">
+          <ResponsiveContainer width="100%" height={260} minWidth={320}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(207 35% 18%)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: "#7a99b0", fontSize: 11 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} />
-              <YAxis tick={{ fill: "#7a99b0", fontSize: 11 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} tickFormatter={(v) => v + tab.unit} />
+              <XAxis dataKey="date" tick={{ fill: "#7a99b0", fontSize: 10 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: "#7a99b0", fontSize: 10 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} tickFormatter={(v) => v + tab.unit} width={45} />
               <Tooltip
-              contentStyle={{ background: "hsl(210 30% 7%)", border: "1px solid hsl(207 35% 18%)", borderRadius: "8px", color: "#e8f4f8" }}
+              contentStyle={{ background: "hsl(210 30% 7%)", border: "1px solid hsl(207 35% 18%)", borderRadius: "8px", color: "#e8f4f8", fontSize: "12px" }}
               formatter={(value: number, name: string) => [value?.toFixed(tab.unit === "k" ? 0 : 2) + tab.unit, name]} />
             
               <ReferenceLine y={0} stroke="#3d5a70" strokeDasharray="4 4" />
@@ -388,22 +388,22 @@ function MacroTabContent({ tab }: {tab: typeof TABS[number];}) {
               </Bar>
               <Scatter dataKey="forecast" name="Forecast" fill="#ef4444" />
               <Line dataKey="actual" name="Trend" stroke={tab.color} strokeWidth={1.5} dot={false} />
-              <Legend wrapperStyle={{ color: "#7a99b0", fontSize: "12px" }} />
+              <Legend wrapperStyle={{ color: "#7a99b0", fontSize: "11px" }} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       }
 
       {deviationData.length > 0 &&
-      <div className="rounded-lg p-4 bg-card border border-border">
-          <p className="text-xs text-muted-foreground mb-3">{tab.deviationLabel}</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart data={deviationData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+      <div className="rounded-lg p-2 sm:p-4 bg-card border border-border overflow-x-auto">
+          <p className="text-xs text-muted-foreground mb-2 px-1">{tab.deviationLabel}</p>
+          <ResponsiveContainer width="100%" height={180} minWidth={320}>
+            <ComposedChart data={deviationData} margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(207 35% 18%)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: "#7a99b0", fontSize: 11 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} />
-              <YAxis tick={{ fill: "#7a99b0", fontSize: 11 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} tickFormatter={(v) => v + tab.unit} />
+              <XAxis dataKey="date" tick={{ fill: "#7a99b0", fontSize: 10 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: "#7a99b0", fontSize: 10 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} tickFormatter={(v) => v + tab.unit} width={45} />
               <Tooltip
-              contentStyle={{ background: "hsl(210 30% 7%)", border: "1px solid hsl(207 35% 18%)", borderRadius: "8px", color: "#e8f4f8" }}
+              contentStyle={{ background: "hsl(210 30% 7%)", border: "1px solid hsl(207 35% 18%)", borderRadius: "8px", color: "#e8f4f8", fontSize: "12px" }}
               formatter={(value: number) => [value?.toFixed(tab.unit === "k" ? 0 : 2) + tab.unit, "Deviation"]} />
             
               <ReferenceLine y={0} stroke="#7a99b0" strokeWidth={1} />
@@ -477,7 +477,7 @@ export default function MacroPage() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6 space-y-5 max-w-[1200px] mx-auto">
+      <div className="p-2 sm:p-4 md:p-6 space-y-4 sm:space-y-5 max-w-[1200px] mx-auto">
         {/* Debug Panel — admin only */}
         {isAdmin && <MacroDebugPanel />}
 
@@ -503,7 +503,7 @@ export default function MacroPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-0 border-b border-border overflow-x-auto">
+        <div className="flex items-center gap-0 border-b border-border overflow-x-auto scrollbar-none -mx-2 px-2 sm:mx-0 sm:px-0">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             const dotColor =
@@ -515,7 +515,7 @@ export default function MacroPage() {
               <button
                 key={tab.id}
                 onClick={() => setSearchParams({ tab: tab.id })}
-                className="flex items-center gap-1.5 px-4 h-[44px] text-sm font-medium whitespace-nowrap transition-colors shrink-0"
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 h-[40px] sm:h-[44px] text-xs sm:text-sm font-medium whitespace-nowrap transition-colors shrink-0"
                 style={{
                   color: isActive ? tab.color : "hsl(var(--muted-foreground))",
                   borderBottom: isActive ? `2px solid ${tab.color}` : "2px solid transparent",

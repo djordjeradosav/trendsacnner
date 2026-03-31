@@ -84,41 +84,15 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
   }
 
   return (
-    <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex flex-col">
+    <div className="rounded-lg p-2.5 sm:p-4 bg-card border border-border/50 h-full flex flex-col">
       {/* Header row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-        <h3 className="text-xs font-display font-semibold text-foreground uppercase tracking-wider shrink-0">
-          Market Heatmap
-        </h3>
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Category pills */}
-          <div className="flex items-center gap-1">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-display font-semibold transition-colors ${
-                  category === c
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground border border-transparent"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-            <Input
-              placeholder="Filter..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-7 h-7 w-28 text-[10px] font-mono bg-background/50 border-border/50"
-            />
-          </div>
-          {/* Legend */}
-          <div className="flex items-center gap-1">
+      <div className="flex flex-col gap-2 mb-2 sm:mb-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[11px] sm:text-xs font-display font-semibold text-foreground uppercase tracking-wider shrink-0">
+            Market Heatmap
+          </h3>
+          {/* Legend — hidden on very small screens */}
+          <div className="hidden sm:flex items-center gap-1">
             <div className="w-2 h-2 rounded-sm" style={{ background: "hsl(0 70% 33%)" }} />
             <span className="text-[9px] text-muted-foreground font-mono">Bear</span>
             <div className="w-6 h-1.5 rounded-full mx-0.5" style={{ background: "linear-gradient(90deg, hsl(0 70% 33%), hsl(200 15% 18%), hsl(142 70% 35%))" }} />
@@ -126,11 +100,37 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
             <span className="text-[9px] text-muted-foreground font-mono">Bull</span>
           </div>
         </div>
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
+          {/* Category pills */}
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              className={`px-2 py-0.5 rounded-md text-[10px] font-display font-semibold transition-colors shrink-0 ${
+                category === c
+                  ? "bg-primary/15 text-primary border border-primary/30"
+                  : "text-muted-foreground hover:text-foreground border border-transparent"
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+          {/* Search */}
+          <div className="relative shrink-0">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+            <Input
+              placeholder="Filter..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-7 h-7 w-24 sm:w-28 text-[10px] font-mono bg-background/50 border-border/50"
+            />
+          </div>
+        </div>
       </div>
 
 
       <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-1">
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-9 gap-1">
           {cells.map((cell) => {
             const spark = sparklines?.[cell.pairId];
             const change = spark?.score_change ?? 0;

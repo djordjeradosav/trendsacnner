@@ -318,17 +318,19 @@ export default function ScannerPage() {
   return (
     <AppLayout {...layoutProps}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold font-display text-foreground">Scanner</h1>
-          {updatedAgoText && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-display animate-in fade-in duration-300">
-              <Clock className="w-3 h-3" />
-              {updatedAgoText}
-            </span>
-          )}
+      <div className="flex flex-col gap-3 mb-4 sm:mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">Scanner</h1>
+            {updatedAgoText && (
+              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-display animate-in fade-in duration-300">
+                <Clock className="w-3 h-3" />
+                {updatedAgoText}
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scan.isScanning} />
           <ScanButton
             isScanning={scan.isScanning}
@@ -346,7 +348,7 @@ export default function ScannerPage() {
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 mb-4 sm:mb-6">
         <StatCard label="Total Pairs" value={pairs.length} />
         <StatCard label="Bullish" value={`${pairs.length ? Math.round(bullishCount / pairs.length * 100) : 0}%`} sub={`${bullishCount} pairs`} color="text-bullish" />
         <StatCard label="Neutral" value={`${pairs.length ? Math.round(neutralCount / pairs.length * 100) : 0}%`} sub={`${neutralCount} pairs`} color="text-neutral-tone" />
@@ -359,15 +361,17 @@ export default function ScannerPage() {
       {sectors.length > 0 && <SectorCards sectors={sectors} />}
 
       {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <Tabs value={filter} onValueChange={setFilter}>
-          <TabsList>
-            {CATEGORIES.map((c) => (
-              <TabsTrigger key={c} value={c} className="text-xs font-display">{c}</TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <div className="relative flex-1 max-w-xs">
+      <div className="flex flex-col gap-3 mb-4 sm:mb-6">
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+          <Tabs value={filter} onValueChange={setFilter}>
+            <TabsList>
+              {CATEGORIES.map((c) => (
+                <TabsTrigger key={c} value={c} className="text-[11px] sm:text-xs font-display">{c}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search symbol..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-sm font-body" />
         </div>
@@ -452,10 +456,10 @@ export default function ScannerPage() {
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs font-body text-muted-foreground mb-1">{label}</p>
-      <p className={`text-xl font-display font-bold ${color || "text-foreground"}`}>{value}</p>
-      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-4">
+      <p className="text-[10px] sm:text-xs font-body text-muted-foreground mb-0.5 sm:mb-1">{label}</p>
+      <p className={`text-lg sm:text-xl font-display font-bold ${color || "text-foreground"}`}>{value}</p>
+      {sub && <p className="text-[10px] sm:text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
