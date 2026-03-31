@@ -84,7 +84,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
   }
 
   return (
-    <div className="rounded-lg p-4 bg-card border border-border/50 h-full flex flex-col">
+    <div className="rounded-lg p-2.5 sm:p-4 bg-card border border-border/50 h-full flex flex-col">
       {/* Header row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <h3 className="text-xs font-display font-semibold text-foreground uppercase tracking-wider shrink-0">
