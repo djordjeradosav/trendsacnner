@@ -176,55 +176,57 @@ export default function NewsPage() {
         </div>
       )}
 
-      {/* Filter bar — single clean row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5 mt-4">
-        {/* Sentiment pills */}
-        <div className="flex gap-1">
-          {SENTIMENT_TABS.map((t) => {
-            const active = sentiment === t;
-            const style = SENTIMENT_STYLES[t];
-            return (
+      {/* Filter bar */}
+      <div className="flex flex-col gap-3 mb-4 sm:mb-5 mt-3 sm:mt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sentiment pills */}
+          <div className="flex gap-1 overflow-x-auto scrollbar-none">
+            {SENTIMENT_TABS.map((t) => {
+              const active = sentiment === t;
+              const style = SENTIMENT_STYLES[t];
+              return (
+                <button
+                  key={t}
+                  onClick={() => setSentiment(t)}
+                  className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md font-display transition-all shrink-0"
+                  style={{
+                    fontSize: "10px",
+                    background: active ? style.bg : "transparent",
+                    color: active ? style.color : "hsl(var(--muted-foreground))",
+                    border: active ? `0.5px solid ${style.color}30` : "0.5px solid transparent",
+                  }}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Divider */}
+          <div className="hidden sm:block w-px h-5 bg-border" />
+
+          {/* Category pills */}
+          <div className="flex gap-1 overflow-x-auto scrollbar-none">
+            {CATEGORY_TABS.map((t) => (
               <button
                 key={t}
-                onClick={() => setSentiment(t)}
-                className="px-3 py-1.5 rounded-md font-display transition-all"
+                onClick={() => setCategory(t)}
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md font-display transition-all shrink-0"
                 style={{
-                  fontSize: "11px",
-                  background: active ? style.bg : "transparent",
-                  color: active ? style.color : "hsl(var(--muted-foreground))",
-                  border: active ? `0.5px solid ${style.color}30` : "0.5px solid transparent",
+                  fontSize: "10px",
+                  background: category === t ? "#1e2d3d" : "transparent",
+                  color: category === t ? "#e8f4f8" : "hsl(var(--muted-foreground))",
+                  border: category === t ? "0.5px solid #2a3f55" : "0.5px solid transparent",
                 }}
               >
                 {t}
               </button>
-            );
-          })}
-        </div>
-
-        {/* Divider */}
-        <div className="hidden sm:block w-px h-5 bg-border" />
-
-        {/* Category pills */}
-        <div className="flex gap-1">
-          {CATEGORY_TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setCategory(t)}
-              className="px-3 py-1.5 rounded-md font-display transition-all"
-              style={{
-                fontSize: "11px",
-                background: category === t ? "#1e2d3d" : "transparent",
-                color: category === t ? "#e8f4f8" : "hsl(var(--muted-foreground))",
-                border: category === t ? "0.5px solid #2a3f55" : "0.5px solid transparent",
-              }}
-            >
-              {t}
-            </button>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Search */}
-        <div className="relative sm:ml-auto sm:w-56">
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
           <Input
             placeholder="Search headlines..."
