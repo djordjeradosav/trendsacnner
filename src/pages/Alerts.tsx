@@ -107,20 +107,22 @@ export default function AlertsPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
         <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Alerts</h1>
-          <p className="text-sm text-muted-foreground">{rules.length} rules · {notifications.filter((n) => !n.is_read).length} unread notifications</p>
+          <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">Alerts</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">{rules.length} rules · {notifications.filter((n) => !n.is_read).length} unread</p>
         </div>
-        <Button onClick={() => setDialogOpen(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          New Alert
+        <Button onClick={() => setDialogOpen(true)} size="sm" className="gap-1.5 text-xs sm:text-sm sm:gap-2">
+          <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <span className="hidden sm:inline">New Alert</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
-      {/* Rules table */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden mb-8">
-        <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 border-b border-border text-xs font-display text-muted-foreground">
+      {/* Rules */}
+      <div className="rounded-lg border border-border bg-card overflow-hidden mb-6 sm:mb-8">
+        {/* Desktop header */}
+        <div className="hidden sm:grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 border-b border-border text-xs font-display text-muted-foreground">
           <span>Type</span>
           <span>Description</span>
           <span>Pair</span>
@@ -144,27 +146,55 @@ export default function AlertsPage() {
         )}
 
         {rules.map((rule) => (
-          <div
-            key={rule.id}
-            className={cn(
-              "grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 items-center border-b border-border last:border-b-0 text-sm",
-              !rule.is_active && "opacity-50"
-            )}
-          >
-            <div className="flex items-center gap-2 text-primary">
-              {RULE_ICONS[rule.rule_type]}
-              <Badge variant="secondary" className="text-[10px]">{RULE_LABELS[rule.rule_type] || rule.rule_type}</Badge>
+          <div key={rule.id}>
+            {/* Desktop row */}
+            <div
+              className={cn(
+                "hidden sm:grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 items-center border-b border-border last:border-b-0 text-sm",
+                !rule.is_active && "opacity-50"
+              )}
+            >
+              <div className="flex items-center gap-2 text-primary">
+                {RULE_ICONS[rule.rule_type]}
+                <Badge variant="secondary" className="text-[10px]">{RULE_LABELS[rule.rule_type] || rule.rule_type}</Badge>
+              </div>
+              <span className="text-foreground truncate">{rule.description || "—"}</span>
+              <span className="font-display text-xs text-muted-foreground">{rule.pair_symbol || "Any"}</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {formatAgo(rule.last_triggered_at)}
+              </span>
+              <Switch checked={rule.is_active} onCheckedChange={(v) => toggleRule(rule.id, v)} />
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteRule(rule.id)}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
-            <span className="text-foreground truncate">{rule.description || "—"}</span>
-            <span className="font-display text-xs text-muted-foreground">{rule.pair_symbol || "Any"}</span>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatAgo(rule.last_triggered_at)}
-            </span>
-            <Switch checked={rule.is_active} onCheckedChange={(v) => toggleRule(rule.id, v)} />
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteRule(rule.id)}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {/* Mobile card */}
+            <div
+              className={cn(
+                "sm:hidden flex flex-col gap-2 px-3 py-3 border-b border-border last:border-b-0",
+                !rule.is_active && "opacity-50"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-primary">
+                  {RULE_ICONS[rule.rule_type]}
+                  <Badge variant="secondary" className="text-[10px]">{RULE_LABELS[rule.rule_type] || rule.rule_type}</Badge>
+                  <span className="font-display text-[11px] text-muted-foreground">{rule.pair_symbol || "Any"}</span>
+                </div>
+                <Switch checked={rule.is_active} onCheckedChange={(v) => toggleRule(rule.id, v)} />
+              </div>
+              <p className="text-xs text-foreground truncate">{rule.description || "—"}</p>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {formatAgo(rule.last_triggered_at)}
+                </span>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteRule(rule.id)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
           </div>
         ))}
       </div>
