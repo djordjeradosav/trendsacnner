@@ -134,11 +134,11 @@ export default function NewsPage() {
   return (
     <AppLayout>
       {/* Header */}
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Market News</h1>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            Live market intelligence · Updated every 15 minutes
+          <h1 className="text-lg sm:text-xl font-semibold text-foreground">Market News</h1>
+          <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
+            Live market intelligence · Updated every 15 min
           </p>
         </div>
         <div className="flex items-center gap-1.5">

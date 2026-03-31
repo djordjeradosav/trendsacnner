@@ -503,7 +503,7 @@ export default function MacroPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-0 border-b border-border overflow-x-auto">
+        <div className="flex items-center gap-0 border-b border-border overflow-x-auto scrollbar-none -mx-2 px-2 sm:mx-0 sm:px-0">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             const dotColor =
@@ -515,7 +515,7 @@ export default function MacroPage() {
               <button
                 key={tab.id}
                 onClick={() => setSearchParams({ tab: tab.id })}
-                className="flex items-center gap-1.5 px-4 h-[44px] text-sm font-medium whitespace-nowrap transition-colors shrink-0"
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 h-[40px] sm:h-[44px] text-xs sm:text-sm font-medium whitespace-nowrap transition-colors shrink-0"
                 style={{
                   color: isActive ? tab.color : "hsl(var(--muted-foreground))",
                   borderBottom: isActive ? `2px solid ${tab.color}` : "2px solid transparent",

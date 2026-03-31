@@ -456,10 +456,10 @@ export default function ScannerPage() {
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
-      <p className="text-xs font-body text-muted-foreground mb-1">{label}</p>
-      <p className={`text-xl font-display font-bold ${color || "text-foreground"}`}>{value}</p>
-      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+    <div className="rounded-lg border border-border bg-card p-2.5 sm:p-4">
+      <p className="text-[10px] sm:text-xs font-body text-muted-foreground mb-0.5 sm:mb-1">{label}</p>
+      <p className={`text-lg sm:text-xl font-display font-bold ${color || "text-foreground"}`}>{value}</p>
+      {sub && <p className="text-[10px] sm:text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }
