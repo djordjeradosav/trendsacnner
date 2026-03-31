@@ -361,15 +361,17 @@ export default function ScannerPage() {
       {sectors.length > 0 && <SectorCards sectors={sectors} />}
 
       {/* Filter bar */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <Tabs value={filter} onValueChange={setFilter}>
-          <TabsList>
-            {CATEGORIES.map((c) => (
-              <TabsTrigger key={c} value={c} className="text-xs font-display">{c}</TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <div className="relative flex-1 max-w-xs">
+      <div className="flex flex-col gap-3 mb-4 sm:mb-6">
+        <div className="overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+          <Tabs value={filter} onValueChange={setFilter}>
+            <TabsList>
+              {CATEGORIES.map((c) => (
+                <TabsTrigger key={c} value={c} className="text-[11px] sm:text-xs font-display">{c}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Search symbol..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9 text-sm font-body" />
         </div>
