@@ -318,17 +318,19 @@ export default function ScannerPage() {
   return (
     <AppLayout {...layoutProps}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold font-display text-foreground">Scanner</h1>
-          {updatedAgoText && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-display animate-in fade-in duration-300">
-              <Clock className="w-3 h-3" />
-              {updatedAgoText}
-            </span>
-          )}
+      <div className="flex flex-col gap-3 mb-4 sm:mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold font-display text-foreground">Scanner</h1>
+            {updatedAgoText && (
+              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-display animate-in fade-in duration-300">
+                <Clock className="w-3 h-3" />
+                {updatedAgoText}
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} disabled={scan.isScanning} />
           <ScanButton
             isScanning={scan.isScanning}
