@@ -477,7 +477,7 @@ export default function MacroPage() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6 space-y-5 max-w-[1200px] mx-auto">
+      <div className="p-2 sm:p-4 md:p-6 space-y-4 sm:space-y-5 max-w-[1200px] mx-auto">
         {/* Debug Panel — admin only */}
         {isAdmin && <MacroDebugPanel />}
 
