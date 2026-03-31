@@ -395,15 +395,15 @@ function MacroTabContent({ tab }: {tab: typeof TABS[number];}) {
       }
 
       {deviationData.length > 0 &&
-      <div className="rounded-lg p-4 bg-card border border-border">
-          <p className="text-xs text-muted-foreground mb-3">{tab.deviationLabel}</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <ComposedChart data={deviationData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>
+      <div className="rounded-lg p-2 sm:p-4 bg-card border border-border overflow-x-auto">
+          <p className="text-xs text-muted-foreground mb-2 px-1">{tab.deviationLabel}</p>
+          <ResponsiveContainer width="100%" height={180} minWidth={320}>
+            <ComposedChart data={deviationData} margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(207 35% 18%)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: "#7a99b0", fontSize: 11 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} />
-              <YAxis tick={{ fill: "#7a99b0", fontSize: 11 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} tickFormatter={(v) => v + tab.unit} />
+              <XAxis dataKey="date" tick={{ fill: "#7a99b0", fontSize: 10 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: "#7a99b0", fontSize: 10 }} axisLine={{ stroke: "hsl(207 35% 18%)" }} tickLine={false} tickFormatter={(v) => v + tab.unit} width={45} />
               <Tooltip
-              contentStyle={{ background: "hsl(210 30% 7%)", border: "1px solid hsl(207 35% 18%)", borderRadius: "8px", color: "#e8f4f8" }}
+              contentStyle={{ background: "hsl(210 30% 7%)", border: "1px solid hsl(207 35% 18%)", borderRadius: "8px", color: "#e8f4f8", fontSize: "12px" }}
               formatter={(value: number) => [value?.toFixed(tab.unit === "k" ? 0 : 2) + tab.unit, "Deviation"]} />
             
               <ReferenceLine y={0} stroke="#7a99b0" strokeWidth={1} />
