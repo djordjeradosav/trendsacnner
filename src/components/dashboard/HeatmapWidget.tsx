@@ -130,7 +130,7 @@ export function HeatmapWidget({ timeframe }: { timeframe: string }) {
 
 
       <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-1">
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-9 gap-1">
           {cells.map((cell) => {
             const spark = sparklines?.[cell.pairId];
             const change = spark?.score_change ?? 0;
