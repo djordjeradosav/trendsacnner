@@ -421,7 +421,7 @@ export default function SeasonalityPage() {
 
           {viewMode === "year" && (
             <>
-              <span className="text-xs font-medium text-muted-foreground ml-4">Months:</span>
+              <span className="text-[10px] sm:text-xs font-medium text-muted-foreground ml-0 sm:ml-4 w-full sm:w-auto mt-1 sm:mt-0">Months:</span>
               <button onClick={() => setSelectedMonths([1,2,3,4,5,6,7,8,9,10,11,12])}
                 className="px-2 py-1 text-[10px] rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors">
                 All
