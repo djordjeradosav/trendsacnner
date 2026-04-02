@@ -402,7 +402,7 @@ export default function SeasonalityPage() {
             className="w-14 sm:w-16 h-7 rounded border border-border bg-background text-foreground text-[11px] sm:text-xs px-1.5 sm:px-2"
           />
 
-          <span className="text-xs font-medium text-muted-foreground ml-4">Direction:</span>
+          <span className="text-[10px] sm:text-xs font-medium text-muted-foreground ml-0 sm:ml-4 w-full sm:w-auto mt-1 sm:mt-0">Direction:</span>
           {(["all","bullish","bearish","neutral"] as const).map(d => {
             const isActive = directionFilter === d;
             const style = DIR_STYLES[d];
