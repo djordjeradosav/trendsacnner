@@ -368,10 +368,10 @@ export default function HistoryPage() {
     <AppLayout>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
-          <div className="flex items-center gap-3">
-            <History className="w-5 h-5 text-primary" />
-            <h1 className="text-2xl font-bold font-display text-foreground">Scan History</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <History className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+            <h1 className="text-lg sm:text-2xl font-bold font-display text-foreground">Scan History</h1>
           </div>
           <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} />
         </div>
