@@ -293,17 +293,16 @@ export default function SeasonalityPage() {
   if ((statsLoading || rawLoading || fetching) && !hasData) {
     return (
       <AppLayout>
-        <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Seasonality</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Fetching 20+ years of monthly price data for {selectedPair}...
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">Seasonality</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Fetching data for {selectedPair}...
             </p>
-            <p className="text-xs text-muted-foreground">This takes about 15 seconds.</p>
           </div>
-          <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 sm:gap-2">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="rounded-[10px] h-[120px] animate-pulse"
+              <div key={i} className="rounded-[10px] h-[100px] sm:h-[120px] animate-pulse"
                 style={{ background: "linear-gradient(90deg,hsl(var(--background)) 25%,hsl(var(--muted)) 50%,hsl(var(--background)) 75%)", backgroundSize: "200% 100%" }} />
             ))}
           </div>

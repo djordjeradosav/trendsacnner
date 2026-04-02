@@ -419,8 +419,8 @@ export default function HistoryPage() {
         </div>
 
         {/* Pair History Section */}
-        <div className="rounded-lg border border-border bg-card p-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <div className="rounded-lg border border-border bg-card p-3 sm:p-4 mb-6">
+          <div className="flex flex-col gap-3 mb-4">
             <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
               <Search className="w-4 h-4 text-muted-foreground" />
               Pair Score History
