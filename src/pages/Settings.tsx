@@ -208,7 +208,7 @@ export default function SettingsPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-2xl space-y-6">
+      <div className="max-w-2xl space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold font-display text-foreground">Settings</h1>
           <p className="text-sm text-muted-foreground">Configure your preferences.</p>
