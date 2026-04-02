@@ -316,44 +316,42 @@ export default function SeasonalityPage() {
     <AppLayout>
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
         {/* HEADER */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <CalIcon className="w-5 h-5 text-primary" /> Seasonality
+            <h1 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
+              <CalIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> Seasonality
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Historical directional probability per month based on 20+ years
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              Historical directional probability per month
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                value={selectedPair}
-                onChange={e => setSelectedPair(e.target.value)}
-                className="h-9 rounded-md border border-border bg-background text-foreground text-sm px-3 pr-8"
-              >
-                {Object.entries(pairGroups).map(([cat, pairs]) => (
-                  <optgroup key={cat} label={cat}>
-                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{(p as any).displayName ?? p.symbol}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={selectedPair}
+              onChange={e => setSelectedPair(e.target.value)}
+              className="h-8 sm:h-9 rounded-md border border-border bg-background text-foreground text-xs sm:text-sm px-2 sm:px-3 pr-6 sm:pr-8"
+            >
+              {Object.entries(pairGroups).map(([cat, pairs]) => (
+                <optgroup key={cat} label={cat}>
+                  {pairs.map(p => <option key={p.symbol} value={p.symbol}>{(p as any).displayName ?? p.symbol}</option>)}
+                </optgroup>
+              ))}
+            </select>
             <div className="flex rounded-md border border-border overflow-hidden">
               {(["month", "year"] as const).map(v => (
                 <button key={v} onClick={() => setViewMode(v)}
-                  className="px-3 py-1.5 text-xs font-medium transition-colors"
+                  className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium transition-colors"
                   style={{
                     background: viewMode === v ? "hsl(var(--primary))" : "transparent",
                     color: viewMode === v ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
                   }}>
-                  {v === "month" ? "Month View" : "Year View"}
+                  {v === "month" ? "Month" : "Year"}
                 </button>
               ))}
             </div>
-            <Button size="sm" variant="outline" onClick={handleFetch} disabled={fetching}>
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${fetching ? "animate-spin" : ""}`} />
-              {fetching ? "Loading…" : "Refresh"}
+            <Button size="sm" variant="outline" onClick={handleFetch} disabled={fetching} className="h-8 text-xs">
+              <RefreshCw className={`w-3.5 h-3.5 mr-1 ${fetching ? "animate-spin" : ""}`} />
+              {fetching ? "…" : "Refresh"}
             </Button>
           </div>
         </div>
