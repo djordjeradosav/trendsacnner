@@ -384,8 +384,8 @@ export default function HistoryPage() {
         )}
 
         {/* Market Overview Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-          <div className="rounded-lg border border-border bg-card p-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
             <h3 className="text-sm font-display font-semibold text-foreground mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" />
               Average Market Score
