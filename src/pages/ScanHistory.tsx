@@ -105,7 +105,7 @@ export default function ScanHistoryPage() {
                     const r = parseResult(row.result);
                     if (!r) return null;
                     return (
-                      <div key={row.id} className="rounded-lg border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div key={row.id} className="rounded-lg border border-border bg-card p-3 sm:p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                         {/* Time */}
                         <div className="flex items-center gap-2 sm:w-28 shrink-0">
                           <Clock className="w-3.5 h-3.5 text-muted-foreground" />
