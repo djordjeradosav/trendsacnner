@@ -368,10 +368,10 @@ export default function HistoryPage() {
     <AppLayout>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
-          <div className="flex items-center gap-3">
-            <History className="w-5 h-5 text-primary" />
-            <h1 className="text-2xl font-bold font-display text-foreground">Scan History</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <History className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+            <h1 className="text-lg sm:text-2xl font-bold font-display text-foreground">Scan History</h1>
           </div>
           <TimeframeSelector selected={selectedTimeframe} onChange={setTimeframe} />
         </div>
@@ -384,8 +384,8 @@ export default function HistoryPage() {
         )}
 
         {/* Market Overview Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-          <div className="rounded-lg border border-border bg-card p-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
             <h3 className="text-sm font-display font-semibold text-foreground mb-3 flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" />
               Average Market Score
@@ -401,7 +401,7 @@ export default function HistoryPage() {
             )}
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-4">
+          <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
             <h3 className="text-sm font-display font-semibold text-foreground mb-3 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-bullish" />
               Bull / Bear Ratio
@@ -419,8 +419,8 @@ export default function HistoryPage() {
         </div>
 
         {/* Pair History Section */}
-        <div className="rounded-lg border border-border bg-card p-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <div className="rounded-lg border border-border bg-card p-3 sm:p-4 mb-6">
+          <div className="flex flex-col gap-3 mb-4">
             <h3 className="text-sm font-display font-semibold text-foreground flex items-center gap-2">
               <Search className="w-4 h-4 text-muted-foreground" />
               Pair Score History

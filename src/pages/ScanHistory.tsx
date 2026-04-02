@@ -78,10 +78,10 @@ export default function ScanHistoryPage() {
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <History className="w-5 h-5 text-primary" />
-          <h1 className="text-2xl font-bold font-display text-foreground">Scan History</h1>
-          <span className="text-xs text-muted-foreground font-display">Last 50 scans</span>
+        <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <History className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+          <h1 className="text-lg sm:text-2xl font-bold font-display text-foreground">Scan History</h1>
+          <span className="text-[10px] sm:text-xs text-muted-foreground font-display">Last 50 scans</span>
         </div>
 
         {loading ? (
@@ -105,7 +105,7 @@ export default function ScanHistoryPage() {
                     const r = parseResult(row.result);
                     if (!r) return null;
                     return (
-                      <div key={row.id} className="rounded-lg border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div key={row.id} className="rounded-lg border border-border bg-card p-3 sm:p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                         {/* Time */}
                         <div className="flex items-center gap-2 sm:w-28 shrink-0">
                           <Clock className="w-3.5 h-3.5 text-muted-foreground" />

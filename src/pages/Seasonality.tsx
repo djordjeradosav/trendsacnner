@@ -293,17 +293,16 @@ export default function SeasonalityPage() {
   if ((statsLoading || rawLoading || fetching) && !hasData) {
     return (
       <AppLayout>
-        <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Seasonality</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Fetching 20+ years of monthly price data for {selectedPair}...
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">Seasonality</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Fetching data for {selectedPair}...
             </p>
-            <p className="text-xs text-muted-foreground">This takes about 15 seconds.</p>
           </div>
-          <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 sm:gap-2">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="rounded-[10px] h-[120px] animate-pulse"
+              <div key={i} className="rounded-[10px] h-[100px] sm:h-[120px] animate-pulse"
                 style={{ background: "linear-gradient(90deg,hsl(var(--background)) 25%,hsl(var(--muted)) 50%,hsl(var(--background)) 75%)", backgroundSize: "200% 100%" }} />
             ))}
           </div>
@@ -314,52 +313,50 @@ export default function SeasonalityPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
         {/* HEADER */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <CalIcon className="w-5 h-5 text-primary" /> Seasonality
+            <h1 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
+              <CalIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" /> Seasonality
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Historical directional probability per month based on 20+ years
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              Historical directional probability per month
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                value={selectedPair}
-                onChange={e => setSelectedPair(e.target.value)}
-                className="h-9 rounded-md border border-border bg-background text-foreground text-sm px-3 pr-8"
-              >
-                {Object.entries(pairGroups).map(([cat, pairs]) => (
-                  <optgroup key={cat} label={cat}>
-                    {pairs.map(p => <option key={p.symbol} value={p.symbol}>{(p as any).displayName ?? p.symbol}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <select
+              value={selectedPair}
+              onChange={e => setSelectedPair(e.target.value)}
+              className="h-8 sm:h-9 rounded-md border border-border bg-background text-foreground text-xs sm:text-sm px-2 sm:px-3 pr-6 sm:pr-8"
+            >
+              {Object.entries(pairGroups).map(([cat, pairs]) => (
+                <optgroup key={cat} label={cat}>
+                  {pairs.map(p => <option key={p.symbol} value={p.symbol}>{(p as any).displayName ?? p.symbol}</option>)}
+                </optgroup>
+              ))}
+            </select>
             <div className="flex rounded-md border border-border overflow-hidden">
               {(["month", "year"] as const).map(v => (
                 <button key={v} onClick={() => setViewMode(v)}
-                  className="px-3 py-1.5 text-xs font-medium transition-colors"
+                  className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium transition-colors"
                   style={{
                     background: viewMode === v ? "hsl(var(--primary))" : "transparent",
                     color: viewMode === v ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))",
                   }}>
-                  {v === "month" ? "Month View" : "Year View"}
+                  {v === "month" ? "Month" : "Year"}
                 </button>
               ))}
             </div>
-            <Button size="sm" variant="outline" onClick={handleFetch} disabled={fetching}>
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${fetching ? "animate-spin" : ""}`} />
-              {fetching ? "Loading…" : "Refresh"}
+            <Button size="sm" variant="outline" onClick={handleFetch} disabled={fetching} className="h-8 text-xs">
+              <RefreshCw className={`w-3.5 h-3.5 mr-1 ${fetching ? "animate-spin" : ""}`} />
+              {fetching ? "…" : "Refresh"}
             </Button>
           </div>
         </div>
 
         {/* FILTERS */}
-        <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border border-border bg-card text-[10px] sm:text-xs overflow-x-auto scrollbar-none">
           <span className="text-xs font-medium text-muted-foreground">Range:</span>
           {RANGE_PRESETS.map(p => {
             const isActive = activePreset === p.label;
@@ -387,7 +384,7 @@ export default function SeasonalityPage() {
                 setRangePreset("custom");
               }
             }}
-            className="w-16 h-7 rounded border border-border bg-background text-foreground text-xs px-2"
+            className="w-14 sm:w-16 h-7 rounded border border-border bg-background text-foreground text-[11px] sm:text-xs px-1.5 sm:px-2"
           />
           <span className="text-xs text-muted-foreground">to</span>
           <input
@@ -402,10 +399,10 @@ export default function SeasonalityPage() {
                 setRangePreset("custom");
               }
             }}
-            className="w-16 h-7 rounded border border-border bg-background text-foreground text-xs px-2"
+            className="w-14 sm:w-16 h-7 rounded border border-border bg-background text-foreground text-[11px] sm:text-xs px-1.5 sm:px-2"
           />
 
-          <span className="text-xs font-medium text-muted-foreground ml-4">Direction:</span>
+          <span className="text-[10px] sm:text-xs font-medium text-muted-foreground ml-0 sm:ml-4 w-full sm:w-auto mt-1 sm:mt-0">Direction:</span>
           {(["all","bullish","bearish","neutral"] as const).map(d => {
             const isActive = directionFilter === d;
             const style = DIR_STYLES[d];
@@ -424,7 +421,7 @@ export default function SeasonalityPage() {
 
           {viewMode === "year" && (
             <>
-              <span className="text-xs font-medium text-muted-foreground ml-4">Months:</span>
+              <span className="text-[10px] sm:text-xs font-medium text-muted-foreground ml-0 sm:ml-4 w-full sm:w-auto mt-1 sm:mt-0">Months:</span>
               <button onClick={() => setSelectedMonths([1,2,3,4,5,6,7,8,9,10,11,12])}
                 className="px-2 py-1 text-[10px] rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors">
                 All
@@ -459,7 +456,7 @@ export default function SeasonalityPage() {
         {viewMode === "month" && hasData && (
           <>
             {/* Heatmap grid */}
-            <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 sm:gap-2">
               {filteredStats.map(month => {
                 const upPct = month.up_pct;
                 const intensity = Math.abs(upPct - 50) / 50;
