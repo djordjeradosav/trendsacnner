@@ -457,7 +457,7 @@ export default function SeasonalityPage() {
         {viewMode === "month" && hasData && (
           <>
             {/* Heatmap grid */}
-            <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 sm:gap-2">
               {filteredStats.map(month => {
                 const upPct = month.up_pct;
                 const intensity = Math.abs(upPct - 50) / 50;
