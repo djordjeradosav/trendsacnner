@@ -399,7 +399,7 @@ export default function SeasonalityPage() {
                 setRangePreset("custom");
               }
             }}
-            className="w-16 h-7 rounded border border-border bg-background text-foreground text-xs px-2"
+            className="w-14 sm:w-16 h-7 rounded border border-border bg-background text-foreground text-[11px] sm:text-xs px-1.5 sm:px-2"
           />
 
           <span className="text-xs font-medium text-muted-foreground ml-4">Direction:</span>
