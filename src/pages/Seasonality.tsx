@@ -357,7 +357,7 @@ export default function SeasonalityPage() {
         </div>
 
         {/* FILTERS */}
-        <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-border bg-card">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border border-border bg-card text-[10px] sm:text-xs overflow-x-auto scrollbar-none">
           <span className="text-xs font-medium text-muted-foreground">Range:</span>
           {RANGE_PRESETS.map(p => {
             const isActive = activePreset === p.label;
